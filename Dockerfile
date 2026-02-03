@@ -4,8 +4,7 @@ USER root
 
 EXPOSE 7077
 
-CMD ["/opt/spark/bin/spark-class", \
-     "org.apache.spark.deploy.master.Master", \
-     "--host", "0.0.0.0", \
-     "--port", "7077", \
-     "--webui-port", "$PORT"]
+CMD /bin/bash -c "/opt/spark/bin/spark-class org.apache.spark.deploy.master.Master \
+  --host 0.0.0.0 \
+  --port 7077 \
+  --webui-port ${PORT}"
