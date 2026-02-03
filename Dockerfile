@@ -1,12 +1,10 @@
-FROM bitnami/spark:3.4.2
+FROM apache/spark:3.5.1
 
 USER root
 
-ENV SPARK_MODE=master
-
 EXPOSE 7077
 
-CMD ["/opt/bitnami/spark/bin/spark-class", \
+CMD ["/opt/spark/bin/spark-class", \
      "org.apache.spark.deploy.master.Master", \
      "--host", "0.0.0.0", \
      "--port", "7077", \
