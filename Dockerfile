@@ -8,4 +8,4 @@ WORKDIR /app
 COPY jobs/ jobs/
 
 # Executa o job automaticamente
-CMD ["/opt/spark/bin/spark-submit", "jobs/primeiro_job.py"]
+CMD ["/opt/spark/bin/spark-submit", "jobs/first_job.py"]
