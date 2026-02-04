@@ -1,11 +1,11 @@
 FROM apache/spark:3.5.1
 
-ENV SPARK_MODE=local
 ENV PYSPARK_PYTHON=python3
 
-EXPOSE 8080
+WORKDIR /app
 
-CMD ["/opt/spark/bin/spark-class", \
-     "org.apache.spark.deploy.master.Master", \
-     "--host", "0.0.0.0", \
-     "--webui-port", "8080"]
+# Copia os jobs
+COPY jobs/ jobs/
+
+# Executa o job automaticamente
+CMD ["/opt/spark/bin/spark-submit", "jobs/primeiro_job.py"]
