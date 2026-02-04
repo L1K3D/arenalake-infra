@@ -3,4 +3,4 @@ FROM apache/spark:3.5.1
 USER root
 
 CMD /bin/bash -c "/opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker \
-  spark://spark-master:7077"
+  spark://spark-master-kr4x.onrender.com:7077"
