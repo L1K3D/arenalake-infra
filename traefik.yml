@@ -1,0 +1,17 @@
+# Last update: 10/02/2026
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+entryPoints:
+  web:
+    address: ":80"
+
+api:
+  dashboard: true
+  insecure: true
+
+providers:
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true

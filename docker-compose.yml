@@ -1,0 +1,35 @@
+# Last update: 10/02/2026
+version: "3.9"
+
+services:
+
+  traefik:
+    image: traefik:v2.10
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+    ports:
+      - "80:80"
+      - "8088:8080"
+    volumes:
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml
+      - ./traefik/dynamic:/etc/traefik/dynamic
+    networks:
+      - arenalake-net
+
+  spark-master:
+    image: bitnamilegacy/spark:3.5
+    environment:
+      - SPARK_MODE=master
+    networks:
+      - arenalake-net
+
+  jupyter:
+    image: jupyter/pyspark-notebook:spark-3.5.0
+    environment:
+      - SPARK_MASTER=spark://spark-master:7077
+    networks:
+      - arenalake-net
+
+networks:
+  arenalake-net:
+    driver: bridge

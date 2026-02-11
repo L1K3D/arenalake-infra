@@ -1,0 +1,28 @@
+# Last update: 10/02/2026
+http:
+
+  routers:
+
+    spark:
+      rule: "Host(`spark.localhost`)"
+      entryPoints:
+        - web
+      service: spark-service
+
+    jupyter:
+      rule: "Host(`jupyter.localhost`)"
+      entryPoints:
+        - web
+      service: jupyter-service
+
+  services:
+
+    spark-service:
+      loadBalancer:
+        servers:
+          - url: "http://spark-master:8080"
+
+    jupyter-service:
+      loadBalancer:
+        servers:
+          - url: "http://jupyter:8888"
