@@ -1,11 +1,17 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: jupyterhub
+  name: jupyter-ingress
   namespace: notebooks
+  annotations:
+    kubernetes.io/ingress.class: traefik
 spec:
+  tls:
+  - hosts:
+    - arenalake.local
+    secretName: arenalake-tls
   rules:
-  - host: jupyter.arenalake.local
+  - host: arenalake.local
     http:
       paths:
       - path: /

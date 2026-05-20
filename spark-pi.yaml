@@ -27,4 +27,4 @@ spec:
   executor:
     cores: 1
     instances: 2
-    memory: "512m"
+    memory: "512m" 
