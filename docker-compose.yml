@@ -1,8 +1,9 @@
-# Last update: 10/02/2026
+# Last update: Agosto de 2026 - Construção do MVP ArenaLake
 version: "3.9"
 
 services:
 
+  # 1. GATEWAY / ROTEADOR
   traefik:
     image: traefik:v2.10
     command:
@@ -13,23 +14,66 @@ services:
     volumes:
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml
       - ./traefik/dynamic:/etc/traefik/dynamic
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - arenalake-net
 
+  # 2. CÉREBRO DO PROCESSAMENTO (Spark Master)
   spark-master:
     image: bitnamilegacy/spark:3.5
     environment:
       - SPARK_MODE=master
+    ports:
+      - "8080:8080" # UI do Master para acompanharmos os Jobs
+      - "7077:7077"
     networks:
       - arenalake-net
 
-  jupyter:
-    image: jupyter/pyspark-notebook:spark-3.5.0
+  # 3. MÚSCULO DO PROCESSAMENTO (Spark Worker) - NOVO!
+  spark-worker:
+    image: bitnamilegacy/spark:3.5
     environment:
-      - SPARK_MASTER=spark://spark-master:7077
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=2G # Limitamos para não estourar a RAM da sua máquina
+      - SPARK_WORKER_CORES=2
+    depends_on:
+      - spark-master
+    networks:
+      - arenalake-net
+
+  # 4. DATA LAKE (MinIO) - NOVO!
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=arenalake
+      - MINIO_ROOT_PASSWORD=arenalake123
+    ports:
+      - "9000:9000" # Porta da API (onde o Spark e o Portal vão conversar)
+      - "9001:9001" # Porta do Painel Web (onde nós vamos visualizar os dados)
+    volumes:
+      - minio_data:/data
+    networks:
+      - arenalake-net
+
+  # CÉREBRO DA OPERAÇÃO (Backend FastAPI) - NOVO!
+  portal:
+    build: ./portal-compute
+    ports:
+      - "8000:8000"
+    volumes:
+      # Isso aqui é a magia negra: permite que o Portal dentro do container 
+      # controle o Docker da sua máquina física para subir os VS Codes!
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - arenalake-net
 
 networks:
   arenalake-net:
     driver: bridge
+
+# VOLUME PERSISTENTE - NOVO!
+# Isso garante que se o container do MinIO reiniciar, os dados salvos não sumam.
+volumes:
+  minio_data:
