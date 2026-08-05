@@ -5,15 +5,20 @@ services:
 
   # 1. GATEWAY / ROTEADOR
   traefik:
-    image: traefik:v2.10
+    image: traefik:v2.11
+    environment:
+      - DOCKER_API_VERSION=1.41
     command:
-      - --configFile=/etc/traefik/traefik.yml
+      - "--api.insecure=true"
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
     ports:
       - "80:80"
       - "8088:8080"
     volumes:
-      - ./traefik/traefik.yml:/etc/traefik/traefik.yml
-      - ./traefik/dynamic:/etc/traefik/dynamic
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - arenalake-net

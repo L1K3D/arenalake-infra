@@ -2,3 +2,5 @@ fastapi
 uvicorn
 python-multipart
 docker
+boto3
+jinja2
