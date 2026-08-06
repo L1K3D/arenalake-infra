@@ -8,7 +8,12 @@ templates = Jinja2Templates(directory="templates")
 
 @router.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    # Passando os parâmetros explicitamente para evitar a confusão do FastAPI novo
+    return templates.TemplateResponse(
+        request=request, 
+        name="login.html", 
+        context={"request": request}
+    )
 
 @router.post("/login")
 async def login(usuario: str = Form(...), senha: str = Form(...)):
@@ -18,7 +23,12 @@ async def login(usuario: str = Form(...), senha: str = Form(...)):
 @router.get("/dashboard/{usuario}", response_class=HTMLResponse)
 async def dashboard(request: Request, usuario: str):
     domain = f"{usuario}.localhost"
-    return templates.TemplateResponse("dashboard.html", {"request": request, "usuario": usuario, "domain": domain})
+    # Passando os parâmetros explicitamente aqui também
+    return templates.TemplateResponse(
+        request=request, 
+        name="dashboard.html", 
+        context={"request": request, "usuario": usuario, "domain": domain}
+    )
 
 @router.post("/provisionar")
 async def provisionar_ambiente(usuario: str = Form(...), ram: int = Form(...)):
