@@ -43,7 +43,6 @@ async def preview_file(bucket: str, filename: str):
 @router.get("/proxy/spark")
 @router.get("/proxy/spark/{path:path}")
 async def proxy_spark(path: str = ""):
-    # Monta a URL apontando para a porta 8080 original do Spark Master
     url = f"http://spark-master:8080/{path}"
     
     try:
@@ -51,15 +50,27 @@ async def proxy_spark(path: str = ""):
             content = response.read()
             content_type = response.headers.get('Content-Type', '')
 
-            # Se for a página principal (HTML), nós reescrevemos os links
             if 'text/html' in content_type:
                 html = content.decode('utf-8')
-                # Troca as referências da raiz (/) para o caminho do nosso proxy
+                
+                # Injeta um estilo e abas estilo navegador se necessário, ou verifica aplicações
+                # Se não houver nenhum path e a página for a home do master, podemos customizar se estiver vazio
+                if path == "" or path == "/":
+                    # Verifica se há aplicações ativas no HTML original do Spark Master
+                    if "Running Applications (0)" in html and "Completed Applications (0)" in html:
+                        # Substitui a tabela vazia por um card de aviso amigável mantendo o visual
+                        aviso_vazio = """
+                        <div style="padding: 40px; text-align: center; background: #161b22; border-radius: 8px; border: 1px solid #30363d; margin: 20px 0;">
+                            <h3 style="color: #58a6ff; margin-bottom: 10px;">⚡ Nenhum Job Spark Ativo</h3>
+                            <p style="color: #8b949e; margin: 0;">Aloque ou execute uma aplicação Spark a partir do seu workspace no VS Code para monitorá-la por aqui.</p>
+                        </div>
+                        """
+                        html = html.replace("Running Applications (0)", f"Running Applications (0)<br>{aviso_vazio}")
+
                 html = html.replace('href="/', 'href="/api/proxy/spark/')
                 html = html.replace('src="/', 'src="/api/proxy/spark/')
                 return HTMLResponse(content=html, status_code=response.status)
             
-            # Se for CSS, JS ou Imagem, devolve o arquivo puro para renderizar o design
             return Response(content=content, media_type=content_type)
             
     except Exception as e:
