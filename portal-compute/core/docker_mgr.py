@@ -14,7 +14,6 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
     container_name = f"vscode-{usuario}"
     domain = f"{usuario}.localhost"
 
-    # 1. Aplica as travas baseadas no hardware físico do seu i5 (16GB RAM)
     if perfil == "extreme":
         ram_limit = "8g"
         cpu_limit = 6 * 1000000000  # 6 Núcleos 
@@ -22,20 +21,19 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         ram_limit = "4g"
         cpu_limit = 2 * 1000000000  # 2 Núcleos
 
-    # 2. Se o workspace já existir, nós destruímos para alocar a nova configuração
     try:
         container = client.containers.get(container_name)
         if container.status == "running":
             container.stop()
         container.remove()
     except docker.errors.NotFound:
-        pass # Tudo certo, a máquina não existia
+        pass
 
-    # 3. Garante a pasta de dados do usuário no Host (Persistência)
+    # Garante a pasta e aplica permissão total de escrita (chmod 777) para evitar EACCES
     host_dir = f"/home/heitor/projects/arenalake-infra/projects_data/{usuario}"
     os.makedirs(host_dir, exist_ok=True)
+    os.chmod(host_dir, 0o777)
 
-    # 4. Sobe a máquina com os limites exatos da nuvem ArenaLake
     client.containers.run(
         image="codercom/code-server:latest",
         name=container_name,
