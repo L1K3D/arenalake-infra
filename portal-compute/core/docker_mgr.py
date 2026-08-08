@@ -14,34 +14,40 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
     container_name = f"vscode-{usuario}"
     domain = f"{usuario}.localhost"
 
-    # 1. Aplica as travas baseadas no hardware físico do seu i5 (16GB RAM)
     if perfil == "extreme":
         ram_limit = "8g"
-        cpu_limit = 6 * 1000000000  # 6 Núcleos 
+        cpu_limit = 6 * 1000000000 
     else:
         ram_limit = "4g"
-        cpu_limit = 2 * 1000000000  # 2 Núcleos
+        cpu_limit = 2 * 1000000000 
 
-    # 2. Se o workspace já existir, nós destruímos para alocar a nova configuração
     try:
         container = client.containers.get(container_name)
         if container.status == "running":
             container.stop()
         container.remove()
     except docker.errors.NotFound:
-        pass # Tudo certo, a máquina não existia
+        pass 
 
-    # 3. Garante a pasta de dados do usuário no Host (Persistência)
     host_dir = f"/home/heitor/projects/arenalake-infra/projects_data/{usuario}"
     os.makedirs(host_dir, exist_ok=True)
+    os.chmod(host_dir, 0o777)
 
-    # 4. Sobe a máquina com os limites exatos da nuvem ArenaLake
+    # 1. Pega as credenciais que vieram do arquivo .env (escondido)
+    minio_ak = os.getenv("MINIO_ACCESS_KEY", "arenalake")
+    minio_sk = os.getenv("MINIO_SECRET_KEY", "arenalake123")
+
+    # 2. Injeta essas variáveis dentro do SO do Workspace novo
     client.containers.run(
-        image="codercom/code-server:latest",
+        image="arenalake-workspace:latest",
         name=container_name,
         detach=True,
         command="--auth none",
-        environment=["SPARK_MASTER=spark://spark-master:7077"],
+        environment=[
+            "SPARK_MASTER=spark://spark-master:7077",
+            f"MINIO_ACCESS_KEY={minio_ak}",  
+            f"MINIO_SECRET_KEY={minio_sk}"   
+        ],
         volumes={host_dir: {'bind': '/home/coder/project', 'mode': 'rw'}},
         network="arenalake-infra_arenalake-net",
         mem_limit=ram_limit,
@@ -63,7 +69,7 @@ def get_workspace_metrics(usuario: str):
         container = client.containers.get(container_name)
         stats = container.stats(stream=False)
 
-        # Cálculo de Memória
+        # Cálculo de Memória (Mantém igual, já estava proporcional ao limite)
         mem_usage_bytes = stats.get('memory_stats', {}).get('usage', 0)
         mem_limit_bytes = stats.get('memory_stats', {}).get('limit', 1)
         mem_cache = stats.get('memory_stats', {}).get('stats', {}).get('cache', 0)
@@ -76,14 +82,29 @@ def get_workspace_metrics(usuario: str):
         mem_limit_mb = round(mem_limit_bytes / (1024 * 1024), 2)
         mem_percent = round((mem_usage_real / mem_limit_bytes) * 100, 2)
 
-        # Cálculo de CPU
+        # Cálculo de CPU Ajustado
         cpu_delta = stats['cpu_stats']['cpu_usage']['total_usage'] - stats['precpu_stats']['cpu_usage']['total_usage']
         system_delta = stats['cpu_stats']['system_cpu_usage'] - stats['precpu_stats']['system_cpu_usage']
-        online_cpus = stats.get('cpu_stats', {}).get('online_cpus', 1)
 
         cpu_percent = 0.0
         if system_delta > 0.0 and cpu_delta > 0.0:
-            cpu_percent = round((cpu_delta / system_delta) * online_cpus * 100.0, 2)
+            # Descobre quantos núcleos foram alocados para este container especificamente
+            # Lemos a configuração de nano_cpus do container rodando
+            host_config = container.attrs.get('HostConfig', {})
+            nano_cpus = host_config.get('NanoCpus', 0)
+            
+            if nano_cpus > 0:
+                allocated_cpus = nano_cpus / 1000000000
+            else:
+                # Fallback seguro caso venha livre
+                allocated_cpus = 2.0 
+
+            # A proporção real dividida exclusivamente pelos núcleos do plano do usuário
+            cpu_percent = round((cpu_delta / system_delta) * 100.0 / allocated_cpus, 2)
+
+            # Trava o teto visualmente em 100% para evitar qualquer distorção gráfica
+            if cpu_percent > 100.0:
+                cpu_percent = 100.0
 
         return {
             "status": "online",
