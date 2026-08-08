@@ -65,6 +65,8 @@ services:
   # CÉREBRO DA OPERAÇÃO (Backend FastAPI) - NOVO!
   portal:
     build: ./portal-compute
+    env_file:
+       - .env
     ports:
       - "8000:8000"
     volumes:
