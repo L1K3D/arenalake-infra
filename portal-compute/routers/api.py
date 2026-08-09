@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, UploadFile, File, Form, Request
 from fastapi.responses import JSONResponse, HTMLResponse, Response
 import urllib.request
 from core.s3_mgr import fetch_catalog_data, upload_file_to_datalake, get_file_details
@@ -31,7 +31,7 @@ async def upload_file(bucket: str = Form(...), usuario: str = Form(...), file: U
     except Exception as e:
         return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
 
-@router.get("/preview/{bucket}/{filename}")
+@router.get("/preview/{bucket}/{filename:path}")
 async def preview_file(bucket: str, filename: str):
     try:
         details = get_file_details(bucket, filename)
@@ -39,12 +39,20 @@ async def preview_file(bucket: str, filename: str):
     except Exception as e:
         return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
 
-# --- NOVO SMART PROXY PARA O SPARK ---
+# --- SMART PROXY UNIVERSAL PARA O SPARK ---
 @router.get("/proxy/spark")
 @router.get("/proxy/spark/{path:path}")
-async def proxy_spark(path: str = ""):
-    url = f"http://spark-master:8080/{path}"
+async def proxy_spark(request: Request, path: str = ""):
+    query_string = request.url.query
     
+    # Roteamento inteligente para o Master ou para as UIs internas de Apps/Jobs
+    url = f"http://spark-master:8080/{path}"
+    if path.startswith("app/"):
+        url = f"http://spark-master:8080/{path}"
+
+    if query_string:
+        url += f"?{query_string}"
+
     try:
         with urllib.request.urlopen(url) as response:
             content = response.read()
@@ -52,13 +60,12 @@ async def proxy_spark(path: str = ""):
 
             if 'text/html' in content_type:
                 html = content.decode('utf-8')
-                
-                # Injeta um estilo e abas estilo navegador se necessário, ou verifica aplicações
-                # Se não houver nenhum path e a página for a home do master, podemos customizar se estiver vazio
+
                 if path == "" or path == "/":
-                    # Verifica se há aplicações ativas no HTML original do Spark Master
+                    if "<head>" in html:
+                        html = html.replace("<head>", "<head>\n    <meta http-equiv='refresh' content='5'>")
+
                     if "Running Applications (0)" in html and "Completed Applications (0)" in html:
-                        # Substitui a tabela vazia por um card de aviso amigável mantendo o visual
                         aviso_vazio = """
                         <div style="padding: 40px; text-align: center; background: #161b22; border-radius: 8px; border: 1px solid #30363d; margin: 20px 0;">
                             <h3 style="color: #58a6ff; margin-bottom: 10px;">⚡ Nenhum Job Spark Ativo</h3>
@@ -67,11 +74,39 @@ async def proxy_spark(path: str = ""):
                         """
                         html = html.replace("Running Applications (0)", f"Running Applications (0)<br>{aviso_vazio}")
 
+                # Ajustes globais de rotas
                 html = html.replace('href="/', 'href="/api/proxy/spark/')
                 html = html.replace('src="/', 'src="/api/proxy/spark/')
+
+                # Script avançado para reescrever os links internos da UI de Jobs, Stages e Tasks em tempo de execução
+                script_corretor = """
+                <script>
+                    window.addEventListener('DOMContentLoaded', (event) => {
+                        document.querySelectorAll('a').forEach(a => {
+                            let href = a.getAttribute('href');
+                            if (href && !href.startsWith('/api/proxy/spark') && !href.startsWith('http')) {
+                                if (href.includes('app?appId=') || href.startsWith('app/')) {
+                                    a.setAttribute('href', '/api/proxy/spark/' + href.replace(/^\\/+/, ''));
+                                } else {
+                                    let currentPath = window.location.pathname;
+                                    if (currentPath.includes('/app/')) {
+                                        let baseAppPath = currentPath.substring(0, currentPath.indexOf('/app/') + 5);
+                                        let appIdMatch = currentPath.match(/app-[0-9]+/);
+                                        // Garante que o caminho base mantenha o ID da aplicação ativo
+                                        a.setAttribute('href', '/api/proxy/spark/app/?appId=' + window.location.search.split('=')[1] + '&' + href);
+                                    }
+                                }
+                            }
+                        });
+                    });
+                </script>
+                """
+                if "</body>" in html:
+                    html = html.replace("</body>", f"{script_corretor}\n</body>")
+
                 return HTMLResponse(content=html, status_code=response.status)
-            
+
             return Response(content=content, media_type=content_type)
-            
+
     except Exception as e:
         return HTMLResponse(content=f"<h3>Erro no Proxy do Spark: {str(e)}</h3>", status_code=500)

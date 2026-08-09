@@ -6,11 +6,11 @@ USER root
 
 # Atualiza o Linux, instala o Python3 e o PIP
 RUN apt-get update && \
-    apt-get install -y python3 python3-pip && \
+    apt-get install -y python3 python3-pip default-jre && \
     rm -rf /var/lib/apt/lists/*
 
 # Instala as bibliotecas de dados globalmente no container
-RUN pip3 install --no-cache-dir pandas boto3 s3fs pyspark dotenv --break-system-packages
+RUN pip3 install --no-cache-dir pandas boto3 s3fs pyspark==3.5.6 dotenv ipykernel --break-system-packages
 
 # Volta para o usuário padrão por segurança
 USER coder

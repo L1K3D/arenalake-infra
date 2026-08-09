@@ -42,13 +42,24 @@ def format_size(size_bytes):
 
 def get_file_details(bucket: str, filename: str):
     s3_client = get_s3_client()
-    
-    # 1. Pega os metadados (Tamanho, Data, Uploader)
+
+    # 1. Tratamento imediato para _SUCCESS (Não tem tamanho nem dados estruturados)
+    if filename.endswith("_SUCCESS"):
+        return {
+            "filename": filename,
+            "size": "0 B",
+            "last_modified": "-",
+            "uploader": "Apache Spark",
+            "type": "info",
+            "preview_content": "<p style='color: #8b949e; text-align: center; margin-top: 20px;'><em>Arquivo de metadados do Apache Spark.<br>Indica que a gravação da tabela foi concluída com sucesso.</em></p>"
+        }
+
+    # 2. Pega os metadados (Tamanho, Data, Uploader)
     head = s3_client.head_object(Bucket=bucket, Key=filename)
     size_formatted = format_size(head['ContentLength'])
     last_modified = head['LastModified'].strftime("%d/%m/%Y %H:%M:%S")
     uploader = head.get('Metadata', {}).get('uploader', 'Desconhecido (Via Console MinIO)')
-    
+
     details = {
         "filename": filename,
         "size": size_formatted,
@@ -58,33 +69,38 @@ def get_file_details(bucket: str, filename: str):
         "preview_content": "Pré-visualização não disponível para este formato."
     }
 
-    # 2. Gera a pré-visualização dependendo do arquivo
+    # 3. Gera a pré-visualização dependendo do arquivo
     try:
         ext = filename.split('.')[-1].lower()
         if ext in ['png', 'jpg', 'jpeg']:
-            # Gera uma URL temporária (1 hora) para o navegador renderizar a imagem
             url = s3_client.generate_presigned_url('get_object', Params={'Bucket': bucket, 'Key': filename}, ExpiresIn=3600)
-            # TRUQUE DE MESTRE: Troca 'minio' por 'localhost' para o navegador de fora conseguir ler
             url_externa = url.replace("http://minio:9000", "http://localhost:9000")
             details["type"] = "image"
             details["preview_content"] = url_externa
-            
+
         elif ext == 'csv':
-            # Lê só as primeiras linhas na memória usando Pandas
             obj = s3_client.get_object(Bucket=bucket, Key=filename)
             body = obj['Body'].read()
             df = pd.read_csv(io.BytesIO(body), nrows=10)
             details["type"] = "table"
             details["preview_content"] = df.to_html(classes="preview-table", index=False)
-            
+
+        # === O PULO DO GATO PARA O PARQUET AQUI ===
+        elif ext == 'parquet':
+            obj = s3_client.get_object(Bucket=bucket, Key=filename)
+            body = obj['Body'].read()
+            df = pd.read_parquet(io.BytesIO(body), engine='pyarrow')
+            details["type"] = "table"
+            details["preview_content"] = df.head(10).to_html(classes="preview-table", index=False)
+
         elif ext == 'txt':
             obj = s3_client.get_object(Bucket=bucket, Key=filename)
             body = obj['Body'].read().decode('utf-8')
             linhas = body.split('\n')[:10]
             details["type"] = "text"
             details["preview_content"] = '\n'.join(linhas)
-            
+
     except Exception as e:
         details["preview_content"] = f"Erro ao gerar sample: {str(e)}"
-        
+
     return details
