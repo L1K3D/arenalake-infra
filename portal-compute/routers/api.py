@@ -1,6 +1,8 @@
 from fastapi import APIRouter, UploadFile, File, Form, Request
-from fastapi.responses import JSONResponse, HTMLResponse, Response
+from fastapi.responses import JSONResponse, HTMLResponse
 import urllib.request
+import json
+import re
 from core.s3_mgr import fetch_catalog_data, upload_file_to_datalake, get_file_details
 from core.docker_mgr import get_workspace_metrics
 
@@ -39,74 +41,64 @@ async def preview_file(bucket: str, filename: str):
     except Exception as e:
         return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
 
-# --- SMART PROXY UNIVERSAL PARA O SPARK ---
-@router.get("/proxy/spark")
-@router.get("/proxy/spark/{path:path}")
-async def proxy_spark(request: Request, path: str = ""):
-    query_string = request.url.query
-    
-    # Roteamento inteligente para o Master ou para as UIs internas de Apps/Jobs
-    url = f"http://spark-master:8080/{path}"
-    if path.startswith("app/"):
-        url = f"http://spark-master:8080/{path}"
-
-    if query_string:
-        url += f"?{query_string}"
-
+# --- STATUS GERAL DO CLUSTER ---
+@router.get("/spark/status")
+async def get_spark_status():
     try:
+        url = "http://spark-master:8080/json/"
         with urllib.request.urlopen(url) as response:
-            content = response.read()
-            content_type = response.headers.get('Content-Type', '')
-
-            if 'text/html' in content_type:
-                html = content.decode('utf-8')
-
-                if path == "" or path == "/":
-                    if "<head>" in html:
-                        html = html.replace("<head>", "<head>\n    <meta http-equiv='refresh' content='5'>")
-
-                    if "Running Applications (0)" in html and "Completed Applications (0)" in html:
-                        aviso_vazio = """
-                        <div style="padding: 40px; text-align: center; background: #161b22; border-radius: 8px; border: 1px solid #30363d; margin: 20px 0;">
-                            <h3 style="color: #58a6ff; margin-bottom: 10px;">⚡ Nenhum Job Spark Ativo</h3>
-                            <p style="color: #8b949e; margin: 0;">Aloque ou execute uma aplicação Spark a partir do seu workspace no VS Code para monitorá-la por aqui.</p>
-                        </div>
-                        """
-                        html = html.replace("Running Applications (0)", f"Running Applications (0)<br>{aviso_vazio}")
-
-                # Ajustes globais de rotas
-                html = html.replace('href="/', 'href="/api/proxy/spark/')
-                html = html.replace('src="/', 'src="/api/proxy/spark/')
-
-                # Script avançado para reescrever os links internos da UI de Jobs, Stages e Tasks em tempo de execução
-                script_corretor = """
-                <script>
-                    window.addEventListener('DOMContentLoaded', (event) => {
-                        document.querySelectorAll('a').forEach(a => {
-                            let href = a.getAttribute('href');
-                            if (href && !href.startsWith('/api/proxy/spark') && !href.startsWith('http')) {
-                                if (href.includes('app?appId=') || href.startsWith('app/')) {
-                                    a.setAttribute('href', '/api/proxy/spark/' + href.replace(/^\\/+/, ''));
-                                } else {
-                                    let currentPath = window.location.pathname;
-                                    if (currentPath.includes('/app/')) {
-                                        let baseAppPath = currentPath.substring(0, currentPath.indexOf('/app/') + 5);
-                                        let appIdMatch = currentPath.match(/app-[0-9]+/);
-                                        // Garante que o caminho base mantenha o ID da aplicação ativo
-                                        a.setAttribute('href', '/api/proxy/spark/app/?appId=' + window.location.search.split('=')[1] + '&' + href);
-                                    }
-                                }
-                            }
-                        });
-                    });
-                </script>
-                """
-                if "</body>" in html:
-                    html = html.replace("</body>", f"{script_corretor}\n</body>")
-
-                return HTMLResponse(content=html, status_code=response.status)
-
-            return Response(content=content, media_type=content_type)
-
+            data = json.loads(response.read().decode('utf-8'))
+            
+            payload = {
+                "status": "success",
+                "workers": data.get("workers", []),
+                "active_apps": data.get("activeapps", []),
+                "completed_apps": data.get("completedapps", [])[:10]
+            }
+            return JSONResponse(content=payload)
     except Exception as e:
-        return HTMLResponse(content=f"<h3>Erro no Proxy do Spark: {str(e)}</h3>", status_code=500)
+        return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
+
+# --- NOVO: WEB SCRAPER DO DRIVER E CAPTURA DE MÉTRICAS ---
+@router.get("/spark/app/{app_id}/jobs")
+async def get_spark_app_jobs(app_id: str):
+    import urllib.error
+    try:
+        # 1. O Master não expõe a URL via JSON, então raspamos a página HTML dele internamente!
+        app_page_url = f"http://spark-master:8080/app/?appId={app_id}"
+        req_page = urllib.request.Request(app_page_url)
+        with urllib.request.urlopen(req_page) as response:
+            app_html = response.read().decode('utf-8')
+            
+        # 2. Busca com Regex exatamente o link HTTP (ex: http://172.18.0.x:4040) do Driver UI
+        match = re.search(r'href="(http://[^"]+)">(Application Detail UI|Application UI)</a>', app_html, re.IGNORECASE)
+        
+        if not match:
+            # Se o link sumiu do HTML, o Job terminou e o Spark fechou a porta 4040
+            return JSONResponse(content={"status": "error", "message": "O processamento finalizou e o Spark desativou o monitoramento ao vivo."})
+            
+        driver_url = match.group(1).rstrip('/')
+
+        # 3. Bate na API do Driver (seu Jupyter) para achar o ID interno que ele está usando
+        driver_api_base = f"{driver_url}/api/v1/applications"
+        req_driver = urllib.request.Request(driver_api_base)
+        with urllib.request.urlopen(req_driver) as response:
+            driver_apps = json.loads(response.read().decode('utf-8'))
+            
+        if not driver_apps:
+            return JSONResponse(content={"status": "error", "message": "API do Driver está online, mas vazia."})
+            
+        real_driver_app_id = driver_apps[0]["id"]
+        
+        # 4. Finalmente puxa os Jobs perfeitamente!
+        jobs_url = f"{driver_api_base}/{real_driver_app_id}/jobs"
+        req_jobs = urllib.request.Request(jobs_url)
+        with urllib.request.urlopen(req_jobs) as response:
+            jobs_data = json.loads(response.read().decode('utf-8'))
+            
+        return JSONResponse(content={"status": "success", "jobs": jobs_data})
+        
+    except urllib.error.URLError as e:
+        return JSONResponse(content={"status": "error", "message": "O Driver parou de responder na porta 4040 (Job Concluído)."})
+    except Exception as e:
+        return JSONResponse(content={"status": "error", "message": f"Erro interno: {str(e)}"})
