@@ -11,27 +11,33 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
     if not client:
         raise Exception("Cliente Docker não inicializado.")
 
-    container_name = f"vscode-{usuario}"
+    # A sua ideia aplicada: Duas máquinas dedicadas por usuário!
+    container_name_vscode = f"vscode-{usuario}"
+    container_name_worker = f"spark-worker-{usuario}"
     domain = f"{usuario}.localhost"
 
     if perfil == "extreme":
-        ram_limit = "8g"
-        cpu_limit = 6 * 1000000000
+        vscode_ram = "2g"
+        worker_ram = "6g"
         spark_ram = "6g"
+        cpu_limit = 6 * 1000000000
         spark_cores = "6"
     else:
-        ram_limit = "4g"
-        cpu_limit = 2 * 1000000000
+        vscode_ram = "1g"
+        worker_ram = "3g"
         spark_ram = "3g"
+        cpu_limit = 2 * 1000000000
         spark_cores = "2"
 
-    try:
-        container = client.containers.get(container_name)
-        if container.status == "running":
-            container.stop()
-        container.remove()
-    except docker.errors.NotFound:
-        pass
+    # Limpa os containers antigos (VS Code e Worker dedicado) se existirem
+    for c_name in [container_name_vscode, container_name_worker]:
+        try:
+            container = client.containers.get(c_name)
+            if container.status == "running":
+                container.stop()
+            container.remove()
+        except docker.errors.NotFound:
+            pass
 
     host_dir = f"/home/heitor/projects/arenalake-infra/projects_data/{usuario}"
     os.makedirs(host_dir, exist_ok=True)
@@ -40,10 +46,10 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
     minio_ak = os.getenv("MINIO_ACCESS_KEY", "arenalake")
     minio_sk = os.getenv("MINIO_SECRET_KEY", "arenalake123")
 
-    # Comando original e estável do VS Code (Sem matar a aplicação principal)
+    # 1. Sobe o container do VS Code (A Interface)
     client.containers.run(
         image="arenalake-workspace:latest",
-        name=container_name,
+        name=container_name_vscode,
         detach=True,
         command="--auth none",
         environment=[
@@ -55,7 +61,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         ],
         volumes={host_dir: {'bind': '/home/coder/project', 'mode': 'rw'}},
         network="arenalake-infra_arenalake-net",
-        mem_limit=ram_limit,
+        mem_limit=vscode_ram,
         nano_cpus=cpu_limit,
         labels={
             "traefik.enable": "true",
@@ -63,53 +69,97 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
             f"traefik.http.services.vscode-{usuario}.loadbalancer.server.port": "8080"
         }
     )
+
+    # 2. Sobe o container do Spark Worker Dedicado (O Músculo)
+    startup_worker_cmd = (
+        "echo 'Descobrindo o SPARK_HOME via Python...'; "
+        "export SPARK_HOME=$(python3 -c 'import pyspark; print(pyspark.__path__[0])'); "
+        "export SPARK_WORKER_DIR=/tmp/spark-work; " # <-- REDIRECIONA OS ARQUIVOS TEMPORÁRIOS AQUI
+        "echo \"SPARK_HOME definido como: $SPARK_HOME\"; "
+        "if [ ! -f \"$SPARK_HOME/bin/spark-class\" ]; then "
+        "echo 'ERRO FATAL: spark-class nao encontrado dentro do SPARK_HOME!'; "
+        "sleep 3600; "
+        "else "
+        "echo 'Iniciando Spark Worker...'; "
+        f"exec \"$SPARK_HOME/bin/spark-class\" org.apache.spark.deploy.worker.Worker -c {spark_cores} -m {spark_ram} spark://spark-master:7077; "
+        "fi"
+    )
+
+    client.containers.run(
+        image="arenalake-workspace:latest",
+        name=container_name_worker,
+        detach=True,
+        entrypoint="/bin/sh",
+        command=["-c", startup_worker_cmd],
+        environment=[
+            f"MINIO_ACCESS_KEY={minio_ak}",
+            f"MINIO_SECRET_KEY={minio_sk}"
+        ],
+        volumes={host_dir: {'bind': '/home/coder/project', 'mode': 'rw'}},
+        network="arenalake-infra_arenalake-net",
+        mem_limit=worker_ram,
+        nano_cpus=cpu_limit
+    )
+
     return domain
 
 def get_workspace_metrics(usuario: str):
     if not client:
         raise Exception("Cliente Docker não inicializado.")
 
-    container_name = f"vscode-{usuario}"
-    try:
-        container = client.containers.get(container_name)
-        stats = container.stats(stream=False)
+    total_mem_usage = 0
+    total_mem_limit = 0
+    total_cpu_percent = 0.0
+    is_online = False
 
-        mem_usage_bytes = stats.get('memory_stats', {}).get('usage', 0)
-        mem_limit_bytes = stats.get('memory_stats', {}).get('limit', 1)
-        mem_cache = stats.get('memory_stats', {}).get('stats', {}).get('cache', 0)
-        mem_usage_real = mem_usage_bytes - mem_cache
+    # MÁGICA: Monitora a soma do VS Code + Spark Worker simultaneamente
+    for c_name in [f"vscode-{usuario}", f"spark-worker-{usuario}"]:
+        try:
+            container = client.containers.get(c_name)
+            stats = container.stats(stream=False)
+            is_online = True
 
-        if mem_usage_real < 0:
-            mem_usage_real = mem_usage_bytes
+            # Memória
+            mem_usage_bytes = stats.get('memory_stats', {}).get('usage', 0)
+            mem_limit_bytes = stats.get('memory_stats', {}).get('limit', 0)
+            mem_cache = stats.get('memory_stats', {}).get('stats', {}).get('cache', 0)
+            mem_usage_real = max(0, mem_usage_bytes - mem_cache)
 
-        mem_usage_mb = round(mem_usage_real / (1024 * 1024), 2)
-        mem_limit_mb = round(mem_limit_bytes / (1024 * 1024), 2)
-        mem_percent = round((mem_usage_real / mem_limit_bytes) * 100, 2)
+            total_mem_usage += mem_usage_real
+            total_mem_limit += mem_limit_bytes
 
-        cpu_delta = stats['cpu_stats']['cpu_usage']['total_usage'] - stats['precpu_stats']['cpu_usage']['total_usage']
-        system_delta = stats['cpu_stats']['system_cpu_usage'] - stats['precpu_stats']['system_cpu_usage']
+            # CPU
+            cpu_stats = stats.get('cpu_stats', {})
+            precpu_stats = stats.get('precpu_stats', {})
+            
+            cpu_delta = cpu_stats.get('cpu_usage', {}).get('total_usage', 0) - precpu_stats.get('cpu_usage', {}).get('total_usage', 0)
+            system_delta = cpu_stats.get('system_cpu_usage', 0) - precpu_stats.get('system_cpu_usage', 0)
 
-        cpu_percent = 0.0
-        if system_delta > 0.0 and cpu_delta > 0.0:
-            host_config = container.attrs.get('HostConfig', {})
-            nano_cpus = host_config.get('NanoCpus', 0)
+            if system_delta > 0 and cpu_delta > 0:
+                nano_cpus = container.attrs.get('HostConfig', {}).get('NanoCpus', 0)
+                allocated_cpus = (nano_cpus / 1000000000) if nano_cpus > 0 else 2.0
+                c_cpu = (cpu_delta / system_delta) * 100.0 / allocated_cpus
+                total_cpu_percent += c_cpu
 
-            if nano_cpus > 0:
-                allocated_cpus = nano_cpus / 1000000000
-            else:
-                allocated_cpus = 2.0
+        except docker.errors.NotFound:
+            continue
 
-            cpu_percent = round((cpu_delta / system_delta) * 100.0 / allocated_cpus, 2)
-
-            if cpu_percent > 100.0:
-                cpu_percent = 100.0
-
-        return {
-            "status": "online",
-            "cpu_percent": cpu_percent,
-            "memory_usage_mb": mem_usage_mb,
-            "memory_limit_mb": mem_limit_mb,
-            "memory_percent": mem_percent
-        }
-    except docker.errors.NotFound:
+    if not is_online:
         return {"status": "offline", "message": "Workspace não está rodando"}
+
+    total_cpu_percent = min(round(total_cpu_percent, 2), 100.0)
+    
+    if total_mem_limit == 0:
+        total_mem_limit = 1
+        
+    mem_usage_mb = round(total_mem_usage / (1024 * 1024), 2)
+    mem_limit_mb = round(total_mem_limit / (1024 * 1024), 2)
+    mem_percent = round((total_mem_usage / total_mem_limit) * 100, 2)
+
+    return {
+        "status": "online",
+        "cpu_percent": total_cpu_percent,
+        "memory_usage_mb": mem_usage_mb,
+        "memory_limit_mb": mem_limit_mb,
+        "memory_percent": mem_percent
+    }

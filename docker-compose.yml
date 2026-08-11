@@ -35,17 +35,17 @@ services:
       - arenalake-net
 
   # 3. MÚSCULO DO PROCESSAMENTO (Spark Worker) - NOVO!
-  spark-worker:
-    image: bitnamilegacy/spark:3.5
-    environment:
-      - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark-master:7077
-      - SPARK_WORKER_MEMORY=2G # Limitamos para não estourar a RAM da sua máquina
-      - SPARK_WORKER_CORES=2
-    depends_on:
-      - spark-master
-    networks:
-      - arenalake-net
+  #spark-worker:
+  #  image: bitnamilegacy/spark:3.5
+  #  environment:
+  #    - SPARK_MODE=worker
+  #    - SPARK_MASTER_URL=spark://spark-master:7077
+  #    - SPARK_WORKER_MEMORY=2G # Limitamos para não estourar a RAM da sua máquina
+  #    - SPARK_WORKER_CORES=2
+  #  depends_on:
+  #    - spark-master
+  #  networks:
+  #    - arenalake-net
 
   # 4. DATA LAKE (MinIO) - NOVO!
   minio:
