@@ -1,8 +1,0 @@
-2026-08-12 20:37:38.875 [info] Experiment 'pythonSurveyNotificationcf' is active
-2026-08-12 20:37:38.875 [warning] Dir "/home/coder/project/.pixi/envs" is not watchable (directory does not exist)
-2026-08-12 20:37:39.557 [info] Skipping ActivatedEnv Detection:  process.env.VSCODE_CLI !== '1'
-2026-08-12 20:37:39.569 [info] > conda info --json
-2026-08-12 20:37:39.572 [info] Python interpreter path: /bin/python3
-2026-08-12 20:37:39.723 [info] > pyenv which python
-2026-08-12 20:37:39.723 [info] cwd: .
-2026-08-12 20:37:42.422 [info] Starting Jedi language server for project.
