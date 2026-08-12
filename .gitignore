@@ -1,3 +1,5 @@
 # Segredos e Credenciais
 .env
-./projects_data/*
+
+# Arquivos projetos de usuário
+projects_data/
