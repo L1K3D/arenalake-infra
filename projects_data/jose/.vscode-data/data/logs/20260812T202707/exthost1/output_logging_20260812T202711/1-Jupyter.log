@@ -1,0 +1,226 @@
+code-server (1.131.0, jose.localhost, server-distro)
+Jupyter Extension Version: 2025.9.1.
+Python Extension Version: 2026.4.0.
+Python Environment Extension Version: 1.36.0.
+Pylance Extension not installed.
+Platform: linux (x64).
+Home = /home/coder
+Temp Storage folder ~/project/.vscode-data/data/User/globalStorage/ms-toolsai.jupyter/version-2025.9.1
+Workspace folder ~/project
+20:27:15.048 [info] Starting Kernel (Python Path: /bin/python3, Unknown, 3.13.5) for '~/project/teste_lake.ipynb' (disableUI=true)
+20:27:15.278 [warn] Failed to get activated env vars for /bin/python3 in 236ms
+20:27:15.295 [info] Process Execution: /bin/python3 -c "import site;print("USER_BASE_VALUE");print(site.USER_BASE);print("USER_BASE_VALUE");"
+20:27:15.303 [warn] Failed to get activated env vars for /bin/python3 in 239ms
+20:27:15.380 [info] Process Execution: /bin/python3 -m pip list
+20:27:15.397 [info] Process Execution: /bin/python3 -c "import ipykernel; print(ipykernel.__version__); print("5dc3a68c-e34e-4080-9c3e-2a532b2ccb4d"); print(ipykernel.__file__)"
+20:27:15.413 [info] Process Execution: /bin/python3 -m ipykernel_launcher --f=~/.local/share/jupyter/runtime/kernel-v36ef05bd6afa5cfaef75a26613913dc035e6b4690.json
+    > cwd: ~/project
+20:27:19.765 [info] Kernel successfully started
+20:27:19.772 [info] Process Execution: /bin/python3 ~/project/.vscode-data/extensions/ms-toolsai.jupyter-2025.9.1-universal/pythonFiles/printJupyterDataDir.py
+20:29:58.929 [warn] Cell completed with errors [Iu [Error]: An error occurred while calling o53.csv.
+: org.apache.hadoop.fs.s3a.UnknownStoreException: `s3a://bronze/MOCK_DATA.csv': getFileStatus on s3a://bronze/MOCK_DATA.csv: com.amazonaws.services.s3.model.AmazonS3Exception: The specified bucket does not exist (Service: Amazon S3; Status Code: 404; Error Code: NoSuchBucket; Request ID: 18CB28DB0E930217; S3 Extended Request ID: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8; Proxy: null), S3 Extended Request ID: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8:NoSuchBucket: The specified bucket does not exist (Service: Amazon S3; Status Code: 404; Error Code: NoSuchBucket; Request ID: 18CB28DB0E930217; S3 Extended Request ID: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8; Proxy: null)
+	at org.apache.hadoop.fs.s3a.S3AUtils.translateException(S3AUtils.java:263)
+	at org.apache.hadoop.fs.s3a.S3AUtils.translateException(S3AUtils.java:175)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.s3GetFileStatus(S3AFileSystem.java:3858)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.innerGetFileStatus(S3AFileSystem.java:3688)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.lambda$exists$34(S3AFileSystem.java:4703)
+	at org.apache.hadoop.fs.statistics.impl.IOStatisticsBinding.lambda$trackDurationOfOperation$5(IOStatisticsBinding.java:499)
+	at org.apache.hadoop.fs.statistics.impl.IOStatisticsBinding.trackDuration(IOStatisticsBinding.java:444)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.trackDurationAndSpan(S3AFileSystem.java:2337)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.trackDurationAndSpan(S3AFileSystem.java:2356)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.exists(S3AFileSystem.java:4701)
+	at org.apache.spark.sql.execution.datasources.DataSource$.$anonfun$checkAndGlobPathIfNecessary$4(DataSource.scala:756)
+	at org.apache.spark.sql.execution.datasources.DataSource$.$anonfun$checkAndGlobPathIfNecessary$4$adapted(DataSource.scala:754)
+	at org.apache.spark.util.ThreadUtils$.$anonfun$parmap$2(ThreadUtils.scala:384)
+	at scala.concurrent.Future$.$anonfun$apply$1(Future.scala:659)
+	at scala.util.Success.$anonfun$map$1(Try.scala:255)
+	at scala.util.Success.map(Try.scala:213)
+	at scala.concurrent.Future.$anonfun$map$1(Future.scala:292)
+	at scala.concurrent.impl.Promise.liftedTree1$1(Promise.scala:33)
+	at scala.concurrent.impl.Promise.$anonfun$transform$1(Promise.scala:33)
+	at scala.concurrent.impl.CallbackRunnable.run(Promise.scala:64)
+	at java.base/java.util.concurrent.ForkJoinTask$RunnableExecuteAction.exec(ForkJoinTask.java:1423)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:387)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1312)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1843)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1808)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:188)
+Caused by: com.amazonaws.services.s3.model.AmazonS3Exception: The specified bucket does not exist (Service: Amazon S3; Status Code: 404; Error Code: NoSuchBucket; Request ID: 18CB28DB0E930217; S3 Extended Request ID: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8; Proxy: null), S3 Extended Request ID: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.handleErrorResponse(AmazonHttpClient.java:1879)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.handleServiceErrorResponse(AmazonHttpClient.java:1418)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeOneRequest(AmazonHttpClient.java:1387)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeHelper(AmazonHttpClient.java:1157)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.doExecute(AmazonHttpClient.java:814)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeWithTimer(AmazonHttpClient.java:781)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.execute(AmazonHttpClient.java:755)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.access$500(AmazonHttpClient.java:715)
+	at com.amazonaws.http.AmazonHttpClient$RequestExecutionBuilderImpl.execute(AmazonHttpClient.java:697)
+	at com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:561)
+	at com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:541)
+	at com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5456)
+	at com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5403)
+	at com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5397)
+	at com.amazonaws.services.s3.AmazonS3Client.listObjectsV2(AmazonS3Client.java:971)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.lambda$listObjects$11(S3AFileSystem.java:2595)
+	at org.apache.hadoop.fs.statistics.impl.IOStatisticsBinding.lambda$trackDurationOfOperation$5(IOStatisticsBinding.java:499)
+	at org.apache.hadoop.fs.s3a.Invoker.retryUntranslated(Invoker.java:414)
+	at org.apache.hadoop.fs.s3a.Invoker.retryUntranslated(Invoker.java:377)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.listObjects(S3AFileSystem.java:2586)
+	at org.apache.hadoop.fs.s3a.S3AFileSystem.s3GetFileStatus(S3AFileSystem.java:3832)
+	... 23 more
+
+	at n.execute (~/project/.vscode-data/extensions/ms-toolsai.jupyter-2025.9.1-universal/dist/extension.node.js:302:4958)] {
+  ename: 'Py4JJavaError',
+  evalue: 'An error occurred while calling o53.csv.\n' +
+    ": org.apache.hadoop.fs.s3a.UnknownStoreException: `s3a://bronze/MOCK_DATA.csv': getFileStatus on s3a://bronze/MOCK_DATA.csv: com.amazonaws.services.s3.model.AmazonS3Exception: The specified bucket does not exist (Service: Amazon S3; Status Code: 404; Error Code: NoSuchBucket; Request ID: 18CB28DB0E930217; S3 Extended Request ID: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8; Proxy: null), S3 Extended Request ID: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8:NoSuchBucket: The specified bucket does not exist (Service: Amazon S3; Status Code: 404; Error Code: NoSuchBucket; Request ID: 18CB28DB0E930217; S3 Extended Request ID: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8; Proxy: null)\n" +
+    '\tat org.apache.hadoop.fs.s3a.S3AUtils.translateException(S3AUtils.java:263)\n' +
+    '\tat org.apache.hadoop.fs.s3a.S3AUtils.translateException(S3AUtils.java:175)\n' +
+    '\tat org.apache.hadoop.fs.s3a.S3AFileSystem.s3GetFileStatus(S3AFileSystem.java:3858)\n' +
+    '\tat org.apache.hadoop.fs.s3a.S3AFileSystem.innerGetFileStatus(S3AFileSystem.java:3688)\n' +
+    '\tat org.apache.hadoop.fs.s3a.S3AFileSystem.lambda$exists$34(S3AFileSystem.java:4703)\n' +
+    '\tat org.apache.hadoop.fs.statistics.impl.IOStatisticsBinding.lambda$trackDurationOfOperation$5(IOStatisticsBinding.java:499)\n' +
+    '\tat org.apache.hadoop.fs.statistics.impl.IOStatisticsBinding.trackDuration(IOStatisticsBinding.java:444)\n' +
+    '\tat org.apache.hadoop.fs.s3a.S3AFileSystem.trackDurationAndSpan(S3AFileSystem.java:2337)\n' +
+    '\tat org.apache.hadoop.fs.s3a.S3AFileSystem.trackDurationAndSpan(S3AFileSystem.java:2356)\n' +
+    '\tat org.apache.hadoop.fs.s3a.S3AFileSystem.exists(S3AFileSystem.java:4701)\n' +
+    '\tat org.apache.spark.sql.execution.datasources.DataSource$.$anonfun$checkAndGlobPathIfNecessary$4(DataSource.scala:756)\n' +
+    '\tat org.apache.spark.sql.execution.datasources.DataSource$.$anonfun$checkAndGlobPathIfNecessary$4$adapted(DataSource.scala:754)\n' +
+    '\tat org.apache.spark.util.ThreadUtils$.$anonfun$parmap$2(ThreadUtils.scala:384)\n' +
+    '\tat scala.concurrent.Future$.$anonfun$apply$1(Future.scala:659)\n' +
+    '\tat scala.util.Success.$anonfun$map$1(Try.scala:255)\n' +
+    '\tat scala.util.Success.map(Try.scala:213)\n' +
+    '\tat scala.concurrent.Future.$anonfun$map$1(Future.scala:292)\n' +
+    '\tat scala.concurrent.impl.Promise.liftedTree1$1(Promise.scala:33)\n' +
+    '\tat scala.concurrent.impl.Promise.$anonfun$transform$1(Promise.scala:33)\n' +
+    '\tat scala.concurrent.impl.CallbackRunnable.run(Promise.scala:64)\n' +
+    '\tat java.base/java.util.concurrent.ForkJoinTask$RunnableExecuteAction.exec(ForkJoinTask.java:1423)\n' +
+    '\tat java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:387)\n' +
+    '\tat java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1312)\n' +
+    '\tat java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1843)\n' +
+    '\tat java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1808)\n' +
+    '\tat java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:188)\n' +
+    'Caused by: com.amazonaws.services.s3.model.AmazonS3Exception: The specified bucket does not exist (Service: Amazon S3; Status Code: 404; Error Code: NoSuchBucket; Request ID: 18CB28DB0E930217; S3 Extended Request ID: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8; Proxy: null), S3 Extended Request ID: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8\n' +
+    '\tat com.amazonaws.http.AmazonHttpClient$RequestExecutor.handleErrorResponse(AmazonHttpClient.java:1879)\n' +
+    '\tat com.amazonaws.http.AmazonHttpClient$RequestExecutor.handleServiceErrorResponse(AmazonHttpClient.java:1418)\n' +
+    '\tat com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeOneRequest(AmazonHttpClient.java:1387)\n' +
+    '\tat com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeHelper(AmazonHttpClient.java:1157)\n' +
+    '\tat com.amazonaws.http.AmazonHttpClient$RequestExecutor.doExecute(AmazonHttpClient.java:814)\n' +
+    '\tat com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeWithTimer(AmazonHttpClient.java:781)\n' +
+    '\tat com.amazonaws.http.AmazonHttpClient$RequestExecutor.execute(AmazonHttpClient.java:755)\n' +
+    '\tat com.amazonaws.http.AmazonHttpClient$RequestExecutor.access$500(AmazonHttpClient.java:715)\n' +
+    '\tat com.amazonaws.http.AmazonHttpClient$RequestExecutionBuilderImpl.execute(AmazonHttpClient.java:697)\n' +
+    '\tat com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:561)\n' +
+    '\tat com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:541)\n' +
+    '\tat com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5456)\n' +
+    '\tat com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5403)\n' +
+    '\tat com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5397)\n' +
+    '\tat com.amazonaws.services.s3.AmazonS3Client.listObjectsV2(AmazonS3Client.java:971)\n' +
+    '\tat org.apache.hadoop.fs.s3a.S3AFileSystem.lambda$listObjects$11(S3AFileSystem.java:2595)\n' +
+    '\tat org.apache.hadoop.fs.statistics.impl.IOStatisticsBinding.lambda$trackDurationOfOperation$5(IOStatisticsBinding.java:499)\n' +
+    '\tat org.apache.hadoop.fs.s3a.Invoker.retryUntranslated(Invoker.java:414)\n' +
+    '\tat org.apache.hadoop.fs.s3a.Invoker.retryUntranslated(Invoker.java:377)\n' +
+    '\tat org.apache.hadoop.fs.s3a.S3AFileSystem.listObjects(S3AFileSystem.java:2586)\n' +
+    '\tat org.apache.hadoop.fs.s3a.S3AFileSystem.s3GetFileStatus(S3AFileSystem.java:3832)\n' +
+    '\t... 23 more\n',
+  traceback: [
+    '\x1B[31m---------------------------------------------------------------------------\x1B[39m',
+    '\x1B[31mPy4JJavaError\x1B[39m                             Traceback (most recent call last)',
+    '\x1B[36mCell\x1B[39m\x1B[36m \x1B[39m\x1B[32mIn[4]\x1B[39m\x1B[32m, line 4\x1B[39m\n' +
+      '\x1B[32m      1\x1B[39m caminho_origem = \x1B[33m"s3a://bronze/MOCK_DATA.csv"\x1B[39m\n' +
+      '\x1B[32m      2\x1B[39m print(f"📖 Lendo o arquivo CSV de origem: {caminho_origem}")\n' +
+      '\x1B[32m      3\x1B[39m \n' +
+      '\x1B[32m----> \x1B[39m\x1B[32m4\x1B[39m df = spark.read.csv(caminho_origem, header=\x1B[38;5;28;01mTrue\x1B[39;00m, inferSchema=\x1B[38;5;28;01mTrue\x1B[39;00m)\n' +
+      '\x1B[32m      5\x1B[39m df.show(\x1B[32m5\x1B[39m)\n',
+    '\x1B[36mFile \x1B[39m\x1B[32m/usr/local/lib/python3.13/dist-packages/pyspark/sql/readwriter.py:740\x1B[39m, in \x1B[36mDataFrameReader.csv\x1B[39m\x1B[34m(self, path, schema, sep, encoding, quote, escape, comment, header, inferSchema, ignoreLeadingWhiteSpace, ignoreTrailingWhiteSpace, nullValue, nanValue, positiveInf, negativeInf, dateFormat, timestampFormat, maxColumns, maxCharsPerColumn, maxMalformedLogPerPartition, mode, columnNameOfCorruptRecord, multiLine, charToEscapeQuoteEscaping, samplingRatio, enforceSchema, emptyValue, locale, lineSep, pathGlobFilter, recursiveFileLookup, modifiedBefore, modifiedAfter, unescapedQuoteHandling)\x1B[39m\n' +
+      '\x1B[32m    738\x1B[39m \x1B[38;5;28;01mif\x1B[39;00m \x1B[38;5;28mtype\x1B[39m(path) == \x1B[38;5;28mlist\x1B[39m:\n' +
+      '\x1B[32m    739\x1B[39m     \x1B[38;5;28;01massert\x1B[39;00m \x1B[38;5;28mself\x1B[39m._spark._sc._jvm \x1B[38;5;129;01mis\x1B[39;00m \x1B[38;5;129;01mnot\x1B[39;00m \x1B[38;5;28;01mNone\x1B[39;00m\n' +
+      '\x1B[32m--> \x1B[39m\x1B[32m740\x1B[39m     \x1B[38;5;28;01mreturn\x1B[39;00m \x1B[38;5;28mself\x1B[39m._df(\x1B[30;43mself\x1B[39;49m\x1B[30;43m.\x1B[39;49m\x1B[30;43m_jreader\x1B[39;49m\x1B[30;43m.\x1B[39;49m\x1B[30;43mcsv\x1B[39;49m\x1B[30;43m(\x1B[39;49m\x1B[30;43mself\x1B[39;49m\x1B[30;43m.\x1B[39;49m\x1B[30;43m_spark\x1B[39;49m\x1B[30;43m.\x1B[39;49m\x1B[30;43m_sc\x1B[39;49m\x1B[30;43m.\x1B[39;49m\x1B[30;43m_jvm\x1B[39;49m\x1B[30;43m.\x1B[39;49m\x1B[30;43mPythonUtils\x1B[39;49m\x1B[30;43m.\x1B[39;49m\x1B[30;43mtoSeq\x1B[39;49m\x1B[30;43m(\x1B[39;49m\x1B[30;43mpath\x1B[39;49m\x1B[30;43m)\x1B[39;49m\x1B[30;43m)\x1B[39;49m)\n' +
+      '\x1B[32m    741\x1B[39m \x1B[38;5;28;01melif\x1B[39;00m \x1B[38;5;28misinstance\x1B[39m(path, RDD):\n' +
+      '\x1B[32m    743\x1B[39m     \x1B[38;5;28;01mdef\x1B[39;00m\x1B[38;5;250m \x1B[39m\x1B[34mfunc\x1B[39m(iterator):\n',
+    '\x1B[36mFile \x1B[39m\x1B[32m/usr/local/lib/python3.13/dist-packages/py4j/java_gateway.py:1322\x1B[39m, in \x1B[36mJavaMember.__call__\x1B[39m\x1B[34m(self, *args)\x1B[39m\n' +
+      '\x1B[32m   1316\x1B[39m command = proto.CALL_COMMAND_NAME +\\\n' +
+      '\x1B[32m   1317\x1B[39m     \x1B[38;5;28mself\x1B[39m.command_header +\\\n' +
+      '\x1B[32m   1318\x1B[39m     args_command +\\\n' +
+      '\x1B[32m   1319\x1B[39m     proto.END_COMMAND_PART\n' +
+      '\x1B[32m   1321\x1B[39m answer = \x1B[38;5;28mself\x1B[39m.gateway_client.send_command(command)\n' +
+      '\x1B[32m-> \x1B[39m\x1B[32m1322\x1B[39m return_value = \x1B[30;43mget_return_value\x1B[39;49m\x1B[30;43m(\x1B[39;49m\n' +
+      '\x1B[32m   1323\x1B[39m \x1B[30;43m    \x1B[39;49m\x1B[30;43manswer\x1B[39;49m\x1B[30;43m,\x1B[39;49m\x1B[30;43m \x1B[39;49m\x1B[30;43mself\x1B[39;49m\x1B[30;43m.\x1B[39;49m\x1B[30;43mgateway_client\x1B[39;49m\x1B[30;43m,\x1B[39;49m\x1B[30;43m \x1B[39;49m\x1B[30;43mself\x1B[39;49m\x1B[30;43m.\x1B[39;49m\x1B[30;43mtarget_id\x1B[39;49m\x1B[30;43m,\x1B[39;49m\x1B[30;43m \x1B[39;49m\x1B[30;43mself\x1B[39;49m\x1B[30;43m.\x1B[39;49m\x1B[30;43mname\x1B[39;49m\x1B[30;43m)\x1B[39;49m\n' +
+      '\x1B[32m   1325\x1B[39m \x1B[38;5;28;01mfor\x1B[39;00m temp_arg \x1B[38;5;129;01min\x1B[39;00m temp_args:\n' +
+      '\x1B[32m   1326\x1B[39m     \x1B[38;5;28;01mif\x1B[39;00m \x1B[38;5;28mhasattr\x1B[39m(temp_arg, \x1B[33m"\x1B[39m\x1B[33m_detach\x1B[39m\x1B[33m"\x1B[39m):\n',
+    '\x1B[36mFile \x1B[39m\x1B[32m/usr/local/lib/python3.13/dist-packages/pyspark/errors/exceptions/captured.py:179\x1B[39m, in \x1B[36mcapture_sql_exception.<locals>.deco\x1B[39m\x1B[34m(*a, **kw)\x1B[39m\n' +
+      '\x1B[32m    177\x1B[39m \x1B[38;5;28;01mdef\x1B[39;00m\x1B[38;5;250m \x1B[39m\x1B[34mdeco\x1B[39m(*a: Any, **kw: Any) -> Any:\n' +
+      '\x1B[32m    178\x1B[39m     \x1B[38;5;28;01mtry\x1B[39;00m:\n' +
+      '\x1B[32m--> \x1B[39m\x1B[32m179\x1B[39m         \x1B[38;5;28;01mreturn\x1B[39;00m \x1B[30;43mf\x1B[39;49m\x1B[30;43m(\x1B[39;49m\x1B[30;43m*\x1B[39;49m\x1B[30;43ma\x1B[39;49m\x1B[30;43m,\x1B[39;49m\x1B[30;43m \x1B[39;49m\x1B[30;43m*\x1B[39;49m\x1B[30;43m*\x1B[39;49m\x1B[30;43mkw\x1B[39;49m\x1B[30;43m)\x1B[39;49m\n' +
+      '\x1B[32m    180\x1B[39m     \x1B[38;5;28;01mexcept\x1B[39;00m Py4JJavaError \x1B[38;5;28;01mas\x1B[39;00m e:\n' +
+      '\x1B[32m    181\x1B[39m         converted = convert_exception(e.java_exception)\n',
+    '\x1B[36mFile \x1B[39m\x1B[32m/usr/local/lib/python3.13/dist-packages/py4j/protocol.py:326\x1B[39m, in \x1B[36mget_return_value\x1B[39m\x1B[34m(answer, gateway_client, target_id, name)\x1B[39m\n' +
+      '\x1B[32m    324\x1B[39m value = OUTPUT_CONVERTER[\x1B[38;5;28mtype\x1B[39m](answer[\x1B[32m2\x1B[39m:], gateway_client)\n' +
+      '\x1B[32m    325\x1B[39m \x1B[38;5;28;01mif\x1B[39;00m answer[\x1B[32m1\x1B[39m] == REFERENCE_TYPE:\n' +
+      '\x1B[32m--> \x1B[39m\x1B[32m326\x1B[39m     \x1B[38;5;28;01mraise\x1B[39;00m Py4JJavaError(\n' +
+      '\x1B[32m    327\x1B[39m         \x1B[33m"\x1B[39m\x1B[33mAn error occurred while calling \x1B[39m\x1B[38;5;132;01m{0}\x1B[39;00m\x1B[38;5;132;01m{1}\x1B[39;00m\x1B[38;5;132;01m{2}\x1B[39;00m\x1B[33m.\x1B[39m\x1B[38;5;130;01m\\n\x1B[39;00m\x1B[33m"\x1B[39m.\n' +
+      '\x1B[32m    328\x1B[39m         \x1B[38;5;28mformat\x1B[39m(target_id, \x1B[33m"\x1B[39m\x1B[33m.\x1B[39m\x1B[33m"\x1B[39m, name), value)\n' +
+      '\x1B[32m    329\x1B[39m \x1B[38;5;28;01melse\x1B[39;00m:\n' +
+      '\x1B[32m    330\x1B[39m     \x1B[38;5;28;01mraise\x1B[39;00m Py4JError(\n' +
+      '\x1B[32m    331\x1B[39m         \x1B[33m"\x1B[39m\x1B[33mAn error occurred while calling \x1B[39m\x1B[38;5;132;01m{0}\x1B[39;00m\x1B[38;5;132;01m{1}\x1B[39;00m\x1B[38;5;132;01m{2}\x1B[39;00m\x1B[33m. Trace:\x1B[39m\x1B[38;5;130;01m\\n\x1B[39;00m\x1B[38;5;132;01m{3}\x1B[39;00m\x1B[38;5;130;01m\\n\x1B[39;00m\x1B[33m"\x1B[39m.\n' +
+      '\x1B[32m    332\x1B[39m         \x1B[38;5;28mformat\x1B[39m(target_id, \x1B[33m"\x1B[39m\x1B[33m.\x1B[39m\x1B[33m"\x1B[39m, name, value))\n',
+    '\x1B[31mPy4JJavaError\x1B[39m: An error occurred while calling o53.csv.\n' +
+      ": org.apache.hadoop.fs.s3a.UnknownStoreException: `s3a://bronze/MOCK_DATA.csv': getFileStatus on s3a://bronze/MOCK_DATA.csv: com.amazonaws.services.s3.model.AmazonS3Exception: The specified bucket does not exist (Service: Amazon S3; Status Code: 404; Error Code: NoSuchBucket; Request ID: 18CB28DB0E930217; S3 Extended Request ID: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8; Proxy: null), S3 Extended Request ID: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8:NoSuchBucket: The specified bucket does not exist (Service: Amazon S3; Status Code: 404; Error Code: NoSuchBucket; Request ID: 18CB28DB0E930217; S3 Extended Request ID: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8; Proxy: null)\n" +
+      '\tat org.apache.hadoop.fs.s3a.S3AUtils.translateException(S3AUtils.java:263)\n' +
+      '\tat org.apache.hadoop.fs.s3a.S3AUtils.translateException(S3AUtils.java:175)\n' +
+      '\tat org.apache.hadoop.fs.s3a.S3AFileSystem.s3GetFileStatus(S3AFileSystem.java:3858)\n' +
+      '\tat org.apache.hadoop.fs.s3a.S3AFileSystem.innerGetFileStatus(S3AFileSystem.java:3688)\n' +
+      '\tat org.apache.hadoop.fs.s3a.S3AFileSystem.lambda$exists$34(S3AFileSystem.java:4703)\n' +
+      '\tat org.apache.hadoop.fs.statistics.impl.IOStatisticsBinding.lambda$trackDurationOfOperation$5(IOStatisticsBinding.java:499)\n' +
+      '\tat org.apache.hadoop.fs.statistics.impl.IOStatisticsBinding.trackDuration(IOStatisticsBinding.java:444)\n' +
+      '\tat org.apache.hadoop.fs.s3a.S3AFileSystem.trackDurationAndSpan(S3AFileSystem.java:2337)\n' +
+      '\tat org.apache.hadoop.fs.s3a.S3AFileSystem.trackDurationAndSpan(S3AFileSystem.java:2356)\n' +
+      '\tat org.apache.hadoop.fs.s3a.S3AFileSystem.exists(S3AFileSystem.java:4701)\n' +
+      '\tat org.apache.spark.sql.execution.datasources.DataSource$.$anonfun$checkAndGlobPathIfNecessary$4(DataSource.scala:756)\n' +
+      '\tat org.apache.spark.sql.execution.datasources.DataSource$.$anonfun$checkAndGlobPathIfNecessary$4$adapted(DataSource.scala:754)\n' +
+      '\tat org.apache.spark.util.ThreadUtils$.$anonfun$parmap$2(ThreadUtils.scala:384)\n' +
+      '\tat scala.concurrent.Future$.$anonfun$apply$1(Future.scala:659)\n' +
+      '\tat scala.util.Success.$anonfun$map$1(Try.scala:255)\n' +
+      '\tat scala.util.Success.map(Try.scala:213)\n' +
+      '\tat scala.concurrent.Future.$anonfun$map$1(Future.scala:292)\n' +
+      '\tat scala.concurrent.impl.Promise.liftedTree1$1(Promise.scala:33)\n' +
+      '\tat scala.concurrent.impl.Promise.$anonfun$transform$1(Promise.scala:33)\n' +
+      '\tat scala.concurrent.impl.CallbackRunnable.run(Promise.scala:64)\n' +
+      '\tat java.base/java.util.concurrent.ForkJoinTask$RunnableExecuteAction.exec(ForkJoinTask.java:1423)\n' +
+      '\tat java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:387)\n' +
+      '\tat java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1312)\n' +
+      '\tat java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1843)\n' +
+      '\tat java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1808)\n' +
+      '\tat java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:188)\n' +
+      'Caused by: com.amazonaws.services.s3.model.AmazonS3Exception: The specified bucket does not exist (Service: Amazon S3; Status Code: 404; Error Code: NoSuchBucket; Request ID: 18CB28DB0E930217; S3 Extended Request ID: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8; Proxy: null), S3 Extended Request ID: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8\n' +
+      '\tat com.amazonaws.http.AmazonHttpClient$RequestExecutor.handleErrorResponse(AmazonHttpClient.java:1879)\n' +
+      '\tat com.amazonaws.http.AmazonHttpClient$RequestExecutor.handleServiceErrorResponse(AmazonHttpClient.java:1418)\n' +
+      '\tat com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeOneRequest(AmazonHttpClient.java:1387)\n' +
+      '\tat com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeHelper(AmazonHttpClient.java:1157)\n' +
+      '\tat com.amazonaws.http.AmazonHttpClient$RequestExecutor.doExecute(AmazonHttpClient.java:814)\n' +
+      '\tat com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeWithTimer(AmazonHttpClient.java:781)\n' +
+      '\tat com.amazonaws.http.AmazonHttpClient$RequestExecutor.execute(AmazonHttpClient.java:755)\n' +
+      '\tat com.amazonaws.http.AmazonHttpClient$RequestExecutor.access$500(AmazonHttpClient.java:715)\n' +
+      '\tat com.amazonaws.http.AmazonHttpClient$RequestExecutionBuilderImpl.execute(AmazonHttpClient.java:697)\n' +
+      '\tat com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:561)\n' +
+      '\tat com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:541)\n' +
+      '\tat com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5456)\n' +
+      '\tat com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5403)\n' +
+      '\tat com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5397)\n' +
+      '\tat com.amazonaws.services.s3.AmazonS3Client.listObjectsV2(AmazonS3Client.java:971)\n' +
+      '\tat org.apache.hadoop.fs.s3a.S3AFileSystem.lambda$listObjects$11(S3AFileSystem.java:2595)\n' +
+      '\tat org.apache.hadoop.fs.statistics.impl.IOStatisticsBinding.lambda$trackDurationOfOperation$5(IOStatisticsBinding.java:499)\n' +
+      '\tat org.apache.hadoop.fs.s3a.Invoker.retryUntranslated(Invoker.java:414)\n' +
+      '\tat org.apache.hadoop.fs.s3a.Invoker.retryUntranslated(Invoker.java:377)\n' +
+      '\tat org.apache.hadoop.fs.s3a.S3AFileSystem.listObjects(S3AFileSystem.java:2586)\n' +
+      '\tat org.apache.hadoop.fs.s3a.S3AFileSystem.s3GetFileStatus(S3AFileSystem.java:3832)\n' +
+      '\t... 23 more\n'
+  ]
+}
+20:34:42.530 [info] Dispose Kernel '~/project/teste_lake.ipynb' associated with '~/project/teste_lake.ipynb'
+20:34:42.588 [warn] Failed to delete connection file file://~/.local/share/jupyter/runtime/kernel-v36ef05bd6afa5cfaef75a26613913dc035e6b4690.json for pid 136 [Canceled (FileSystemError): Canceled
+	at ar._handleError (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:535:22201)
+	at Object.stat (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:535:19119)
+	at async ou.delete (~/project/.vscode-data/extensions/ms-toolsai.jupyter-2025.9.1-universal/dist/extension.node.js:236:16320)
+	at async ~/project/.vscode-data/extensions/ms-toolsai.jupyter-2025.9.1-universal/dist/extension.node.js:308:469] {
+  code: 'Unknown'
+}

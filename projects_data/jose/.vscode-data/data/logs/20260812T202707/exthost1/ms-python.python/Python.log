@@ -1,0 +1,31 @@
+2026-08-12 20:27:13.801 [info] Experiment 'pythonSurveyNotificationcf' is active
+2026-08-12 20:27:13.802 [warning] Dir "/home/coder/project/.pixi/envs" is not watchable (directory does not exist)
+2026-08-12 20:27:14.557 [info] Starting Environment refresh
+2026-08-12 20:27:14.557 [info] Searching for interpreters in posix paths locator
+2026-08-12 20:27:14.561 [info] Searching for pyenv environments
+2026-08-12 20:27:14.561 [info] Searching for conda environments
+2026-08-12 20:27:14.561 [info] Searching for global virtual environments
+2026-08-12 20:27:14.562 [info] Searching for custom virtual environments
+2026-08-12 20:27:14.569 [info] Skipping ActivatedEnv Detection:  process.env.VSCODE_CLI !== '1'
+2026-08-12 20:27:14.581 [info] pyenv is not installed
+2026-08-12 20:27:14.581 [info] Finished searching for pyenv environments: 23 milliseconds
+2026-08-12 20:27:14.582 [info] Finished searching for custom virtual envs: 23 milliseconds
+2026-08-12 20:27:14.588 [info] > conda info --json
+2026-08-12 20:27:14.594 [info] > hatch env show --json
+2026-08-12 20:27:14.594 [info] cwd: .
+2026-08-12 20:27:14.598 [info] Python interpreter path: /bin/python3
+2026-08-12 20:27:14.613 [info] Finished searching for global virtual envs: 54 milliseconds
+2026-08-12 20:27:14.621 [info] Found: /bin/python3 --> /bin/python3.13
+2026-08-12 20:27:14.623 [info] Found: /bin/python3.13 --> /bin/python3.13
+2026-08-12 20:27:14.657 [info] Found: /usr/bin/python3 --> /usr/bin/python3.13
+2026-08-12 20:27:14.657 [info] Found: /usr/bin/python3.13 --> /usr/bin/python3.13
+2026-08-12 20:27:14.668 [info] > /bin/python3 -I ./.vscode-data/extensions/ms-python.python-2026.4.0-universal/python_files/get_output_via_markers.py ./.vscode-data/extensions/ms-python.python-2026.4.0-universal/python_files/interpreterInfo.py
+2026-08-12 20:27:14.688 [info] Finished searching for interpreters in posix paths locator: 135 milliseconds
+2026-08-12 20:27:14.706 [info] > /usr/bin/python3 -I ./.vscode-data/extensions/ms-python.python-2026.4.0-universal/python_files/get_output_via_markers.py ./.vscode-data/extensions/ms-python.python-2026.4.0-universal/python_files/interpreterInfo.py
+2026-08-12 20:27:14.706 [info] Environments refresh paths discovered (event): 154 milliseconds
+2026-08-12 20:27:14.707 [info] Environments refresh paths discovered: 155 milliseconds
+2026-08-12 20:27:14.819 [info] Environments refresh finished (event): 267 milliseconds
+2026-08-12 20:27:14.823 [info] > pyenv which python
+2026-08-12 20:27:14.823 [info] cwd: .
+2026-08-12 20:27:14.893 [info] Environment refresh took 341 milliseconds
+2026-08-12 20:27:19.652 [info] Starting Jedi language server for project.

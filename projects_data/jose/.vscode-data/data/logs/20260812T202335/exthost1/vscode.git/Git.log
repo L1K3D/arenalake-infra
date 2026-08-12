@@ -1,0 +1,45 @@
+2026-08-12 20:23:40.963 [info] [main] Log level: Info
+2026-08-12 20:23:40.963 [info] [main] Validating found git in: "git"
+2026-08-12 20:23:40.963 [info] [main] Using git "2.47.3" from "git"
+2026-08-12 20:23:40.963 [info] [Model][doInitialScan] Initial repository scan started
+2026-08-12 20:23:40.963 [info] > git rev-parse --show-toplevel [31ms]
+2026-08-12 20:23:40.963 [info] fatal: not a git repository (or any parent up to mount point /home/coder)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+2026-08-12 20:23:40.963 [info] > git rev-parse --show-toplevel [6ms]
+2026-08-12 20:23:40.963 [info] fatal: not a git repository (or any parent up to mount point /home/coder)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+2026-08-12 20:23:40.963 [info] [Model][doInitialScan] Initial repository scan completed - repositories (0), closed repositories (0), parent repositories (0), unsafe repositories (0)
+2026-08-12 20:23:41.971 [info] > git rev-parse --show-toplevel [4ms]
+2026-08-12 20:23:41.971 [info] fatal: not a git repository (or any parent up to mount point /home/coder)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+2026-08-12 20:23:42.749 [info] > git rev-parse --show-toplevel [3ms]
+2026-08-12 20:23:42.749 [info] fatal: not a git repository (or any parent up to mount point /home/coder)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+2026-08-12 20:24:02.147 [warning] [Model][getRepositoryExact] Failed to get repository realpath for: "/home/coder/project/.vscode-data/extensions/.5347420d-5b01-4140-8aa0-3298b469a7fe/". Error:Error: ENOENT: no such file or directory, realpath '/home/coder/project/.vscode-data/extensions/.5347420d-5b01-4140-8aa0-3298b469a7fe/'
+2026-08-12 20:24:03.187 [warning] [Model][getRepositoryExact] Failed to get repository realpath for: "/home/coder/project/.vscode-data/extensions/.34f1fc51-7c37-45b3-be20-6655c6c6b32b/". Error:Error: ENOENT: no such file or directory, realpath '/home/coder/project/.vscode-data/extensions/.34f1fc51-7c37-45b3-be20-6655c6c6b32b/'
+2026-08-12 20:24:05.271 [warning] [Model][getRepositoryExact] Failed to get repository realpath for: "/home/coder/project/.vscode-data/extensions/.af7c0f1a-3a23-4427-bb04-1c23beb7ec1c/". Error:Error: ENOENT: no such file or directory, realpath '/home/coder/project/.vscode-data/extensions/.af7c0f1a-3a23-4427-bb04-1c23beb7ec1c/'
+2026-08-12 20:24:05.348 [info] > git rev-parse --show-toplevel [63ms]
+2026-08-12 20:24:05.348 [info] fatal: not a git repository (or any parent up to mount point /home/coder)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+2026-08-12 20:24:06.276 [info] > git rev-parse --show-toplevel [5ms]
+2026-08-12 20:24:06.276 [info] fatal: not a git repository (or any parent up to mount point /home/coder)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+2026-08-12 20:24:06.870 [info] > git rev-parse --show-toplevel [5ms]
+2026-08-12 20:24:06.871 [info] fatal: not a git repository (or any parent up to mount point /home/coder)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+2026-08-12 20:24:06.960 [warning] [Model][getRepositoryExact] Failed to get repository realpath for: "/home/coder/project/.vscode-data/extensions/.05d2884f-b85a-4b34-8278-901fd0fe4125/bundled/libs/debugpy/_vendored/pydevd/pydevd_attach_to_process/linux_and_mac/". Error:Error: ENOENT: no such file or directory, realpath '/home/coder/project/.vscode-data/extensions/.05d2884f-b85a-4b34-8278-901fd0fe4125/bundled/libs/debugpy/_vendored/pydevd/pydevd_attach_to_process/linux_and_mac/'
+2026-08-12 20:24:12.437 [info] > git rev-parse --show-toplevel [7ms]
+2026-08-12 20:24:12.437 [info] fatal: not a git repository (or any parent up to mount point /home/coder)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+2026-08-12 20:24:13.620 [info] > git rev-parse --show-toplevel [4ms]
+2026-08-12 20:24:13.620 [info] fatal: not a git repository (or any parent up to mount point /home/coder)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+2026-08-12 20:24:18.086 [info] > git rev-parse --show-toplevel [11ms]
+2026-08-12 20:24:18.086 [info] fatal: not a git repository (or any parent up to mount point /home/coder)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+2026-08-12 20:25:40.337 [info] > git rev-parse --show-toplevel [1ms]
+2026-08-12 20:25:40.337 [info] fatal: not a git repository (or any parent up to mount point /home/coder)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+2026-08-12 20:26:08.208 [info] > git rev-parse --show-toplevel [6ms]
+2026-08-12 20:26:08.208 [info] fatal: not a git repository (or any parent up to mount point /home/coder)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).

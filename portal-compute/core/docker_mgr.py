@@ -51,15 +51,19 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         image="arenalake-workspace:latest",
         name=container_name_vscode,
         detach=True,
-        command="--auth none",
+        # --- O PULO DO GATO: Salva as extensões ocultas (.vscode-data) dentro do projeto! ---
+        command="--auth none --user-data-dir /home/coder/project/.vscode-data/data --extensions-dir /home/coder/project/.vscode-data/extensions",
         environment=[
             "SPARK_MASTER=spark://spark-master:7077",
             f"MINIO_ACCESS_KEY={minio_ak}",
             f"MINIO_SECRET_KEY={minio_sk}",
-            f"WORKSPACE_RAM={spark_ram}",
+            f"WORKSPACE_RAM={spark_ram}",   
             f"WORKSPACE_CORES={spark_cores}"
         ],
-        volumes={host_dir: {'bind': '/home/coder/project', 'mode': 'rw'}},
+        # Voltamos a usar APENAS o volume do projeto (que já sabemos que funciona 100%)
+        volumes={
+            host_dir: {'bind': '/home/coder/project', 'mode': 'rw'}
+        },
         network="arenalake-infra_arenalake-net",
         mem_limit=vscode_ram,
         nano_cpus=cpu_limit,

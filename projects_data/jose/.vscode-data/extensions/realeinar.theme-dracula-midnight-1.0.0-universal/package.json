@@ -1,0 +1,63 @@
+{
+	"name": "theme-dracula-midnight",
+	"displayName": "Dracula Midnight",
+	"description": "Dracula theme with Darker and Cleaner!",
+	"version": "1.0.0",
+	"preview": true,
+	"publisher": "realeinar",
+	"license": "MIT",
+	"icon": "icon.png",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/realeinar/dracula-midnight.git"
+	},
+	"bugs": {
+		"url": "https://github.com/realeinar/dracula-midnight/issues"
+	},
+	"engines": {
+		"vscode": "^1.43.0"
+	},
+	"categories": [
+		"Themes"
+	],
+	"keywords": [
+		"dracula",
+		"dark",
+		"darker",
+		"theme",
+		"color-theme",
+		"clean",
+		"contrast",
+		"better"
+	],
+	"contributes": {
+		"themes": [
+			{
+				"label": "Dracula Midnight",
+				"uiTheme": "vs-dark",
+				"path": "./themes/dracula-midnight.json"
+			}
+		]
+	},
+	"galleryBanner": {
+		"color": "#3c4557",
+		"theme": "dark"
+	},
+	"devDependencies": {
+		"chroma-js": "^2.1.0",
+		"color": "^3.1.2",
+		"nodemon": "^2.0.3",
+		"vsce": "^2.2.0"
+	},
+	"scripts": {
+		"start": "nodemon --watch src src/index.js",
+		"build": "node src/index.js",
+		"package": "vsce package -o ./themes/dracula-midnight.vsix",
+		"clean": "rm -rf themes"
+	},
+	"__metadata": {
+		"installedTimestamp": 1786566366190,
+		"targetPlatform": "universal",
+		"size": 449686
+	}
+}

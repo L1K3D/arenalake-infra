@@ -1,0 +1,31 @@
+2026-08-12 20:24:13.256 [info] Experiment 'pythonSurveyNotificationcf' is active
+2026-08-12 20:24:13.256 [warning] Dir "/home/coder/project/.pixi/envs" is not watchable (directory does not exist)
+2026-08-12 20:24:13.442 [info] Skipping ActivatedEnv Detection:  process.env.VSCODE_CLI !== '1'
+2026-08-12 20:24:13.451 [info] Python interpreter path: /bin/python3
+2026-08-12 20:24:13.633 [info] > pyenv which python
+2026-08-12 20:24:13.633 [info] cwd: .
+2026-08-12 20:24:19.206 [info] Starting Jedi language server for project.
+2026-08-12 20:24:21.425 [info] Starting Environment refresh
+2026-08-12 20:24:21.425 [info] Searching for interpreters in posix paths locator
+2026-08-12 20:24:21.479 [info] Searching for pyenv environments
+2026-08-12 20:24:21.479 [info] Searching for conda environments
+2026-08-12 20:24:21.480 [info] Searching for global virtual environments
+2026-08-12 20:24:21.480 [info] Searching for custom virtual environments
+2026-08-12 20:24:21.494 [info] > conda info --json
+2026-08-12 20:24:21.500 [info] > hatch env show --json
+2026-08-12 20:24:21.500 [info] cwd: .
+2026-08-12 20:24:21.513 [info] pyenv is not installed
+2026-08-12 20:24:21.513 [info] Finished searching for pyenv environments: 36 milliseconds
+2026-08-12 20:24:21.513 [info] Finished searching for custom virtual envs: 35 milliseconds
+2026-08-12 20:24:21.521 [info] Finished searching for global virtual envs: 43 milliseconds
+2026-08-12 20:24:21.529 [info] Found: /bin/python3 --> /bin/python3.13
+2026-08-12 20:24:21.533 [info] Found: /bin/python3.13 --> /bin/python3.13
+2026-08-12 20:24:21.557 [info] Found: /usr/bin/python3 --> /usr/bin/python3.13
+2026-08-12 20:24:21.558 [info] Found: /usr/bin/python3.13 --> /usr/bin/python3.13
+2026-08-12 20:24:21.573 [info] > /bin/python3 -I ./.vscode-data/extensions/ms-python.python-2026.4.0-universal/python_files/get_output_via_markers.py ./.vscode-data/extensions/ms-python.python-2026.4.0-universal/python_files/interpreterInfo.py
+2026-08-12 20:24:21.595 [info] Finished searching for interpreters in posix paths locator: 172 milliseconds
+2026-08-12 20:24:21.625 [info] > /usr/bin/python3 -I ./.vscode-data/extensions/ms-python.python-2026.4.0-universal/python_files/get_output_via_markers.py ./.vscode-data/extensions/ms-python.python-2026.4.0-universal/python_files/interpreterInfo.py
+2026-08-12 20:24:21.625 [info] Environments refresh paths discovered (event): 204 milliseconds
+2026-08-12 20:24:21.625 [info] Environments refresh paths discovered: 204 milliseconds
+2026-08-12 20:24:21.690 [info] Environments refresh finished (event): 269 milliseconds
+2026-08-12 20:24:21.699 [info] Environment refresh took 280 milliseconds

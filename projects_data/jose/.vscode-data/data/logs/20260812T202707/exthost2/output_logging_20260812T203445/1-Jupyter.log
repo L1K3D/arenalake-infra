@@ -1,0 +1,27 @@
+code-server (1.131.0, jose.localhost, server-distro)
+Jupyter Extension Version: 2025.9.1.
+Python Extension Version: 2026.4.0.
+Python Environment Extension Version: 1.36.0.
+Pylance Extension not installed.
+Platform: linux (x64).
+Home = /home/coder
+Temp Storage folder ~/project/.vscode-data/data/User/globalStorage/ms-toolsai.jupyter/version-2025.9.1
+Workspace folder ~/project
+20:34:50.218 [info] Starting Kernel (Python Path: /bin/python3, Unknown, 3.13.5) for '~/project/teste_lake.ipynb' (disableUI=true)
+20:34:50.327 [warn] Failed to get activated env vars for /bin/python3 in 112ms
+20:34:50.336 [info] Process Execution: /bin/python3 -c "import site;print("USER_BASE_VALUE");print(site.USER_BASE);print("USER_BASE_VALUE");"
+20:34:50.339 [warn] Failed to get activated env vars for /bin/python3 in 108ms
+20:34:50.367 [info] Process Execution: /bin/python3 -m pip list
+20:34:50.374 [info] Process Execution: /bin/python3 -c "import ipykernel; print(ipykernel.__version__); print("5dc3a68c-e34e-4080-9c3e-2a532b2ccb4d"); print(ipykernel.__file__)"
+20:34:50.383 [info] Process Execution: /bin/python3 -m ipykernel_launcher --f=~/.local/share/jupyter/runtime/kernel-v36c6a0e1e0d043f937637286cb1b09fde2a71efd2.json
+    > cwd: ~/project
+20:34:53.464 [info] Kernel successfully started
+20:34:53.471 [info] Process Execution: /bin/python3 ~/project/.vscode-data/extensions/ms-toolsai.jupyter-2025.9.1-universal/pythonFiles/printJupyterDataDir.py
+20:37:21.446 [info] Dispose Kernel '~/project/teste_lake.ipynb' associated with '~/project/teste_lake.ipynb'
+20:37:21.485 [warn] Failed to delete connection file file://~/.local/share/jupyter/runtime/kernel-v36c6a0e1e0d043f937637286cb1b09fde2a71efd2.json for pid 1666 [Canceled (FileSystemError): Canceled
+	at ar._handleError (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:535:22201)
+	at Object.stat (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:535:19119)
+	at async ou.delete (~/project/.vscode-data/extensions/ms-toolsai.jupyter-2025.9.1-universal/dist/extension.node.js:236:16320)
+	at async ~/project/.vscode-data/extensions/ms-toolsai.jupyter-2025.9.1-universal/dist/extension.node.js:308:469] {
+  code: 'Unknown'
+}

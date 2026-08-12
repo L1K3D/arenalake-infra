@@ -1,0 +1,80 @@
+2026-08-12 20:23:38.595 [info] Extension host with pid 55 started
+2026-08-12 20:23:38.630 [info] Lock '/home/coder/project/.vscode-data/data/User/workspaceStorage/-4c815e8/vscode.lock': Lock acquired.
+2026-08-12 20:23:38.838 [info] ExtensionService#_doActivateExtension vscode.github-authentication, startup: false, activationEvent: 'onAuthenticationRequest:github'
+2026-08-12 20:23:38.840 [info] ExtensionService#_doActivateExtension vscode.ipynb, startup: false, activationEvent: 'onNotebookSerializer:jupyter-notebook'
+2026-08-12 20:23:38.840 [info] ExtensionService#_doActivateExtension vscode.configuration-editing, startup: false, activationEvent: 'onLanguage:json'
+2026-08-12 20:23:38.840 [info] ExtensionService#_doActivateExtension vscode.extension-editing, startup: false, activationEvent: 'onLanguage:json'
+2026-08-12 20:23:38.840 [info] ExtensionService#_doActivateExtension vscode.json-language-features, startup: false, activationEvent: 'onLanguage:json'
+2026-08-12 20:23:38.841 [info] ExtensionService#_doActivateExtension vscode.npm, startup: false, activationEvent: 'onLanguage:json'
+2026-08-12 20:23:38.841 [info] ExtensionService#_doActivateExtension vscode.emmet, startup: false, activationEvent: 'onLanguage'
+2026-08-12 20:23:39.636 [error] Error: connect ENOENT /home/coder/project/.vscode-data/data/code-server-ipc.sock
+	at PipeConnectWrap.afterConnect [as oncomplete] (node:net:1706:16)
+2026-08-12 20:23:39.907 [info] ExtensionService#_doActivateExtension vscode.git-base, startup: true, activationEvent: '*', root cause: vscode.git
+2026-08-12 20:23:40.131 [info] ExtensionService#_doActivateExtension vscode.git, startup: true, activationEvent: '*'
+2026-08-12 20:23:40.131 [info] ExtensionService#_doActivateExtension vscode.github, startup: true, activationEvent: '*'
+2026-08-12 20:23:40.649 [info] Eager extensions activated
+2026-08-12 20:23:40.652 [info] ExtensionService#_doActivateExtension vscode.debug-auto-launch, startup: false, activationEvent: 'onStartupFinished'
+2026-08-12 20:23:40.654 [info] ExtensionService#_doActivateExtension vscode.merge-conflict, startup: false, activationEvent: 'onStartupFinished'
+2026-08-12 20:23:42.234 [info] ExtensionService#_doActivateExtension vscode.tunnel-forwarding, startup: false, activationEvent: 'onTunnel'
+2026-08-12 20:23:42.514 [info] ExtensionService#_doActivateExtension vscode.typescript-language-features, startup: false, activationEvent: 'onLanguage:jsonc'
+2026-08-12 20:24:07.087 [info] ExtensionService#_doActivateExtension ms-toolsai.vscode-jupyter-slideshow, startup: false, activationEvent: 'onNotebook:jupyter-notebook'
+2026-08-12 20:24:07.088 [info] ExtensionService#_doActivateExtension ms-toolsai.vscode-jupyter-cell-tags, startup: false, activationEvent: 'onNotebook:jupyter-notebook'
+2026-08-12 20:24:07.088 [info] ExtensionService#_doActivateExtension ms-toolsai.jupyter, startup: false, activationEvent: 'onLanguage:python'
+2026-08-12 20:24:07.775 [info] ExtensionService#_doActivateExtension ms-toolsai.jupyter-renderers, startup: false, activationEvent: 'api', root cause: ms-toolsai.jupyter
+2026-08-12 20:24:12.440 [info] ExtensionService#_doActivateExtension ms-python.python, startup: false, activationEvent: 'api', root cause: ms-toolsai.jupyter
+2026-08-12 20:24:12.802 [info] ExtensionService#_doActivateExtension ms-python.vscode-python-envs, startup: false, activationEvent: 'onLanguage:python'
+2026-08-12 20:24:13.394 [info] ExtensionService#_doActivateExtension ms-python.debugpy, startup: false, activationEvent: 'onLanguage:python'
+2026-08-12 20:24:16.971 [info] ExtensionService#_doActivateExtension vscode.terminal-suggest, startup: false, activationEvent: 'onTerminalShellIntegration:*'
+2026-08-12 20:26:31.448 [info] Extension host terminating: received terminate message from renderer
+2026-08-12 20:26:31.451 [info] Lock '/home/coder/project/.vscode-data/data/User/workspaceStorage/-4c815e8/vscode.lock': Marking the lockfile as scheduled to be released in 6000 ms.
+2026-08-12 20:26:31.554 [error] TypeError: Cannot read properties of undefined (reading 'subscriptions')
+	at Object.re [as deactivate] (/home/coder/project/.vscode-data/extensions/ms-python.vscode-python-envs-1.36.0-universal/dist/extension.js:2:770294)
+	at p_._deactivate (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:539:14930)
+	at file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:539:12457
+	at Array.map (<anonymous>)
+	at p_._deactivateAll (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:539:12445)
+	at p_.terminate (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:539:12796)
+	at i.terminate (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:541:1072)
+	at da (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:852:11798)
+	at Pp.value (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:852:9939)
+	at T._deliver (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:431:3244)
+	at T.fire (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:431:3562)
+	at fs.fire (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:433:8509)
+	at Lc._receiveMessage (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:433:13409)
+	at Pp.value (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:433:10714)
+	at T._deliver (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:431:3244)
+	at T.fire (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:431:3562)
+	at kx.acceptChunk (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:433:6309)
+	at Pp.value (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:433:5442)
+	at T._deliver (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:431:3244)
+	at T.fire (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:431:3562)
+	at eR._processReadQueue (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:433:25537)
+2026-08-12 20:26:31.564 [error] Error: connect ENOENT /home/coder/project/.vscode-data/data/code-server-ipc.sock
+	at PipeConnectWrap.afterConnect [as oncomplete] (node:net:1706:16)
+2026-08-12 20:26:31.565 [error] Error: connect ENOENT /home/coder/project/.vscode-data/data/code-server-ipc.sock
+	at PipeConnectWrap.afterConnect [as oncomplete] (node:net:1706:16)
+2026-08-12 20:26:31.629 [error] Error: Channel has been closed
+	at r (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:542:3935)
+	at Object.info (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:542:4305)
+	at rw.info (/usr/lib/code-server/lib/vscode/extensions/json-language-features/client/dist/node/jsonClientMain.js:14:709)
+	at ChildProcess.<anonymous> (/usr/lib/code-server/lib/vscode/extensions/json-language-features/client/dist/node/jsonClientMain.js:28:36147)
+	at ChildProcess.emit (node:events:509:28)
+	at ChildProcess._handle.onexit (node:internal/child_process:295:12)
+2026-08-12 20:26:31.685 [error] Error: Channel has been closed
+	at o (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:542:3524)
+	at Object.appendLine (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:542:3663)
+	at P.logOutputMessage (/home/coder/project/.vscode-data/extensions/ms-python.python-2026.4.0-universal/out/client/extension.js:2:2100381)
+	at P.error (/home/coder/project/.vscode-data/extensions/ms-python.python-2026.4.0-universal/out/client/extension.js:2:2100272)
+	at ChildProcess.<anonymous> (/home/coder/project/.vscode-data/extensions/ms-python.python-2026.4.0-universal/out/client/extension.js:2:2317508)
+	at ChildProcess.emit (node:events:509:28)
+	at ChildProcess._handle.onexit (node:internal/child_process:295:12)
+2026-08-12 20:26:33.560 [error] ProxyResolver#resolveProxy undefined Canceled: Canceled
+	at new Fx (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:435:105982)
+	at i._remoteCall (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:435:112034)
+	at r.<computed>.s.charCodeAt.r.<computed> (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:435:108829)
+	at Rg.resolveProxy (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:534:82418)
+	at Object.resolveProxy (file:///usr/lib/code-server/lib/vscode/out/vs/workbench/api/node/extensionHostProcess.js:675:25849)
+	at useProxySettings (/usr/lib/code-server/lib/vscode/node_modules/@vscode/proxy-agent/out/index.js:277:16)
+	at /usr/lib/code-server/lib/vscode/node_modules/@vscode/proxy-agent/out/index.js:214:13
+	at /usr/lib/code-server/lib/vscode/node_modules/@vscode/proxy-agent/out/index.js:1134:13 
+2026-08-12 20:26:36.553 [info] Extension host with pid 55 exiting with code 0

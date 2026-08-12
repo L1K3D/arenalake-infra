@@ -10,7 +10,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Instala as bibliotecas de dados globalmente no container
-RUN pip3 install --no-cache-dir pandas boto3 s3fs pyspark==3.5.6 dotenv ipykernel --break-system-packages
+RUN pip3 install --no-cache-dir pandas boto3 s3fs pyspark==3.5.6 dotenv ipykernel docker --break-system-packages
 
 # Volta para o usuário padrão por segurança
 USER coder
