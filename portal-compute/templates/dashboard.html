@@ -1,77 +1,391 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>ArenaLake Dashboard - {{ usuario }}</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0d1117; color: #c9d1d9; margin: 0; display: flex; height: 100vh; overflow: hidden;}
-        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0d1117;
+            color: #c9d1d9;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
         /* SIDEBAR COLAPSÁVEL */
-        .sidebar { id="sidebar"; width: 250px; background-color: #161b22; border-right: 1px solid #30363d; display: flex; flex-direction: column; z-index: 10; transition: width 0.3s ease; overflow: hidden; white-space: nowrap; }
-        .sidebar.collapsed { width: 70px; }
-        .sidebar.collapsed .menu-text, .sidebar.collapsed .logo-text { opacity: 0; display: none; }
-        
-        .logo-area { padding: 15px 20px; border-bottom: 1px solid #30363d; font-size: 1.2em; font-weight: bold; color: white; display: flex; align-items: center; gap: 10px;}
-        .menu-item { padding: 12px 20px; cursor: pointer; border-left: 3px solid transparent; transition: 0.2s; color: #8b949e; display: flex; align-items: center; gap: 15px; font-size: 1.05em;}
-        .menu-item:hover, .menu-item.active { background-color: #21262d; border-left-color: #58a6ff; color: white; }
-        
+        .sidebar {
+            id="sidebar";
+            width: 250px;
+            background-color: #161b22;
+            border-right: 1px solid #30363d;
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            transition: width 0.3s ease;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        .sidebar.collapsed {
+            width: 70px;
+        }
+
+        .sidebar.collapsed .menu-text,
+        .sidebar.collapsed .logo-text {
+            opacity: 0;
+            display: none;
+        }
+
+        .logo-area {
+            padding: 15px 20px;
+            border-bottom: 1px solid #30363d;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .menu-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            transition: 0.2s;
+            color: #8b949e;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 1.05em;
+        }
+
+        .menu-item:hover,
+        .menu-item.active {
+            background-color: #21262d;
+            border-left-color: #58a6ff;
+            color: white;
+        }
+
         /* ÁREA PRINCIPAL SEM PADDING (Padding movido para as abas específicas) */
-        .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative;}
-        
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
         /* HEADER ENXUTO */
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #30363d; padding: 8px 20px; background-color: #0d1117; z-index: 5;}
-        .header-left { display: flex; align-items: center; gap: 15px; }
-        .header h1 { margin: 0; color: white; font-size: 18px;}
-        .toggle-btn { background: none; border: none; color: #8b949e; font-size: 1.5em; cursor: pointer; padding: 0; transition: color 0.2s;}
-        .toggle-btn:hover { color: white; }
-        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #30363d;
+            padding: 8px 20px;
+            background-color: #0d1117;
+            z-index: 5;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header h1 {
+            margin: 0;
+            color: white;
+            font-size: 18px;
+        }
+
+        .toggle-btn {
+            background: none;
+            border: none;
+            color: #8b949e;
+            font-size: 1.5em;
+            cursor: pointer;
+            padding: 0;
+            transition: color 0.2s;
+        }
+
+        .toggle-btn:hover {
+            color: white;
+        }
+
         /* MÉTRICAS NO TOPO ENXUTAS */
-        .workspace-topbar { display: flex; align-items: center; gap: 12px; }
-        .metric-bar-container { display: flex; align-items: center; gap: 6px; }
-        .metric-bar { width: 100px; height: 10px; background-color: #161b22; border-radius: 4px; overflow: hidden; border: 1px solid #30363d;}
-        .metric-fill-cpu { height: 100%; background-color: #f85149; width: 0%; transition: width 0.5s ease-out; }
-        .metric-fill-ram { height: 100%; background-color: #2ea043; width: 0%; transition: width 0.5s ease-out; }
-        .metric-label { font-weight: bold; font-size: 0.75em; text-transform: uppercase; }
+        .workspace-topbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .metric-bar-container {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .metric-bar {
+            width: 100px;
+            height: 10px;
+            background-color: #161b22;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid #30363d;
+        }
+
+        .metric-fill-cpu {
+            height: 100%;
+            background-color: #f85149;
+            width: 0%;
+            transition: width 0.5s ease-out;
+        }
+
+        .metric-fill-ram {
+            height: 100%;
+            background-color: #2ea043;
+            width: 0%;
+            transition: width 0.5s ease-out;
+        }
+
+        .metric-label {
+            font-weight: bold;
+            font-size: 0.75em;
+            text-transform: uppercase;
+        }
 
         /* ABAS E CONTEÚDO */
-        .tab-content { display: none; flex: 1; flex-direction: column; overflow-y: auto;}
-        .tab-content.active { display: flex; animation: fadeIn 0.3s; }
-        .padded-tab { padding: 20px 30px; } /* Padding apenas para as abas que não são o Workspace */
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        
+        .tab-content {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .tab-content.active {
+            display: flex;
+            animation: fadeIn 0.3s;
+        }
+
+        .padded-tab {
+            padding: 20px 30px;
+        }
+
+        /* Padding apenas para as abas que não são o Workspace */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
         /* WORKSPACE FULLSCREEN */
-        #workspace { padding: 0; overflow: hidden; }
-        #workspace iframe { flex: 1; width: 100%; height: 100%; border: none; background: white; }
-        
-        .card { background: #161b22; padding: 25px; border-radius: 8px; border: 1px solid #30363d; margin-bottom: 20px; flex: 1; display: flex; flex-direction: column;}
-        .btn { padding: 6px 12px; background-color: #238636; color: white; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; font-size: 0.85em; transition: 0.2s;}
-        .btn:hover { background-color: #2ea043; }
-        
-        .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;}
-        .metric-box { background: #0d1117; padding: 20px; border-radius: 8px; border: 1px solid #30363d; text-align: center;}
-        .metric-value { font-size: 2em; font-weight: bold; color: #58a6ff; margin: 10px 0;}
-        .chart-container { display: flex; gap: 20px; margin-top: 20px; }
-        .chart-box { flex: 1; background: #0d1117; padding: 15px; border-radius: 8px; border: 1px solid #30363d; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #30363d; }
-        th { color: #8b949e; font-size: 0.9em; text-transform: uppercase;}
-        .file-link { color: #58a6ff; cursor: pointer; text-decoration: underline; }
-        .file-link:hover { color: #79c0ff; }
-        .upload-area { background: #0d1117; padding: 15px; border-radius: 8px; border: 1px dashed #30363d; margin-bottom: 20px; display: flex; gap: 15px; align-items: center;}
-        
-        .side-panel { position: fixed; top: 0; right: -450px; width: 400px; height: 100vh; background: #161b22; border-left: 1px solid #30363d; transition: right 0.3s ease; box-shadow: -5px 0 15px rgba(0,0,0,0.5); padding: 20px; overflow-y: auto; z-index: 100; }
-        .side-panel.open { right: 0; }
-        .close-btn { float: right; cursor: pointer; color: #8b949e; font-size: 1.5em; font-weight: bold; border: none; background: none;}
-        .close-btn:hover { color: white; }
-        .meta-tag { background: #21262d; padding: 5px 10px; border-radius: 5px; font-size: 0.85em; color: #c9d1d9; display: inline-block; margin-bottom: 10px; margin-right: 5px; border: 1px solid #30363d;}
-        .preview-table { width: 100%; border-collapse: collapse; font-size: 0.8em; margin-top: 15px;}
-        .preview-table th, .preview-table td { padding: 6px; border: 1px solid #30363d; }
-        .preview-table th { background: #0d1117; }
-        .preview-img { max-width: 100%; border-radius: 8px; margin-top: 15px; border: 1px solid #30363d;}
-        .preview-txt { background: #0d1117; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 0.85em; white-space: pre-wrap; overflow-x: auto; border: 1px solid #30363d; margin-top: 15px;}
+        #workspace {
+            padding: 0;
+            overflow: hidden;
+        }
+
+        #workspace iframe {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: white;
+        }
+
+        .card {
+            background: #161b22;
+            padding: 25px;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            margin-bottom: 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .btn {
+            padding: 6px 12px;
+            background-color: #238636;
+            color: white;
+            font-weight: bold;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 0.85em;
+            transition: 0.2s;
+        }
+
+        .btn:hover {
+            background-color: #2ea043;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .metric-box {
+            background: #0d1117;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #58a6ff;
+            margin: 10px 0;
+        }
+
+        .chart-container {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .chart-box {
+            flex: 1;
+            background: #0d1117;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th,
+        td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #30363d;
+        }
+
+        th {
+            color: #8b949e;
+            font-size: 0.9em;
+            text-transform: uppercase;
+        }
+
+        .file-link {
+            color: #58a6ff;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .file-link:hover {
+            color: #79c0ff;
+        }
+
+        .upload-area {
+            background: #0d1117;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px dashed #30363d;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .side-panel {
+            position: fixed;
+            top: 0;
+            right: -450px;
+            width: 400px;
+            height: 100vh;
+            background: #161b22;
+            border-left: 1px solid #30363d;
+            transition: right 0.3s ease;
+            box-shadow: -5px 0 15px rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .side-panel.open {
+            right: 0;
+        }
+
+        .close-btn {
+            float: right;
+            cursor: pointer;
+            color: #8b949e;
+            font-size: 1.5em;
+            font-weight: bold;
+            border: none;
+            background: none;
+        }
+
+        .close-btn:hover {
+            color: white;
+        }
+
+        .meta-tag {
+            background: #21262d;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.85em;
+            color: #c9d1d9;
+            display: inline-block;
+            margin-bottom: 10px;
+            margin-right: 5px;
+            border: 1px solid #30363d;
+        }
+
+        .preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8em;
+            margin-top: 15px;
+        }
+
+        .preview-table th,
+        .preview-table td {
+            padding: 6px;
+            border: 1px solid #30363d;
+        }
+
+        .preview-table th {
+            background: #0d1117;
+        }
+
+        .preview-img {
+            max-width: 100%;
+            border-radius: 8px;
+            margin-top: 15px;
+            border: 1px solid #30363d;
+        }
+
+        .preview-txt {
+            background: #0d1117;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 0.85em;
+            white-space: pre-wrap;
+            overflow-x: auto;
+            border: 1px solid #30363d;
+            margin-top: 15px;
+        }
     </style>
 </head>
+
 <body>
     <div class="sidebar" id="sidebar">
         <div class="logo-area">
@@ -98,54 +412,92 @@
                 <button class="toggle-btn" onclick="toggleSidebar()">☰</button>
                 <h1>Ambiente de {{ usuario }}</h1>
             </div>
-            
+
             <div class="workspace-topbar">
                 <div class="metric-bar-container">
-                    <span class="metric-label" style="color: #f85149;">CPU <span id="wsCpuText" style="color: #c9d1d9;">--%</span></span>
-                    <div class="metric-bar"><div id="wsCpuBar" class="metric-fill-cpu"></div></div>
+                    <span class="metric-label" style="color: #f85149;">CPU <span id="wsCpuText"
+                            style="color: #c9d1d9;">--%</span></span>
+                    <div class="metric-bar">
+                        <div id="wsCpuBar" class="metric-fill-cpu"></div>
+                    </div>
                 </div>
-                
+
                 <div class="metric-bar-container">
-                    <span class="metric-label" style="color: #2ea043;">RAM <span id="wsRamText" style="color: #c9d1d9;">--%</span></span>
-                    <div class="metric-bar"><div id="wsRamBar" class="metric-fill-ram"></div></div>
+                    <span class="metric-label" style="color: #2ea043;">RAM <span id="wsRamText"
+                            style="color: #c9d1d9;">--%</span></span>
+                    <div class="metric-bar">
+                        <div id="wsRamBar" class="metric-fill-ram"></div>
+                    </div>
                 </div>
-                
+
                 <form action="/login" method="post" style="margin: 0; margin-left: 10px;">
-		    <input type="hidden" name="usuario" value="{{ usuario }}">
-		    <input type="hidden" name="senha" value="123456"> <!-- Senha padrão para bypass rápido -->
-		    <button type="submit" class="btn" style="background-color: #21262d; border: 1px solid #30363d;" title="Alterar perfil de Hardware">🔄 Reiniciar / Setup</button>
-		</form>
-                
+                    <input type="hidden" name="usuario" value="{{ usuario }}">
+                    <input type="hidden" name="senha" value="123456"> <!-- Senha padrão para bypass rápido -->
+                    <button type="submit" class="btn" style="background-color: #21262d; border: 1px solid #30363d;"
+                        title="Alterar perfil de Hardware">🔄 Reiniciar / Setup</button>
+                </form>
+
                 <span style="color: #2ea043; font-weight: bold; font-size: 0.85em; margin-left: 5px;">● Online</span>
             </div>
         </div>
 
         <!-- ABA WORKSPACE FULLSCREEN (Sem margens pretas ao redor) -->
         <div id="workspace" class="tab-content active" style="position: relative;">
-	    <div id="loadingWorkspace" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #0d1117; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 5; color: #8b949e;">
-	        <div style="font-size: 2em; margin-bottom: 15px;">⏳</div>
-	        <h3>Preparando o seu Workspace...</h3>
-	        <p>Isso pode levar alguns segundos na primeira inicialização.</p>
-	    </div>
-	    <iframe src="http://{{ domain }}/?folder=/home/coder/project" style="flex: 1; width: 100%; height: 100%; border: none; background: white;" onload="document.getElementById('loadingWorkspace').style.display='none';"></iframe>
-	</div>
+            <div id="loadingWorkspace"
+                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #0d1117; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 5; color: #8b949e;">
+                <div style="font-size: 2em; margin-bottom: 15px;">⏳</div>
+                <h3>Preparando o seu Workspace...</h3>
+                <p>Isso pode levar alguns segundos na primeira inicialização.</p>
+            </div>
+            <iframe src="http://{{ domain }}/?folder=/home/coder/project"
+                style="flex: 1; width: 100%; height: 100%; border: none; background: white;"
+                onload="document.getElementById('loadingWorkspace').style.display='none';"></iframe>
+        </div>
 
         <div id="data" class="tab-content padded-tab">
             <div class="card" style="display: block;">
                 <h2 style="margin-top: 0;">MinIO Data Lake</h2>
-                <p style="color: #8b949e; margin-bottom: 20px;">Arquivos disponíveis para leitura via Boto3/Pandas no seu notebook.</p>
-                
+                <p style="color: #8b949e; margin-bottom: 20px;">Explore os buckets e pastas do seu Data Lake
+                    corporativo.</p>
+
                 <div class="upload-area">
                     <input type="file" id="fileInput" accept=".csv,.txt,.png,.jpg,.jpeg" style="color: white; flex: 1;">
-                    <select id="bucketSelect" style="padding: 8px; background: #161b22; color: white; border: 1px solid #30363d; border-radius: 4px;">
+
+                    <!-- Dropdown de Buckets -->
+                    <select id="bucketSelect" onchange="onBucketChange()"
+                        style="padding: 8px; background: #161b22; color: white; border: 1px solid #30363d; border-radius: 4px;">
                         <option value="bronze">Bronze</option>
                     </select>
+
+                    <!-- Novo Dropdown de Pastas / Diretórios -->
+                    <select id="folderSelect" onchange="renderCatalogTable()"
+                        style="padding: 8px; background: #161b22; color: white; border: 1px solid #30363d; border-radius: 4px;">
+                        <option value="/">📁 (Raiz)</option>
+                    </select>
+
                     <button class="btn" onclick="uploadFile()">⬆️ Enviar Arquivo</button>
                 </div>
 
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+                    <button class="btn" onclick="loadCatalog()"
+                        style="background-color: #21262d; border: 1px solid #30363d; color: #8b949e;">
+                        🔄 Atualizar Lista
+                    </button>
+                </div>
+
                 <table id="catalogTable">
-                    <thead><tr><th>Bucket</th><th>Arquivo / Tabela</th><th>Ação</th></tr></thead>
-                    <tbody><tr><td colspan="3" style="text-align:center;">Carregando dados...</td></tr></tbody>
+                    <thead>
+                        <tr>
+                            <th>Bucket</th>
+                            <th>Arquivo / Dataset</th>
+                            <th>Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="3" style="text-align:center;">Carregando dados...</td>
+                        </tr>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -165,7 +517,7 @@
                         <div style="color: #8b949e; font-size: 0.9em;">Processamento ativo</div>
                     </div>
                 </div>
-                
+
                 <div class="chart-container">
                     <div class="chart-box">
                         <canvas id="ramChart" height="100"></canvas>
@@ -179,83 +531,88 @@
 
         <div id="spark" class="tab-content padded-tab">
             <div class="card" style="padding: 10px;">
-		<div id="spark-native-dashboard" style="padding: 20px; color: #c9d1d9; font-family: sans-serif; height: 100%; overflow-y: auto;">
-		    <h2 style="color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 10px; margin-top: 0;">⚡ ArenaLake Spark Monitor</h2>
-		    
-		    <div style="display: flex; gap: 20px; margin-bottom: 20px;">
-		        <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; flex: 1;">
-		            <h4 style="margin: 0 0 10px 0; color: #8b949e;">🖥️ Status do Cluster (Workers)</h4>
-		            <div id="spark-workers-content" style="font-size: 14px;">Carregando métricas...</div>
-		        </div>
-		    </div>
+                <div id="spark-native-dashboard"
+                    style="padding: 20px; color: #c9d1d9; font-family: sans-serif; height: 100%; overflow-y: auto;">
+                    <h2 style="color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 10px; margin-top: 0;">⚡
+                        ArenaLake Spark Monitor</h2>
 
-		    <h3 style="color: #3fb950; margin-top: 30px; font-size: 18px;">🚀 Aplicações em Execução</h3>
-		    <div id="spark-active-apps" style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; font-size: 14px;">
-		        Buscando processos ativos...
-		    </div>
+                    <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+                        <div
+                            style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; flex: 1;">
+                            <h4 style="margin: 0 0 10px 0; color: #8b949e;">🖥️ Status do Cluster (Workers)</h4>
+                            <div id="spark-workers-content" style="font-size: 14px;">Carregando métricas...</div>
+                        </div>
+                    </div>
 
-		    <h3 style="color: #8b949e; margin-top: 30px; font-size: 18px;">✅ Últimas Aplicações Concluídas</h3>
-		    <div id="spark-completed-apps" style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; font-size: 14px; margin-bottom: 40px;">
-		        Buscando histórico de execução...
-		    </div>
-		</div>
+                    <h3 style="color: #3fb950; margin-top: 30px; font-size: 18px;">🚀 Aplicações em Execução</h3>
+                    <div id="spark-active-apps"
+                        style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; font-size: 14px;">
+                        Buscando processos ativos...
+                    </div>
 
-		<script>
-		    function formatDuration(ms) {
-		        if (!ms) return '0 s';
-		        const seconds = ms / 1000;
-		        if (seconds < 60) return seconds.toFixed(1) + ' s';
-		        return (seconds / 60).toFixed(1) + ' min';
-		    }
+                    <h3 style="color: #8b949e; margin-top: 30px; font-size: 18px;">✅ Últimas Aplicações Concluídas</h3>
+                    <div id="spark-completed-apps"
+                        style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; font-size: 14px; margin-bottom: 40px;">
+                        Buscando histórico de execução...
+                    </div>
+                </div>
 
-		    const tableStyle = `width: 100%; text-align: left; border-collapse: collapse;`;
-		    const thStyle = `border-bottom: 1px solid #30363d; padding-bottom: 8px; color: #8b949e; font-weight: normal;`;
-		    const tdStyle = `padding: 10px 0; border-bottom: 1px solid #21262d;`;
+                <script>
+                    function formatDuration(ms) {
+                        if (!ms) return '0 s';
+                        const seconds = ms / 1000;
+                        if (seconds < 60) return seconds.toFixed(1) + ' s';
+                        return (seconds / 60).toFixed(1) + ' min';
+                    }
 
-		    // Guarda qual app o usuário clicou para expandir os jobs
-		    let expandedAppId = null; 
+                    const tableStyle = `width: 100%; text-align: left; border-collapse: collapse;`;
+                    const thStyle = `border-bottom: 1px solid #30363d; padding-bottom: 8px; color: #8b949e; font-weight: normal;`;
+                    const tdStyle = `padding: 10px 0; border-bottom: 1px solid #21262d;`;
 
-		    async function updateSparkDashboard() {
-		        try {
-		            const res = await fetch('/api/spark/status');
-		            const data = await res.json();
+                    // Guarda qual app o usuário clicou para expandir os jobs
+                    let expandedAppId = null;
 
-		            if (data.status !== 'success') return;
+                    async function updateSparkDashboard() {
+                        try {
+                            const res = await fetch('/api/spark/status');
+                            const data = await res.json();
 
-		            // 1. WORKERS
-		            let workersHtml = '';
-		            if(data.workers && data.workers.length === 0) {
-		                workersHtml = '<span style="color: #8b949e;">Nenhum worker alocado/ativo no momento.</span>';
-		            } else {
-		                data.workers.forEach(w => {
-		                    workersHtml += `
+                            if (data.status !== 'success') return;
+
+                            // 1. WORKERS
+                            let workersHtml = '';
+                            if (data.workers && data.workers.length === 0) {
+                                workersHtml = '<span style="color: #8b949e;">Nenhum worker alocado/ativo no momento.</span>';
+                            } else {
+                                data.workers.forEach(w => {
+                                    workersHtml += `
 		                        <div style="margin-bottom: 5px;">
 		                            <span style="color: #c9d1d9;"><strong>ID:</strong> ${w.id}</span><br>
 		                            <span style="color: #8b949e;"><strong>Host:</strong> ${w.host}:${w.port}</span> | 
 		                            <span style="color: #8b949e;"><strong>Cores:</strong> ${w.coresused} / ${w.cores}</span> | 
 		                            <span style="color: #8b949e;"><strong>Memória:</strong> ${w.memoryused} / ${w.memory} MB</span>
 		                        </div>`;
-		                });
-		            }
-		            document.getElementById('spark-workers-content').innerHTML = workersHtml;
+                                });
+                            }
+                            document.getElementById('spark-workers-content').innerHTML = workersHtml;
 
-		            // 2. ACTIVE APPS (Tabela Interativa)
-		            let activeHtml = '';
-		            if (data.active_apps && data.active_apps.length === 0) {
-		                activeHtml = '<span style="color: #8b949e;">Nenhuma aplicação rodando no momento. Inicie um processo no seu Jupyter.</span>';
-		                expandedAppId = null;
-		            } else {
-		                activeHtml = `<table style="${tableStyle}">
+                            // 2. ACTIVE APPS (Tabela Interativa)
+                            let activeHtml = '';
+                            if (data.active_apps && data.active_apps.length === 0) {
+                                activeHtml = '<span style="color: #8b949e;">Nenhuma aplicação rodando no momento. Inicie um processo no seu Jupyter.</span>';
+                                expandedAppId = null;
+                            } else {
+                                activeHtml = `<table style="${tableStyle}">
 		                                <tr><th style="${thStyle}">Nome do Job</th><th style="${thStyle}">Usuário</th><th style="${thStyle}">Cores Usados</th><th style="${thStyle}">Memória/Nó</th><th style="${thStyle}">Duração</th></tr>`;
-		                
-		                data.active_apps.forEach(app => {
-		                    let isExpanded = (expandedAppId === app.id);
-		                    let displayState = isExpanded ? 'table-row' : 'none';
-		                    let bgHover = isExpanded ? '#21262d' : 'transparent';
-		                    let seta = isExpanded ? '▼' : '▶';
 
-		                    // Linha principal (Clicável)
-		                    activeHtml += `<tr style="cursor: pointer; background: ${bgHover}; transition: 0.2s;" 
+                                data.active_apps.forEach(app => {
+                                    let isExpanded = (expandedAppId === app.id);
+                                    let displayState = isExpanded ? 'table-row' : 'none';
+                                    let bgHover = isExpanded ? '#21262d' : 'transparent';
+                                    let seta = isExpanded ? '▼' : '▶';
+
+                                    // Linha principal (Clicável)
+                                    activeHtml += `<tr style="cursor: pointer; background: ${bgHover}; transition: 0.2s;" 
 		                                       onclick="toggleAppDetails('${app.id}')" 
 		                                       onmouseover="this.style.background='#21262d'" 
 		                                       onmouseout="this.style.background='${isExpanded ? '#21262d' : 'transparent'}'">
@@ -265,98 +622,98 @@
 		                                    <td style="${tdStyle} color: #c9d1d9;">${app.memoryperslave} MB</td>
 		                                    <td style="${tdStyle} color: #c9d1d9;">⏳ ${formatDuration(app.duration)}</td>
 		                                   </tr>`;
-		                    
-		                    // Gaveta de detalhes (Jobs em andamento)
-		                    activeHtml += `<tr id="details-${app.id}" style="display: ${displayState}; background: #0d1117;">
+
+                                    // Gaveta de detalhes (Jobs em andamento)
+                                    activeHtml += `<tr id="details-${app.id}" style="display: ${displayState}; background: #0d1117;">
 		                                     <td colspan="5" style="padding: 15px; border-bottom: 1px solid #30363d;" id="content-${app.id}">
 		                                        <span style="color: #8b949e;">Buscando métricas de paralelismo em tempo real...</span>
 		                                     </td>
 		                                   </tr>`;
-		                });
-		                activeHtml += `</table>`;
-		            }
-		            document.getElementById('spark-active-apps').innerHTML = activeHtml;
+                                });
+                                activeHtml += `</table>`;
+                            }
+                            document.getElementById('spark-active-apps').innerHTML = activeHtml;
 
-		            // Se tiver um app expandido, busca e desenha as barrinhas imediatamente
-		            if (expandedAppId) {
-		                refreshJobProgress(expandedAppId);
-		            }
+                            // Se tiver um app expandido, busca e desenha as barrinhas imediatamente
+                            if (expandedAppId) {
+                                refreshJobProgress(expandedAppId);
+                            }
 
-		            // 3. COMPLETED APPS
-		            let completedHtml = '';
-		            if (data.completed_apps && data.completed_apps.length === 0) {
-		                completedHtml = '<span style="color: #8b949e;">Nenhum histórico recente de execuções.</span>';
-		            } else {
-		                completedHtml = `<table style="${tableStyle}">
+                            // 3. COMPLETED APPS
+                            let completedHtml = '';
+                            if (data.completed_apps && data.completed_apps.length === 0) {
+                                completedHtml = '<span style="color: #8b949e;">Nenhum histórico recente de execuções.</span>';
+                            } else {
+                                completedHtml = `<table style="${tableStyle}">
 		                                <tr><th style="${thStyle}">Nome do Job</th><th style="${thStyle}">Usuário</th><th style="${thStyle}">Estado</th><th style="${thStyle}">Duração</th></tr>`;
-		                data.completed_apps.forEach(app => {
-		                    let stateColor = app.state === 'FINISHED' ? '#3fb950' : (app.state === 'FAILED' || app.state === 'KILLED' ? '#f85149' : '#d29922');
-		                    completedHtml += `<tr>
+                                data.completed_apps.forEach(app => {
+                                    let stateColor = app.state === 'FINISHED' ? '#3fb950' : (app.state === 'FAILED' || app.state === 'KILLED' ? '#f85149' : '#d29922');
+                                    completedHtml += `<tr>
 		                                        <td style="${tdStyle} color: #c9d1d9;">${app.name}</td>
 		                                        <td style="${tdStyle} color: #c9d1d9;">${app.user}</td>
 		                                        <td style="${tdStyle} font-weight: bold; color: ${stateColor};">${app.state}</td>
 		                                        <td style="${tdStyle} color: #c9d1d9;">⏱️ ${formatDuration(app.duration)}</td>
 		                                       </tr>`;
-		                });
-		                completedHtml += `</table>`;
-		            }
-		            document.getElementById('spark-completed-apps').innerHTML = completedHtml;
+                                });
+                                completedHtml += `</table>`;
+                            }
+                            document.getElementById('spark-completed-apps').innerHTML = completedHtml;
 
-		        } catch (error) {
-		            console.error('Erro na engine do dashboard:', error);
-		        }
-		    }
+                        } catch (error) {
+                            console.error('Erro na engine do dashboard:', error);
+                        }
+                    }
 
-		    // Função que aciona quando clica na linha da tabela
-		    function toggleAppDetails(appId) {
-		        if (expandedAppId === appId) {
-		            expandedAppId = null; // Clicou de novo, encolhe
-		            updateSparkDashboard(); // Força re-render limpo
-		        } else {
-		            expandedAppId = appId; // Expande o novo
-		            updateSparkDashboard();
-		        }
-		    }
+                    // Função que aciona quando clica na linha da tabela
+                    function toggleAppDetails(appId) {
+                        if (expandedAppId === appId) {
+                            expandedAppId = null; // Clicou de novo, encolhe
+                            updateSparkDashboard(); // Força re-render limpo
+                        } else {
+                            expandedAppId = appId; // Expande o novo
+                            updateSparkDashboard();
+                        }
+                    }
 
-		    // Engine que desenha as barras de progresso do Spark
-		    // Engine que desenha as barras de progresso do Spark
-		    async function refreshJobProgress(appId) {
-		        const contentDiv = document.getElementById(`content-${appId}`);
-		        if (!contentDiv) return;
+                    // Engine que desenha as barras de progresso do Spark
+                    // Engine que desenha as barras de progresso do Spark
+                    async function refreshJobProgress(appId) {
+                        const contentDiv = document.getElementById(`content-${appId}`);
+                        if (!contentDiv) return;
 
-		        try {
-		            const res = await fetch(`/api/spark/app/${appId}/jobs`);
-		            const data = await res.json();
+                        try {
+                            const res = await fetch(`/api/spark/app/${appId}/jobs`);
+                            const data = await res.json();
 
-		            // Se der erro de conexão, agora ele MOSTRA na tela em vermelho o porquê
-		            if (data.status !== 'success') {
-		                contentDiv.innerHTML = `<span style="color:#f85149">❌ Falha ao buscar métricas: ${data.message}</span>`;
-		                return;
-		            }
+                            // Se der erro de conexão, agora ele MOSTRA na tela em vermelho o porquê
+                            if (data.status !== 'success') {
+                                contentDiv.innerHTML = `<span style="color:#f85149">❌ Falha ao buscar métricas: ${data.message}</span>`;
+                                return;
+                            }
 
-		            // Se a array de jobs estiver vazia, o usuário ainda não rodou ações pesadas
-		            if (!data.jobs || data.jobs.length === 0) {
-		                contentDiv.innerHTML = `<span style="color:#8b949e">Aguardando início de processamento... Execute uma ação (como .show() ou .write) no Jupyter!</span>`;
-		                return;
-		            }
+                            // Se a array de jobs estiver vazia, o usuário ainda não rodou ações pesadas
+                            if (!data.jobs || data.jobs.length === 0) {
+                                contentDiv.innerHTML = `<span style="color:#8b949e">Aguardando início de processamento... Execute uma ação (como .show() ou .write) no Jupyter!</span>`;
+                                return;
+                            }
 
-		            let jobsHtml = `<div style="display: flex; flex-direction: column; gap: 12px; margin-top: 5px;">`;
-		            
-		            // Ordena para que os jobs mais recentes fiquem no topo
-		            const sortedJobs = data.jobs.sort((a, b) => b.jobId - a.jobId);
-		            
-		            sortedJobs.forEach(job => {
-		                const total = job.numTasks || 1;
-		                const completed = job.numCompletedTasks || 0;
-		                const active = job.numActiveTasks || 0;
-		                
-		                // Cálculo de Porcentagem das Barrinhas
-		                const percComp = (completed / total) * 100;
-		                const percAct = (active / total) * 100;
+                            let jobsHtml = `<div style="display: flex; flex-direction: column; gap: 12px; margin-top: 5px;">`;
 
-		                const statusColor = job.status === 'SUCCEEDED' ? '#3fb950' : (job.status === 'RUNNING' ? '#58a6ff' : '#8b949e');
-		                
-		                jobsHtml += `
+                            // Ordena para que os jobs mais recentes fiquem no topo
+                            const sortedJobs = data.jobs.sort((a, b) => b.jobId - a.jobId);
+
+                            sortedJobs.forEach(job => {
+                                const total = job.numTasks || 1;
+                                const completed = job.numCompletedTasks || 0;
+                                const active = job.numActiveTasks || 0;
+
+                                // Cálculo de Porcentagem das Barrinhas
+                                const percComp = (completed / total) * 100;
+                                const percAct = (active / total) * 100;
+
+                                const statusColor = job.status === 'SUCCEEDED' ? '#3fb950' : (job.status === 'RUNNING' ? '#58a6ff' : '#8b949e');
+
+                                jobsHtml += `
 		                    <div style="background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 12px;">
 		                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
 		                            <strong style="color: #c9d1d9; font-size: 13px;">Job ID ${job.jobId} 
@@ -374,22 +731,22 @@
 		                        </div>
 		                    </div>
 		                `;
-		            });
-		            
-		            jobsHtml += `</div>`;
-		            contentDiv.innerHTML = jobsHtml;
+                            });
 
-		        } catch (error) {
-		            contentDiv.innerHTML = `<span style="color:#f85149">Erro ao processar as métricas na tela.</span>`;
-		        }
-		    }
+                            jobsHtml += `</div>`;
+                            contentDiv.innerHTML = jobsHtml;
 
-		    // Inicializa
-		    updateSparkDashboard();
-		    
-		    // Auto-refresh inteligente: a cada 2.5s ele re-busca silenciosamente
-		    setInterval(updateSparkDashboard, 2500);
-		</script>
+                        } catch (error) {
+                            contentDiv.innerHTML = `<span style="color:#f85149">Erro ao processar as métricas na tela.</span>`;
+                        }
+                    }
+
+                    // Inicializa
+                    updateSparkDashboard();
+
+                    // Auto-refresh inteligente: a cada 2.5s ele re-busca silenciosamente
+                    setInterval(updateSparkDashboard, 2500);
+                </script>
             </div>
         </div>
     </div>
@@ -434,7 +791,7 @@
         });
 
         function initCharts() {
-            if(ramChart) return;
+            if (ramChart) return;
             const ctxRam = document.getElementById('ramChart').getContext('2d');
             ramChart = new Chart(ctxRam, {
                 type: 'line',
@@ -456,43 +813,109 @@
             document.getElementById(tabId).classList.add('active');
             element.classList.add('active');
             closePanel();
-            
-            if(tabId === 'data') loadCatalog();
-            if(tabId === 'compute') initCharts();
+
+            if (tabId === 'data') loadCatalog();
+            if (tabId === 'compute') initCharts();
         }
+
+        let globalCatalogData = {};
 
         async function loadCatalog() {
             try {
                 const res = await fetch('/api/catalog');
                 const data = await res.json();
-                let tbody = '';
-                if(data.status === 'success' && Object.keys(data.data).length > 0) {
-                    for (const [bucket, files] of Object.entries(data.data)) {
-                        if(files.length === 0) {
-                            tbody += `<tr><td>${bucket}</td><td style="color:#8b949e">Bucket Vazio</td><td>-</td></tr>`;
-                        } else {
-                            files.forEach(f => {
-                                tbody += `<tr>
-                                    <td>${bucket}</td>
-                                    <td><span class="file-link" onclick="openPreview('${bucket}', '${f}')">${f}</span></td>
-                                    <td><span style="font-size:0.8em; padding:3px 8px; background:#21262d; border-radius:3px;">Pronto</span></td>
-                                </tr>`;
-                            });
-                        }
-                    }
-                } else {
-                    tbody = '<tr><td colspan="3" style="text-align:center;">Nenhum dado encontrado no DataLake.</td></tr>';
+                if (data.status === 'success') {
+                    globalCatalogData = data.data;
+                    updateFolderDropdown();
+                    renderCatalogTable();
                 }
-                document.querySelector('#catalogTable tbody').innerHTML = tbody;
             } catch (e) {
                 document.querySelector('#catalogTable tbody').innerHTML = '<tr><td colspan="3" style="text-align:center; color:red;">Erro ao conectar no MinIO.</td></tr>';
             }
         }
 
+        function onBucketChange() {
+            updateFolderDropdown();
+            renderCatalogTable();
+        }
+
+        function updateFolderDropdown() {
+            const bucket = document.getElementById('bucketSelect').value;
+            const folderSelect = document.getElementById('folderSelect');
+            const files = globalCatalogData[bucket] || [];
+
+            // Extrai todas as pastas exclusivas (ex: "tabelas")
+            let folders = new Set();
+            files.forEach(f => {
+                if (f.includes('/')) {
+                    const pastaPai = f.split('/')[0];
+                    folders.add(pastaPai);
+                }
+            });
+
+            let optionsHtml = '<option value="/">📁 (Raiz - Arquivos Soltos)</option>';
+            folders.forEach(folder => {
+                optionsHtml += `<option value="${folder}">📁 ${folder}</option>`;
+            });
+
+            folderSelect.innerHTML = optionsHtml;
+        }
+
+        function renderCatalogTable() {
+            const bucket = document.getElementById('bucketSelect').value;
+            const selectedFolder = document.getElementById('folderSelect').value;
+            const files = globalCatalogData[bucket] || [];
+            let tbody = '';
+
+            // Conjunto para evitar duplicar exibição de datasets particionados do Spark
+            let displayedDatasets = new Set();
+            let filteredFiles = [];
+
+            files.forEach(f => {
+                if (selectedFolder === '/') {
+                    // Mostra apenas arquivos que estão na raiz (sem barra)
+                    if (!f.includes('/')) {
+                        filteredFiles.push({ name: f, display: f });
+                    }
+                } else {
+                    // Mostra o conteúdo de dentro da pasta selecionada
+                    if (f.startsWith(selectedFolder + '/')) {
+                        let subPath = f.substring(selectedFolder.length + 1);
+
+                        // Se for uma tabela do Spark (contém part- ou parquet), agrupa visualmente como Dataset
+                        if (subPath.includes('part-') || subPath.endsWith('.parquet')) {
+                            let datasetName = subPath.split('/')[0];
+                            let datasetKey = `${selectedFolder}/${datasetName}`;
+                            if (!displayedDatasets.has(datasetKey)) {
+                                displayedDatasets.add(datasetKey);
+                                filteredFiles.push({ name: f, display: `📁 ${datasetName} (Dataset Spark)` });
+                            }
+                        } else {
+                            filteredFiles.push({ name: f, display: subPath });
+                        }
+                    }
+                }
+            });
+
+            if (filteredFiles.length > 0) {
+                filteredFiles.forEach(item => {
+                    tbody += `<tr>
+                        <td>${bucket}</td>
+                        <td><span class="file-link" onclick="openPreview('${bucket}', '${item.name}')">${item.display}</span></td>
+                        <td><span style="font-size:0.8em; padding:3px 8px; background:#21262d; border-radius:3px;">Pronto</span></td>
+                    </tr>`;
+                });
+            } else {
+                tbody = '<tr><td colspan="3" style="text-align:center; color:#8b949e;">Nenhum arquivo ou tabela encontrado nesta pasta.</td></tr>';
+            }
+
+            document.querySelector('#catalogTable tbody').innerHTML = tbody;
+        }
+
         async function uploadFile() {
             const fileInput = document.getElementById('fileInput');
             const bucket = document.getElementById('bucketSelect').value;
-            if(fileInput.files.length === 0) return alert("Selecione um arquivo primeiro!");
+            if (fileInput.files.length === 0) return alert("Selecione um arquivo primeiro!");
 
             const formData = new FormData();
             formData.append("file", fileInput.files[0]);
@@ -502,7 +925,7 @@
             try {
                 const res = await fetch('/api/upload', { method: 'POST', body: formData });
                 const result = await res.json();
-                if(result.status === 'success') {
+                if (result.status === 'success') {
                     fileInput.value = "";
                     loadCatalog();
                 } else {
@@ -517,22 +940,22 @@
             document.getElementById('sidePanel').classList.add('open');
             document.getElementById('spFilename').innerText = filename;
             document.getElementById('spContent').innerHTML = "<div style='color:#8b949e'>Gerando visualização e extraindo metadados...</div>";
-            
+
             try {
                 const res = await fetch(`/api/preview/${bucket}/${filename}`);
                 const result = await res.json();
 
-                if(result.status === 'success') {
+                if (result.status === 'success') {
                     document.getElementById('spDate').innerText = result.data.last_modified;
                     document.getElementById('spSize').innerText = result.data.size;
                     document.getElementById('spUploader').innerText = result.data.uploader;
 
                     let contentHtml = "";
-                    if(result.data.type === "image") contentHtml = `<img src="${result.data.preview_content}" class="preview-img">`;
-                    else if(result.data.type === "table") contentHtml = result.data.preview_content;
-                    else if(result.data.type === "text") contentHtml = `<div class="preview-txt">${result.data.preview_content}</div>`;
+                    if (result.data.type === "image") contentHtml = `<img src="${result.data.preview_content}" class="preview-img">`;
+                    else if (result.data.type === "table") contentHtml = result.data.preview_content;
+                    else if (result.data.type === "text") contentHtml = `<div class="preview-txt">${result.data.preview_content}</div>`;
                     else contentHtml = `<div style="color:#8b949e">${result.data.preview_content}</div>`;
-                    
+
                     document.getElementById('spContent').innerHTML = contentHtml;
                 }
             } catch (e) {
@@ -548,7 +971,7 @@
             try {
                 const res = await fetch(`/api/metrics/${usuario}`);
                 const data = await res.json();
-                
+
                 const ramValEl = document.getElementById('ramValue');
                 const ramPctEl = document.getElementById('ramPercent');
                 const cpuValEl = document.getElementById('cpuValue');
@@ -557,22 +980,22 @@
                 const wsRamText = document.getElementById('wsRamText');
                 const wsRamBar = document.getElementById('wsRamBar');
 
-                if(data.status === 'online') {
-                    if(ramValEl) ramValEl.innerText = `${data.memory_usage_mb} MB`;
-                    if(ramPctEl) ramPctEl.innerText = `${data.memory_percent}% de ${data.memory_limit_mb}MB`;
-                    if(cpuValEl) cpuValEl.innerText = `${data.cpu_percent} %`;
+                if (data.status === 'online') {
+                    if (ramValEl) ramValEl.innerText = `${data.memory_usage_mb} MB`;
+                    if (ramPctEl) ramPctEl.innerText = `${data.memory_percent}% de ${data.memory_limit_mb}MB`;
+                    if (cpuValEl) cpuValEl.innerText = `${data.cpu_percent} %`;
 
-                    if(wsCpuText) wsCpuText.innerText = `${data.cpu_percent}%`;
-                    if(wsCpuBar) wsCpuBar.style.width = `${Math.min(data.cpu_percent, 100)}%`;
-                    if(wsRamText) wsRamText.innerText = `${data.memory_percent}%`;
-                    if(wsRamBar) wsRamBar.style.width = `${Math.min(data.memory_percent, 100)}%`;
+                    if (wsCpuText) wsCpuText.innerText = `${data.cpu_percent}%`;
+                    if (wsCpuBar) wsCpuBar.style.width = `${Math.min(data.cpu_percent, 100)}%`;
+                    if (wsRamText) wsRamText.innerText = `${data.memory_percent}%`;
+                    if (wsRamBar) wsRamBar.style.width = `${Math.min(data.memory_percent, 100)}%`;
 
                     const now = new Date().toLocaleTimeString();
 
                     if (typeof ramChart !== 'undefined' && ramChart) {
                         ramChart.data.labels.push(now);
                         ramChart.data.datasets[0].data.push(data.memory_usage_mb);
-                        if(ramChart.data.labels.length > maxDataPoints) {
+                        if (ramChart.data.labels.length > maxDataPoints) {
                             ramChart.data.labels.shift();
                             ramChart.data.datasets[0].data.shift();
                         }
@@ -582,19 +1005,19 @@
                     if (typeof cpuChart !== 'undefined' && cpuChart) {
                         cpuChart.data.labels.push(now);
                         cpuChart.data.datasets[0].data.push(data.cpu_percent);
-                        if(cpuChart.data.labels.length > maxDataPoints) {
+                        if (cpuChart.data.labels.length > maxDataPoints) {
                             cpuChart.data.labels.shift();
                             cpuChart.data.datasets[0].data.shift();
                         }
                         cpuChart.update();
                     }
                 } else {
-                    if(ramValEl) ramValEl.innerText = "Offline";
-                    if(cpuValEl) cpuValEl.innerText = "Offline";
-                    if(wsCpuText) wsCpuText.innerText = "--%";
-                    if(wsCpuBar) wsCpuBar.style.width = "0%";
-                    if(wsRamText) wsRamText.innerText = "--%";
-                    if(wsRamBar) wsRamBar.style.width = "0%";
+                    if (ramValEl) ramValEl.innerText = "Offline";
+                    if (cpuValEl) cpuValEl.innerText = "Offline";
+                    if (wsCpuText) wsCpuText.innerText = "--%";
+                    if (wsCpuBar) wsCpuBar.style.width = "0%";
+                    if (wsRamText) wsRamText.innerText = "--%";
+                    if (wsRamBar) wsRamBar.style.width = "0%";
                 }
             } catch (e) {
                 console.error("Erro ao buscar métricas");
@@ -602,4 +1025,5 @@
         }
     </script>
 </body>
+
 </html>
