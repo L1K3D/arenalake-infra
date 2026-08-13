@@ -1,6 +1,4 @@
-# Last update: Agosto de 2026 - Construção do MVP ArenaLake
-version: "3.9"
-
+# Configuração do MVP ArenaLake - Infraestrutura Core
 services:
 
   # 1. GATEWAY / ROTEADOR
@@ -29,49 +27,47 @@ services:
     environment:
       - SPARK_MODE=master
     ports:
-      - "8080:8080" # UI do Master para acompanharmos os Jobs
+      - "8080:8080"
       - "7077:7077"
     networks:
       - arenalake-net
 
-  # 3. MÚSCULO DO PROCESSAMENTO (Spark Worker) - NOVO!
-  #spark-worker:
-  #  image: bitnamilegacy/spark:3.5
-  #  environment:
-  #    - SPARK_MODE=worker
-  #    - SPARK_MASTER_URL=spark://spark-master:7077
-  #    - SPARK_WORKER_MEMORY=2G # Limitamos para não estourar a RAM da sua máquina
-  #    - SPARK_WORKER_CORES=2
-  #  depends_on:
-  #    - spark-master
-  #  networks:
-  #    - arenalake-net
-
-  # 4. DATA LAKE (MinIO) - NOVO!
+  # 3. DATA LAKE (MinIO)
   minio:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
     environment:
-      - MINIO_ROOT_USER=arenalake
-      - MINIO_ROOT_PASSWORD=arenalake123
+      # Senhas dinâmicas puxadas do arquivo .env
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
     ports:
-      - "9000:9000" # Porta da API (onde o Spark e o Portal vão conversar)
-      - "9001:9001" # Porta do Painel Web (onde nós vamos visualizar os dados)
+      - "9000:9000" # Porta da API
+      - "9001:9001" # Porta do Painel Web
     volumes:
       - minio_data:/data
     networks:
       - arenalake-net
 
-  # CÉREBRO DA OPERAÇÃO (Backend FastAPI) - NOVO!
+  # 4. IMAGEM BASE DO WORKSPACE (Garante o Plug-and-Play automático)
+  workspace-builder:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.workspace
+    image: arenalake-workspace:latest
+    command: echo "Imagem arenalake-workspace construída com sucesso!"
+
+  # 4. CÉREBRO DA OPERAÇÃO (Backend FastAPI)
   portal:
-    build: ./portal-compute
+    build: 
+      context: ./portal-compute
+      dockerfile: Dockerfile
     env_file:
        - .env
+    environment:
+      - HOST_PROJECT_PATH=${PWD}
     ports:
       - "8000:8000"
     volumes:
-      # Isso aqui é a magia negra: permite que o Portal dentro do container 
-      # controle o Docker da sua máquina física para subir os VS Codes!
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - arenalake-net
@@ -80,7 +76,6 @@ networks:
   arenalake-net:
     driver: bridge
 
-# VOLUME PERSISTENTE - NOVO!
-# Isso garante que se o container do MinIO reiniciar, os dados salvos não sumam.
+# VOLUME PERSISTENTE
 volumes:
   minio_data:

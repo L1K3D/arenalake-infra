@@ -3,3 +3,6 @@
 
 # Arquivos projetos de usuário
 projects_data/
+
+# Jobs do Spark
+spark_jobs/

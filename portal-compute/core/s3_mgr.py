@@ -1,14 +1,25 @@
+import os
 import boto3
 import pandas as pd
 import io
 
 
 def get_s3_client():
+    # Puxa as credenciais injetadas pelo docker-compose através do .env
+    minio_ak = os.environ.get("MINIO_ACCESS_KEY")
+    minio_sk = os.environ.get("MINIO_SECRET_KEY")
+
+    # Trava a execução se as variáveis não existirem
+    if not minio_ak or not minio_sk:
+        raise ValueError(
+            "ERRO CRÍTICO: Credenciais do MinIO (MINIO_ACCESS_KEY e MINIO_SECRET_KEY) não encontradas no ambiente!"
+        )
+
     return boto3.client(
         "s3",
         endpoint_url="http://minio:9000",
-        aws_access_key_id="arenalake",
-        aws_secret_access_key="arenalake123",
+        aws_access_key_id=minio_ak,
+        aws_secret_access_key=minio_sk,
         region_name="us-east-1",
     )
 

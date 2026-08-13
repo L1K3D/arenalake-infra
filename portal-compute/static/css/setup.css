@@ -1,0 +1,124 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #0d1117;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+.container {
+    background: #161b22;
+    padding: 40px;
+    border-radius: 10px;
+    border: 1px solid #30363d;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    width: 600px;
+    text-align: center;
+}
+
+h2 {
+    margin-top: 0;
+    margin-bottom: 5px;
+    color: #c9d1d9;
+}
+
+p.subtitle {
+    color: #8b949e;
+    font-size: 0.95em;
+    margin-bottom: 30px;
+}
+
+.card-grid {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-bottom: 30px;
+}
+
+.machine-card {
+    flex: 1;
+    background: #0d1117;
+    border: 2px solid #30363d;
+    border-radius: 8px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+    position: relative;
+}
+
+.machine-card:hover {
+    border-color: #58a6ff;
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(88, 166, 255, 0.15);
+}
+
+.machine-card.selected {
+    border-color: #2ea043;
+    background: rgba(46, 160, 67, 0.05);
+}
+
+.machine-title {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.title-standard {
+    color: #58a6ff;
+}
+
+.title-extreme {
+    color: #f85149;
+}
+
+.machine-specs {
+    font-size: 0.9em;
+    color: #c9d1d9;
+    margin-bottom: 12px;
+    line-height: 1.6;
+    background: #161b22;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #30363d;
+}
+
+.machine-desc {
+    font-size: 0.85em;
+    color: #8b949e;
+    line-height: 1.4;
+}
+
+input[type="radio"] {
+    display: none;
+}
+
+.btn-launch {
+    width: 100%;
+    padding: 14px;
+    background-color: #238636;
+    color: white;
+    font-weight: bold;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: 0.2s;
+}
+
+.btn-launch:hover {
+    background-color: #2ea043;
+}
+
+.btn-launch:disabled {
+    background-color: #21262d;
+    color: #8b949e;
+    cursor: not-allowed;
+    border: 1px solid #30363d;
+}
