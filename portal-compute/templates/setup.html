@@ -1,92 +1,63 @@
 <!DOCTYPE html>
 <html>
+
 <head>
+    <!-- Page Title -->
     <title>ArenaLake - Setup de Ambiente</title>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0d1117; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .container { background: #161b22; padding: 40px; border-radius: 10px; border: 1px solid #30363d; box-shadow: 0 4px 15px rgba(0,0,0,0.5); width: 600px; text-align: center; }
-        h2 { margin-top: 0; margin-bottom: 5px; color: #c9d1d9;}
-        p.subtitle { color: #8b949e; font-size: 0.95em; margin-bottom: 30px; }
-        
-        .card-grid { display: flex; gap: 20px; justify-content: center; margin-bottom: 30px; }
-        
-        .machine-card { flex: 1; background: #0d1117; border: 2px solid #30363d; border-radius: 8px; padding: 20px; cursor: pointer; transition: all 0.2s ease; text-align: left; position: relative;}
-        .machine-card:hover { border-color: #58a6ff; transform: translateY(-3px); box-shadow: 0 4px 12px rgba(88, 166, 255, 0.15);}
-        .machine-card.selected { border-color: #2ea043; background: rgba(46, 160, 67, 0.05); }
-        
-        .machine-title { font-size: 1.2em; font-weight: bold; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;}
-        .title-standard { color: #58a6ff; }
-        .title-extreme { color: #f85149; }
-        
-        .machine-specs { font-size: 0.9em; color: #c9d1d9; margin-bottom: 12px; line-height: 1.6; background: #161b22; padding: 10px; border-radius: 5px; border: 1px solid #30363d;}
-        .machine-desc { font-size: 0.85em; color: #8b949e; line-height: 1.4;}
-        
-        /* Esconde o input de rádio original, pois vamos usar os cards como botões visuais */
-        input[type="radio"] { display: none; }
-        
-        .btn-launch { width: 100%; padding: 14px; background-color: #238636; color: white; font-weight: bold; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; transition: 0.2s;}
-        .btn-launch:hover { background-color: #2ea043; }
-        .btn-launch:disabled { background-color: #21262d; color: #8b949e; cursor: not-allowed; border: 1px solid #30363d;}
-    </style>
+    <!-- Link to external stylesheet for the setup page styling -->
+    <link rel="stylesheet" href="/static/css/setup.css">
 </head>
+
 <body>
+    <!-- Main container for the hardware setup UI -->
     <div class="container">
+        <!-- Platform Header and Welcome Message using Jinja2 templating -->
         <h2>⚙️ Configuração do Workspace</h2>
         <p class="subtitle">Bem-vindo(a), <b>{{ usuario }}</b>. Selecione o poder computacional para a sua sessão.</p>
-        
-        <!-- O formulário envia o usuário e a escolha (perfil) para o Backend provisionar -->
+
+        <!-- Provisioning Form: Submits the user and selected hardware profile to the backend (/provisionar) -->
         <form action="/provisionar" method="post" id="setupForm">
+            <!-- Hidden input field to pass the logged-in username to the backend securely -->
             <input type="hidden" name="usuario" value="{{ usuario }}">
-            
+
+            <!-- Grid container for the hardware profile cards -->
             <div class="card-grid">
-                <!-- CARD STANDARD -->
+                <!-- STANDARD PROFILE CARD -->
+                <!-- Selects the baseline configuration for everyday data exploration tasks -->
                 <label class="machine-card" id="card-standard" onclick="selectCard('standard')">
+                    <!-- Hidden radio button required for form submission -->
                     <input type="radio" name="perfil" value="standard" required>
                     <div class="machine-title title-standard">🌱 Standard</div>
                     <div class="machine-specs">
                         <b>CPU:</b> 2 Cores<br>
                         <b>RAM:</b> 4 GB
                     </div>
-                    <div class="machine-desc">Ideal para tarefas do dia a dia, desenvolvimento de scripts básicos e análise exploratória de dados.</div>
+                    <div class="machine-desc">Ideal para tarefas do dia a dia, desenvolvimento de scripts básicos e
+                        análise exploratória de dados.</div>
                 </label>
-                
-                <!-- CARD EXTREME -->
+
+                <!-- EXTREME PROFILE CARD -->
+                <!-- Selects the high-performance configuration for heavy Spark/ML workloads -->
                 <label class="machine-card" id="card-extreme" onclick="selectCard('extreme')">
+                    <!-- Hidden radio button for form submission -->
                     <input type="radio" name="perfil" value="extreme">
                     <div class="machine-title title-extreme">🚀 Extreme</div>
                     <div class="machine-specs">
                         <b>CPU:</b> 6 Cores<br>
                         <b>RAM:</b> 8 GB
                     </div>
-                    <div class="machine-desc">Alta performance. Recomendado para uso intenso no Apache Spark e algoritmos de Machine Learning.</div>
+                    <div class="machine-desc">Alta performance. Recomendado para uso intenso no Apache Spark e
+                        algoritmos de Machine Learning.</div>
                 </label>
             </div>
-            
-            <!-- O botão começa desativado e só liga quando uma máquina for escolhida -->
+
+            <!-- Launch Button: Initially disabled, enabled dynamically via JS once a profile is selected -->
             <button type="submit" class="btn-launch" id="btnLaunch" disabled>Selecione um Perfil Acima</button>
         </form>
     </div>
 
-    <script>
-        function selectCard(perfil) {
-            // Remove o visual de selecionado dos dois cards
-            document.getElementById('card-standard').classList.remove('selected');
-            document.getElementById('card-extreme').classList.remove('selected');
-            
-            // Adiciona o brilho verde no card que o usuário clicou
-            document.getElementById('card-' + perfil).classList.add('selected');
-            
-            // Habilita o botão de iniciar
-            const btn = document.getElementById('btnLaunch');
-            btn.disabled = false;
-            
-            // Muda o texto do botão para dar um feedback visual legal
-            if(perfil === 'standard') {
-                btn.innerText = "🚀 Iniciar Ambiente Standard";
-            } else {
-                btn.innerText = "🚀 Iniciar Ambiente Extreme";
-            }
-        }
-    </script>
+    <!-- External script handling card selection logic and button activation -->
+    <script src="/static/js/setup.js"></script>
 </body>
+
 </html>

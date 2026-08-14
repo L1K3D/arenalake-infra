@@ -1,0 +1,39 @@
+# ============================================================================
+# ArenaLake Development Workspace Container
+# ============================================================================
+# This Dockerfile creates a VS Code browser-based IDE within a Docker container.
+# Users can write, test, and execute Python and Spark code through a web interface.
+# Includes pre-installed data science and big data processing libraries.
+# ============================================================================
+
+# Base image: code-server (VS Code running in the browser)
+# Allows developers to code from any browser without installing IDE locally
+FROM codercom/code-server:latest
+
+# Switch to root user to install system packages
+# Required for apt-get and pip operations
+USER root
+
+# Update Linux package manager and install runtime dependencies
+# - python3: Python interpreter for data science work
+# - python3-pip: Package manager for Python libraries
+# - default-jre: Java Runtime Environment (required for Spark and Scala)
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip default-jre && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Python libraries globally in the container
+# These packages are essential for the ArenaLake platform:
+# - pandas: Data manipulation and analysis
+# - boto3: Amazon S3 client for object storage interaction
+# - s3fs: POSIX interface to S3 buckets (mount S3 as local filesystem)
+# - pyspark==3.5.6: Python API for Apache Spark distributed computing
+# - dotenv: Load environment variables from .env files
+# - ipykernel: Jupyter kernel for interactive Python notebooks
+# - docker: Docker Python client for container management
+# The --break-system-packages flag allows pip to install alongside system packages
+RUN pip3 install --no-cache-dir pandas boto3 s3fs pyspark==3.5.6 dotenv ipykernel docker --break-system-packages
+
+# Switch back to 'coder' user for security best practices
+# Running services as non-root reduces security risks and potential container breakouts
+USER coder

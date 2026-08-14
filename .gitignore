@@ -1,3 +1,8 @@
 # Segredos e Credenciais
 .env
-./projects_data/*
+
+# Arquivos projetos de usuário
+projects_data/
+
+# Jobs do Spark
+spark_jobs/

@@ -1,25 +1,32 @@
 <!DOCTYPE html>
 <html>
+
 <head>
+    <!-- Page Title -->
     <title>ArenaLake - Login</title>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0d1117; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .card { background: #161b22; padding: 40px; border-radius: 10px; border: 1px solid #30363d; box-shadow: 0 4px 15px rgba(0,0,0,0.5); width: 350px; text-align: center; }
-        input { width: 90%; padding: 12px; margin: 10px 0; border-radius: 5px; border: 1px solid #30363d; background: #0d1117; color: white; font-size: 14px;}
-        button { width: 95%; padding: 12px; background-color: #238636; color: white; font-weight: bold; border: none; border-radius: 5px; cursor: pointer; margin-top: 15px; font-size: 15px; transition: 0.2s;}
-        button:hover { background-color: #2ea043; }
-        h2 { margin-bottom: 5px;}
-    </style>
+    <!-- Link to external stylesheet for login page styling -->
+    <link rel="stylesheet" href="/static/css/login.css">
 </head>
+
 <body>
+    <!-- Main authentication card container -->
     <div class="card">
+        <!-- Platform Branding -->
         <h2>🚀 ArenaLake</h2>
         <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 25px;">Plataforma Acadêmica de Big Data</p>
+
+        <!-- Login Form: Submits credentials via POST to the /login endpoint -->
         <form action="/login" method="post">
+            <!-- Username input field (maps to the 'usuario' parameter in the backend API) -->
             <input type="text" name="usuario" placeholder="Nome de usuário (ex: heitor)" required>
+
+            <!-- Password input field (maps to the 'senha' parameter in the backend API) -->
             <input type="password" name="senha" placeholder="Senha" required>
+
+            <!-- Submit button to trigger the authentication and workspace setup process -->
             <button type="submit">Entrar no Workspace</button>
         </form>
     </div>
 </body>
+
 </html>
