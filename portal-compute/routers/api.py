@@ -1,3 +1,14 @@
+# ============================================================================
+# ArenaLake API Router - REST Endpoints
+# ============================================================================
+# This module defines REST APIs for the dashboard frontend.
+# Endpoints handle:
+# - Data Catalog: list S3/MinIO buckets and files
+# - Workspace Metrics: CPU, RAM usage for user containers
+# - File Management: upload files to data lake
+# - Spark Monitoring: real-time job tracking and worker status
+# ============================================================================
+
 from fastapi import APIRouter, UploadFile, File, Form, Request
 from fastapi.responses import JSONResponse, HTMLResponse
 import urllib.request
@@ -6,11 +17,16 @@ import re
 from core.s3_mgr import fetch_catalog_data, upload_file_to_datalake, get_file_details
 from core.docker_mgr import get_workspace_metrics
 
+# Initialize router with /api prefix
+# All endpoints will be prefixed with /api/
 router = APIRouter(prefix="/api")
 
 
 @router.get("/catalog")
 async def get_catalog():
+    """Fetch the complete data catalog from MinIO/S3.
+    Returns all buckets and their files/datasets.
+    """
     try:
         return JSONResponse(content={"status": "success", "data": fetch_catalog_data()})
     except Exception as e:
@@ -21,6 +37,9 @@ async def get_catalog():
 
 @router.get("/metrics/{usuario}")
 async def get_metrics(usuario: str):
+    """Retrieve real-time resource metrics (CPU, RAM) for a user's workspace.
+    Returns offline status if the workspace container is not running.
+    """
     try:
         metrics = get_workspace_metrics(usuario)
         if metrics.get("status") == "offline":
@@ -36,6 +55,9 @@ async def get_metrics(usuario: str):
 async def upload_file(
     bucket: str = Form(...), usuario: str = Form(...), file: UploadFile = File(...)
 ):
+    """Upload a file to the MinIO data lake.
+    The file is stored with metadata about who uploaded it.
+    """
     try:
         upload_file_to_datalake(bucket, file.file, file.filename, usuario)
         return JSONResponse(
@@ -49,6 +71,9 @@ async def upload_file(
 
 @router.get("/preview/{bucket}/{filename:path}")
 async def preview_file(bucket: str, filename: str):
+    """Fetch file metadata and preview content.
+    Returns file size, last modified date, uploader info, and preview data.
+    """
     try:
         details = get_file_details(bucket, filename)
         return JSONResponse(content={"status": "success", "data": details})
@@ -58,9 +83,15 @@ async def preview_file(bucket: str, filename: str):
         )
 
 
-# --- STATUS GERAL DO CLUSTER ---
+# ============================================================================
+# Spark Cluster Monitoring Endpoints
+# ============================================================================
+
 @router.get("/spark/status")
 async def get_spark_status():
+    """Fetch overall Apache Spark cluster status.
+    Returns list of active workers, running jobs, and completed jobs.
+    """
     try:
         url = "http://spark-master:8080/json/"
         with urllib.request.urlopen(url) as response:
@@ -79,9 +110,15 @@ async def get_spark_status():
         )
 
 
-# --- NOVO: WEB SCRAPER DO DRIVER E CAPTURA DE MÉTRICAS ---
 @router.get("/spark/app/{app_id}/jobs")
 async def get_spark_app_jobs(app_id: str):
+    """Fetch detailed job progress for a specific Spark application.
+    
+    Scrapes the Spark Master and Driver UIs to extract task progress in real-time.
+    Requires connecting to the Driver's REST API on port 4040.
+    
+    Note: The Spark Master API doesn't expose the Driver URL, so HTML scraping is used.
+    """
     import urllib.error
 
     try:

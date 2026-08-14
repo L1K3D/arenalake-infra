@@ -1,6 +1,21 @@
+# ============================================================================
+# Apache Spark Worker Node Dockerfile
+# ============================================================================
+# This Dockerfile creates a worker node for the Apache Spark cluster.
+# Worker nodes execute distributed computations assigned by the master node.
+# ============================================================================
+
+# Base image: Official Apache Spark image (version 3.5.1)
+# Includes Scala, Java, and Spark runtime pre-installed
 FROM apache/spark:3.5.1
 
+# Switch to root user for executing the worker process
+# Spark worker needs elevated permissions to manage system resources
 USER root
 
+# Entrypoint command executed when the container starts
+# Launches the Spark Worker class and connects to the master node
+# The master node address (spark-master-kr4x.onrender.com:7077) handles
+# task distribution, cluster coordination, and resource allocation
 CMD /bin/bash -c "/opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker \
   spark://spark-master-kr4x.onrender.com:7077"

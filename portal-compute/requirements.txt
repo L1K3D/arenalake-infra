@@ -1,8 +1,25 @@
+# ============================================================================
+# ArenaLake Portal Compute - Python Dependencies
+# ============================================================================
+# FastAPI and server framework
 fastapi
 uvicorn
 python-multipart
+
+# Docker container management
 docker
+
+# AWS S3 / MinIO object storage
 boto3
+
+# Jinja2 template rendering (for HTML templates)
 jinja2
+
+# Data processing and analysis
 pandas
+
+# Apache Spark distributed computing
+pyspark
+
+# Apache Arrow for Parquet file support
 pyarrow

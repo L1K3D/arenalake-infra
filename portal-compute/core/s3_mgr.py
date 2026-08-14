@@ -1,3 +1,14 @@
+# ============================================================================
+# S3/MinIO Data Lake Manager
+# ============================================================================
+# This module handles all interactions with the MinIO object storage service.
+# Provides functions for:
+# - Catalog browsing: list buckets and files
+# - File management: upload files with metadata
+# - File preview: extract and format data for UI display
+# - Connection management: handle S3 credentials securely
+# ============================================================================
+
 import os
 import boto3
 import pandas as pd
@@ -5,11 +16,17 @@ import io
 
 
 def get_s3_client():
-    # Puxa as credenciais injetadas pelo docker-compose através do .env
+    """Initialize and return a boto3 S3 client configured for MinIO.
+    
+    Retrieves MinIO credentials from environment variables (injected via docker-compose).
+    Raises ValueError if credentials are not found.
+    Endpoint is configured for MinIO at http://minio:9000 (internal Docker network).
+    """
+    # Retrieve credentials from environment variables (set in docker-compose)
     minio_ak = os.environ.get("MINIO_ACCESS_KEY")
     minio_sk = os.environ.get("MINIO_SECRET_KEY")
 
-    # Trava a execução se as variáveis não existirem
+    # Fail fast if credentials are missing
     if not minio_ak or not minio_sk:
         raise ValueError(
             "ERRO CRÍTICO: Credenciais do MinIO (MINIO_ACCESS_KEY e MINIO_SECRET_KEY) não encontradas no ambiente!"
@@ -25,6 +42,12 @@ def get_s3_client():
 
 
 def fetch_catalog_data():
+    """Fetch and structure all buckets and files from MinIO.
+    
+    Returns a dictionary where keys are bucket names and values are
+    lists of file paths within each bucket.
+    Filters out Spark metadata files (_SUCCESS, .crc) automatically.
+    """
     s3_client = get_s3_client()
     buckets_response = s3_client.list_buckets()
     buckets = [bucket["Name"] for bucket in buckets_response.get("Buckets", [])]
@@ -38,7 +61,8 @@ def fetch_catalog_data():
         for obj in contents:
             key = obj["Key"]
 
-            # Filtra lixo do Spark sumariamente
+            # Filter out Spark metadata files (_SUCCESS files, .crc checksums, etc.)
+            # These are internal Spark artifacts, not user data
             if "_SUCCESS" in key or key.endswith(".crc") or "/_SUCCESS" in key:
                 continue
 
@@ -50,6 +74,14 @@ def fetch_catalog_data():
 
 
 def upload_file_to_datalake(bucket: str, file_obj, filename: str, username: str):
+    """Upload a file to MinIO with uploader metadata.
+    
+    Args:
+        bucket: Target bucket name
+        file_obj: File object to upload
+        filename: Name of the file
+        username: Username of the uploader (stored as metadata)
+    """
     s3_client = get_s3_client()
     s3_client.upload_fileobj(
         Fileobj=file_obj,
@@ -61,6 +93,7 @@ def upload_file_to_datalake(bucket: str, file_obj, filename: str, username: str)
 
 
 def format_size(size_bytes):
+    """Convert byte count to human-readable format (B, KB, MB, GB)."""
     if size_bytes < 1024:
         return f"{size_bytes} B"
     elif size_bytes < 1024**2:
@@ -72,6 +105,16 @@ def format_size(size_bytes):
 
 
 def get_file_details(bucket: str, filename: str):
+    """Fetch file metadata and generate a preview for the UI.
+    
+    Handles multiple file formats:
+    - Images (PNG, JPG): generates presigned URL for display
+    - CSV files: reads first 10 rows and returns HTML table
+    - Parquet files: reads first 10 rows and returns HTML table
+    - Text files: reads first 10 lines
+    
+    Returns a dictionary with file metadata and preview content.
+    """
     s3_client = get_s3_client()
 
     if filename.endswith("_SUCCESS"):

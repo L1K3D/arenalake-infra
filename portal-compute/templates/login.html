@@ -2,17 +2,28 @@
 <html>
 
 <head>
+    <!-- Page Title -->
     <title>ArenaLake - Login</title>
+    <!-- Link to external stylesheet for login page styling -->
     <link rel="stylesheet" href="/static/css/login.css">
 </head>
 
 <body>
+    <!-- Main authentication card container -->
     <div class="card">
+        <!-- Platform Branding -->
         <h2>🚀 ArenaLake</h2>
         <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 25px;">Plataforma Acadêmica de Big Data</p>
+
+        <!-- Login Form: Submits credentials via POST to the /login endpoint -->
         <form action="/login" method="post">
+            <!-- Username input field (maps to the 'usuario' parameter in the backend API) -->
             <input type="text" name="usuario" placeholder="Nome de usuário (ex: heitor)" required>
+
+            <!-- Password input field (maps to the 'senha' parameter in the backend API) -->
             <input type="password" name="senha" placeholder="Senha" required>
+
+            <!-- Submit button to trigger the authentication and workspace setup process -->
             <button type="submit">Entrar no Workspace</button>
         </form>
     </div>

@@ -1,12 +1,35 @@
+# ============================================================================
+# Traefik Configuration for ArenaLake Infrastructure
+# ============================================================================
+# This file configures Traefik as a reverse proxy and router for the platform.
+# Traefik automatically discovers and routes traffic to Docker containers.
+# ============================================================================
+
+# API Configuration
+# Enables the Traefik API dashboard for monitoring and managing routes
 api:
+  # Enable the web dashboard for visual monitoring
   dashboard: true
+  # Warning: insecure: true allows API access without authentication
+  # Use only in development environments. Set to false in production.
   insecure: true
 
+# Entry Points
+# Define the ports and protocols that Traefik listens on for incoming traffic
 entryPoints:
+  # HTTP entry point: listens on port 80 for all incoming HTTP traffic
   web:
     address: ":80"
+  # Note: HTTPS/TLS configuration can be added here for production use
 
+# Providers
+# Traefik supports multiple providers (Docker, Kubernetes, File, etc.)
+# This configuration uses Docker as the provider for service discovery
 providers:
   docker:
+    # Connect to the Docker daemon socket
+    # This allows Traefik to detect new containers and configure routes automatically
     endpoint: "unix:///var/run/docker.sock"
+    # Only expose containers that explicitly request exposure via labels
+    # Prevents accidental exposure of internal services
     exposedByDefault: false

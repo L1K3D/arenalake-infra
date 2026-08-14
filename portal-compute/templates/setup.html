@@ -2,22 +2,30 @@
 <html>
 
 <head>
+    <!-- Page Title -->
     <title>ArenaLake - Setup de Ambiente</title>
+    <!-- Link to external stylesheet for the setup page styling -->
     <link rel="stylesheet" href="/static/css/setup.css">
 </head>
 
 <body>
+    <!-- Main container for the hardware setup UI -->
     <div class="container">
+        <!-- Platform Header and Welcome Message using Jinja2 templating -->
         <h2>⚙️ Configuração do Workspace</h2>
         <p class="subtitle">Bem-vindo(a), <b>{{ usuario }}</b>. Selecione o poder computacional para a sua sessão.</p>
 
-        <!-- O formulário envia o usuário e a escolha (perfil) para o Backend provisionar -->
+        <!-- Provisioning Form: Submits the user and selected hardware profile to the backend (/provisionar) -->
         <form action="/provisionar" method="post" id="setupForm">
+            <!-- Hidden input field to pass the logged-in username to the backend securely -->
             <input type="hidden" name="usuario" value="{{ usuario }}">
 
+            <!-- Grid container for the hardware profile cards -->
             <div class="card-grid">
-                <!-- CARD STANDARD -->
+                <!-- STANDARD PROFILE CARD -->
+                <!-- Selects the baseline configuration for everyday data exploration tasks -->
                 <label class="machine-card" id="card-standard" onclick="selectCard('standard')">
+                    <!-- Hidden radio button required for form submission -->
                     <input type="radio" name="perfil" value="standard" required>
                     <div class="machine-title title-standard">🌱 Standard</div>
                     <div class="machine-specs">
@@ -28,8 +36,10 @@
                         análise exploratória de dados.</div>
                 </label>
 
-                <!-- CARD EXTREME -->
+                <!-- EXTREME PROFILE CARD -->
+                <!-- Selects the high-performance configuration for heavy Spark/ML workloads -->
                 <label class="machine-card" id="card-extreme" onclick="selectCard('extreme')">
+                    <!-- Hidden radio button for form submission -->
                     <input type="radio" name="perfil" value="extreme">
                     <div class="machine-title title-extreme">🚀 Extreme</div>
                     <div class="machine-specs">
@@ -41,11 +51,12 @@
                 </label>
             </div>
 
-            <!-- O botão começa desativado e só liga quando uma máquina for escolhida -->
+            <!-- Launch Button: Initially disabled, enabled dynamically via JS once a profile is selected -->
             <button type="submit" class="btn-launch" id="btnLaunch" disabled>Selecione um Perfil Acima</button>
         </form>
     </div>
 
+    <!-- External script handling card selection logic and button activation -->
     <script src="/static/js/setup.js"></script>
 </body>
 

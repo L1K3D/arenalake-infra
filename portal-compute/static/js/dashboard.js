@@ -1,78 +1,161 @@
+/* ============================================================================
+   ArenaLake Dashboard JavaScript - Main Interface Logic
+   ============================================================================
+   This module implements all client-side dashboard functionality.
+   Responsibilities:
+   - Tab switching and UI state management
+   - Real-time metrics collection (CPU, RAM) via polling
+   - Data catalog browsing and file preview
+   - File upload to MinIO data lake
+   - Spark cluster monitoring and job progress tracking
+   - Chart visualization with Chart.js
+   ============================================================================ */
+
+// Configuration passed from Jinja2 template (username and domain)
 const dashboardConfig = window.dashboardConfig || { usuario: 'usuario', domain: 'localhost' };
 const usuario = dashboardConfig.usuario;
+
+// Interval handle for metrics polling (CPU/RAM updates)
 let metricsInterval;
+
+// Chart.js instances for CPU and RAM history graphs
 let ramChart, cpuChart;
 
-const maxDataPoints = 20;
+// Chart configuration
+const maxDataPoints = 20;  // Keep last 20 data points in history
 const chartOptions = {
     responsive: true,
-    animation: false,
+    animation: false,  // Disable animation for real-time updates
     scales: {
-        x: { display: false },
+        x: { display: false },  // Hide X-axis labels (timestamps)
         y: { beginAtZero: true, grid: { color: '#30363d' }, ticks: { color: '#8b949e' } }
     },
     plugins: { legend: { labels: { color: 'white' } } }
 };
 
+/* ============================================================================
+   UI Navigation - Tab and Sidebar Management
+   ============================================================================ */
+
+/**
+ * Toggle sidebar collapse/expand state
+ * Animates width change and hides text labels when collapsed
+ */
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     sidebar.classList.toggle('collapsed');
 }
 
+/**
+ * Initialize Chart.js instances for CPU and RAM history
+ * Only initializes if charts don't already exist (prevents duplicates)
+ */
 function initCharts() {
-    if (ramChart) return;
+    if (ramChart) return;  // Already initialized
+
+    // RAM usage history chart (blue line)
     const ctxRam = document.getElementById('ramChart').getContext('2d');
     ramChart = new Chart(ctxRam, {
         type: 'line',
-        data: { labels: [], datasets: [{ label: 'Histórico de RAM (MB)', data: [], borderColor: '#58a6ff', backgroundColor: 'rgba(88, 166, 255, 0.1)', fill: true, tension: 0.4 }] },
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Histórico de RAM (MB)',
+                data: [],
+                borderColor: '#58a6ff',  // Blue
+                backgroundColor: 'rgba(88, 166, 255, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
         options: chartOptions
     });
 
+    // CPU usage history chart (green line)
     const ctxCpu = document.getElementById('cpuChart').getContext('2d');
     cpuChart = new Chart(ctxCpu, {
         type: 'line',
-        data: { labels: [], datasets: [{ label: 'Histórico de CPU (%)', data: [], borderColor: '#2ea043', backgroundColor: 'rgba(46, 160, 67, 0.1)', fill: true, tension: 0.4 }] },
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Histórico de CPU (%)',
+                data: [],
+                borderColor: '#2ea043',  // Green
+                backgroundColor: 'rgba(46, 160, 67, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
         options: chartOptions
     });
 }
 
+/**
+ * Switch active tab and show corresponding content
+ * @param {string} tabId - ID of tab to activate (workspace, data, compute, spark)
+ * @param {Element} element - The menu item that was clicked
+ */
 function switchTab(tabId, element) {
+    // Hide all tabs
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+    // Remove active class from all menu items
     document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
+
+    // Show selected tab and mark menu item as active
     document.getElementById(tabId).classList.add('active');
     element.classList.add('active');
-    closePanel();
+    closePanel();  // Close file preview panel if open
 
+    // Load data when switching to specific tabs
     if (tabId === 'data') loadCatalog();
     if (tabId === 'compute') initCharts();
 }
 
+/* ============================================================================
+   DATA CATALOG - MinIO bucket browsing and file management
+   ============================================================================ */
+
+// Global cache of catalog data to avoid repeated API calls
 let globalCatalogData = {};
 
+/**
+ * Fetch complete data catalog from MinIO/S3
+ * Populates bucket dropdown and renders file table
+ */
 async function loadCatalog() {
     try {
         const res = await fetch('/api/catalog');
         const data = await res.json();
         if (data.status === 'success') {
-            globalCatalogData = data.data;
+            globalCatalogData = data.data;  // Cache data
             updateFolderDropdown();
             renderCatalogTable();
         }
     } catch (e) {
+        // Show error message in table if catalog fetch fails
         document.querySelector('#catalogTable tbody').innerHTML = '<tr><td colspan="3" style="text-align:center; color:red;">Erro ao conectar no MinIO.</td></tr>';
     }
 }
 
+/**
+ * Handle bucket selection change
+ * Triggers folder dropdown update and table re-render
+ */
 function onBucketChange() {
     updateFolderDropdown();
     renderCatalogTable();
 }
 
+/**
+ * Update folder dropdown based on selected bucket
+ * Extracts folder names from file paths and builds dropdown options
+ */
 function updateFolderDropdown() {
     const bucket = document.getElementById('bucketSelect').value;
     const folderSelect = document.getElementById('folderSelect');
     const files = globalCatalogData[bucket] || [];
 
+    // Extract unique folder names from file paths
     let folders = new Set();
     files.forEach(f => {
         if (f.includes('/')) {
@@ -81,6 +164,7 @@ function updateFolderDropdown() {
         }
     });
 
+    // Build dropdown options: root + all folders
     let optionsHtml = '<option value="/">📁 (Raiz - Arquivos Soltos)</option>';
     folders.forEach(folder => {
         optionsHtml += `<option value="${folder}">📁 ${folder}</option>`;
@@ -89,38 +173,50 @@ function updateFolderDropdown() {
     folderSelect.innerHTML = optionsHtml;
 }
 
+/**
+ * Render file catalog table based on selected bucket and folder
+ * Groups Spark datasets (parquet files) separately from loose files
+ */
 function renderCatalogTable() {
     const bucket = document.getElementById('bucketSelect').value;
     const selectedFolder = document.getElementById('folderSelect').value;
     const files = globalCatalogData[bucket] || [];
     let tbody = '';
 
+    // Track datasets to avoid duplicates (Spark creates multiple part-* files per dataset)
     let displayedDatasets = new Set();
     let filteredFiles = [];
 
+    // Filter files based on selected folder
     files.forEach(f => {
         if (selectedFolder === '/') {
+            // Root folder: show only loose files (no slash in path)
             if (!f.includes('/')) {
                 filteredFiles.push({ name: f, display: f });
             }
         } else {
+            // Subfolder: show files in this folder only
             if (f.startsWith(selectedFolder + '/')) {
                 let subPath = f.substring(selectedFolder.length + 1);
 
+                // Check if this is a Spark dataset (contains part-* or .parquet)
                 if (subPath.includes('part-') || subPath.endsWith('.parquet')) {
                     let datasetName = subPath.split('/')[0];
                     let datasetKey = `${selectedFolder}/${datasetName}`;
+                    // Show dataset only once, even if it has multiple part files
                     if (!displayedDatasets.has(datasetKey)) {
                         displayedDatasets.add(datasetKey);
                         filteredFiles.push({ name: f, display: `📁 ${datasetName} (Dataset Spark)` });
                     }
                 } else {
+                    // Regular file
                     filteredFiles.push({ name: f, display: subPath });
                 }
             }
         }
     });
 
+    // Build table rows
     if (filteredFiles.length > 0) {
         filteredFiles.forEach(item => {
             tbody += `<tr>
@@ -136,6 +232,10 @@ function renderCatalogTable() {
     document.querySelector('#catalogTable tbody').innerHTML = tbody;
 }
 
+/**
+ * Upload file to MinIO data lake
+ * Sends file to backend with bucket and username metadata
+ */
 async function uploadFile() {
     const fileInput = document.getElementById('fileInput');
     const bucket = document.getElementById('bucketSelect').value;
@@ -150,8 +250,8 @@ async function uploadFile() {
         const res = await fetch('/api/upload', { method: 'POST', body: formData });
         const result = await res.json();
         if (result.status === 'success') {
-            fileInput.value = '';
-            loadCatalog();
+            fileInput.value = '';  // Clear input
+            loadCatalog();  // Refresh catalog display
         } else {
             alert('Erro: ' + result.message);
         }
@@ -160,25 +260,45 @@ async function uploadFile() {
     }
 }
 
+/* ============================================================================
+   FILE PREVIEW - Side panel for file details and content preview
+   ============================================================================ */
+
+/**
+ * Open file preview panel showing file details and content
+ * @param {string} bucket - MinIO bucket name
+ * @param {string} filename - File path in bucket
+ */
 async function openPreview(bucket, filename) {
+    // Show side panel and set filename
     document.getElementById('sidePanel').classList.add('open');
     document.getElementById('spFilename').innerText = filename;
     document.getElementById('spContent').innerHTML = "<div style='color:#8b949e'>Gerando visualização e extraindo metadados...</div>";
 
     try {
+        // Fetch preview data from backend
         const res = await fetch(`/api/preview/${bucket}/${filename}`);
         const result = await res.json();
 
         if (result.status === 'success') {
+            // Display file metadata
             document.getElementById('spDate').innerText = result.data.last_modified;
             document.getElementById('spSize').innerText = result.data.size;
             document.getElementById('spUploader').innerText = result.data.uploader;
 
+            // Display preview content based on file type
             let contentHtml = '';
-            if (result.data.type === 'image') contentHtml = `<img src="${result.data.preview_content}" class="preview-img">`;
-            else if (result.data.type === 'table') contentHtml = result.data.preview_content;
-            else if (result.data.type === 'text') contentHtml = `<div class="preview-txt">${result.data.preview_content}</div>`;
-            else contentHtml = `<div style="color:#8b949e">${result.data.preview_content}</div>`;
+            if (result.data.type === 'image') {
+                contentHtml = `<img src="${result.data.preview_content}" class="preview-img">`;
+            } else if (result.data.type === 'table') {
+                // HTML table for CSV/Parquet
+                contentHtml = result.data.preview_content;
+            } else if (result.data.type === 'text') {
+                // Monospace text for text files
+                contentHtml = `<div class="preview-txt">${result.data.preview_content}</div>`;
+            } else {
+                contentHtml = `<div style="color:#8b949e">${result.data.preview_content}</div>`;
+            }
 
             document.getElementById('spContent').innerHTML = contentHtml;
         }
@@ -187,15 +307,28 @@ async function openPreview(bucket, filename) {
     }
 }
 
+/**
+ * Close file preview side panel
+ */
 function closePanel() {
     document.getElementById('sidePanel').classList.remove('open');
 }
 
+/* ============================================================================
+   METRICS MONITORING - Real-time CPU and RAM usage tracking
+   ============================================================================ */
+
+/**
+ * Fetch and update workspace metrics (CPU, RAM usage)
+ * Called every 3 seconds to refresh dashboard metrics and charts
+ * Updates both header bar and compute tab charts
+ */
 async function loadMetrics() {
     try {
         const res = await fetch(`/api/metrics/${usuario}`);
         const data = await res.json();
 
+        // Get DOM elements for metric display
         const ramValEl = document.getElementById('ramValue');
         const ramPctEl = document.getElementById('ramPercent');
         const cpuValEl = document.getElementById('cpuValue');
@@ -205,20 +338,25 @@ async function loadMetrics() {
         const wsRamBar = document.getElementById('wsRamBar');
 
         if (data.status === 'online') {
+            // Workspace is running - update all metric displays
             if (ramValEl) ramValEl.innerText = `${data.memory_usage_mb} MB`;
             if (ramPctEl) ramPctEl.innerText = `${data.memory_percent}% de ${data.memory_limit_mb}MB`;
             if (cpuValEl) cpuValEl.innerText = `${data.cpu_percent} %`;
 
+            // Update workspace top bar metrics
             if (wsCpuText) wsCpuText.innerText = `${data.cpu_percent}%`;
             if (wsCpuBar) wsCpuBar.style.width = `${Math.min(data.cpu_percent, 100)}%`;
             if (wsRamText) wsRamText.innerText = `${data.memory_percent}%`;
             if (wsRamBar) wsRamBar.style.width = `${Math.min(data.memory_percent, 100)}%`;
 
+            // Get current time for chart labels
             const now = new Date().toLocaleTimeString();
 
+            // Update RAM chart if initialized
             if (typeof ramChart !== 'undefined' && ramChart) {
                 ramChart.data.labels.push(now);
                 ramChart.data.datasets[0].data.push(data.memory_usage_mb);
+                // Keep only last N data points to prevent memory bloat
                 if (ramChart.data.labels.length > maxDataPoints) {
                     ramChart.data.labels.shift();
                     ramChart.data.datasets[0].data.shift();
@@ -226,9 +364,11 @@ async function loadMetrics() {
                 ramChart.update();
             }
 
+            // Update CPU chart if initialized
             if (typeof cpuChart !== 'undefined' && cpuChart) {
                 cpuChart.data.labels.push(now);
                 cpuChart.data.datasets[0].data.push(data.cpu_percent);
+                // Keep only last N data points
                 if (cpuChart.data.labels.length > maxDataPoints) {
                     cpuChart.data.labels.shift();
                     cpuChart.data.datasets[0].data.shift();
@@ -236,6 +376,7 @@ async function loadMetrics() {
                 cpuChart.update();
             }
         } else {
+            // Workspace is offline - show offline state
             if (ramValEl) ramValEl.innerText = 'Offline';
             if (cpuValEl) cpuValEl.innerText = 'Offline';
             if (wsCpuText) wsCpuText.innerText = '--%';
@@ -248,6 +389,11 @@ async function loadMetrics() {
     }
 }
 
+/**
+ * Format duration in milliseconds to human-readable string
+ * @param {number} ms - Duration in milliseconds
+ * @returns {string} Formatted duration (e.g., "5.2 s", "1.5 min")
+ */
 function formatDuration(ms) {
     if (!ms) return '0 s';
     const seconds = ms / 1000;
@@ -416,9 +562,16 @@ async function refreshJobProgress(appId) {
     }
 }
 
+/* ============================================================================
+   Application Initialization - Start polling and dashboard updates
+   ============================================================================ */
+
 document.addEventListener('DOMContentLoaded', () => {
+    // Load and poll workspace metrics every 3 seconds
     loadMetrics();
     metricsInterval = setInterval(loadMetrics, 3000);
+
+    // Update Spark dashboard every 2.5 seconds
     updateSparkDashboard();
     setInterval(updateSparkDashboard, 2500);
 });
