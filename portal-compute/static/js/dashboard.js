@@ -575,3 +575,113 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSparkDashboard();
     setInterval(updateSparkDashboard, 2500);
 });
+
+// ==============================================================
+// ARENALAKE SCHEDULER - LÓGICA DE EXECUÇÃO DE JOBS
+// ==============================================================
+
+async function loadSchedulerData() {
+    try {
+        const res = await fetch('/api/jobs');
+        const data = await res.json();
+
+        if (data.status !== 'success') return;
+
+        // 1. Renderiza Scripts Disponíveis
+        let scriptsHtml = '';
+        if (data.scripts.length === 0) {
+            scriptsHtml = '<p style="color: #8b949e; font-style: italic;">Nenhum script .py encontrado na pasta /jobs do host.</p>';
+        } else {
+            data.scripts.forEach(script => {
+                scriptsHtml += `
+                <div style="display: flex; justify-content: space-between; align-items: center; background: #0d1117; padding: 12px; margin-bottom: 8px; border-radius: 6px; border: 1px solid #30363d;">
+                    <span style="color: #c9d1d9; font-family: monospace; font-size: 14px;">${script}</span>
+                    <div>
+                        <button onclick="runJobNow('${script}')" class="btn" style="background: #238636; border: none; padding: 6px 12px; font-size: 12px; margin-right: 5px;">▶️ Rodar Agora</button>
+                        <button onclick="promptScheduleJob('${script}')" class="btn" style="background: #1f6feb; border: none; padding: 6px 12px; font-size: 12px;">⏰ Agendar (Cron)</button>
+                    </div>
+                </div>`;
+            });
+        }
+        document.getElementById('available-scripts-list').innerHTML = scriptsHtml;
+
+        // 2. Renderiza Agendamentos Ativos
+        let schedHtml = '';
+        if (data.scheduled.length === 0) {
+            schedHtml = '<p style="color: #8b949e; font-style: italic;">Nenhum job agendado no momento.</p>';
+        } else {
+            data.scheduled.forEach(job => {
+                schedHtml += `
+                <div style="display: flex; justify-content: space-between; align-items: center; background: #0d1117; padding: 12px; margin-bottom: 8px; border-radius: 6px; border: 1px solid #30363d;">
+                    <div>
+                        <div style="color: #c9d1d9; font-weight: bold;">${job.name}</div>
+                        <div style="color: #8b949e; font-size: 12px; margin-top: 4px;">Próxima execução: <span style="color: #e6edf3;">${job.next_run}</span></div>
+                    </div>
+                    <button onclick="cancelSchedule('${job.id}')" class="btn" style="background: #da3633; border: none; padding: 6px 12px; font-size: 12px;">❌ Cancelar</button>
+                </div>`;
+            });
+        }
+        document.getElementById('scheduled-jobs-list').innerHTML = schedHtml;
+
+    } catch (e) {
+        console.error("Erro ao carregar dados do scheduler:", e);
+    }
+}
+
+async function runJobNow(scriptName) {
+    if (!confirm(`Deseja enviar o script "${scriptName}" agora para processamento no cluster Spark?`)) return;
+
+    try {
+        const res = await fetch(`/api/jobs/run/${scriptName}`, { method: 'POST' });
+        const data = await res.json();
+        alert(data.message);
+
+        // Se disparar com sucesso, manda o usuário pra aba "Spark Process" pra ver as barras carregando!
+        if (data.status === 'success') {
+            document.querySelectorAll('.menu-item')[4].click();
+        }
+    } catch (e) {
+        alert("Erro fatal ao tentar executar o script.");
+    }
+}
+
+async function promptScheduleJob(scriptName) {
+    const cron = prompt(`⏰ Agendar: ${scriptName}\n\nDigite a expressão Cron.\nExemplo: "0 2 * * *" (Todo dia às 02:00 da manhã)`, "0 2 * * *");
+    if (!cron) return;
+
+    const formData = new FormData();
+    formData.append('job_name', scriptName);
+    formData.append('cron_expr', cron);
+
+    try {
+        const res = await fetch(`/api/jobs/schedule`, { method: 'POST', body: formData });
+        const data = await res.json();
+        alert(data.message);
+        loadSchedulerData();
+    } catch (e) {
+        alert("Erro ao tentar agendar o script.");
+    }
+}
+
+async function cancelSchedule(jobId) {
+    if (!confirm("Deseja realmente cancelar este agendamento? Ele não rodará mais automaticamente.")) return;
+
+    try {
+        const res = await fetch(`/api/jobs/schedule/${jobId}`, { method: 'DELETE' });
+        const data = await res.json();
+        loadSchedulerData();
+    } catch (e) {
+        alert("Erro ao tentar cancelar o agendamento.");
+    }
+}
+
+// Carrega os dados na inicialização
+loadSchedulerData();
+
+// Adiciona um listener para dar auto-refresh suave quando o usuário estiver na aba do Scheduler
+setInterval(() => {
+    const activeTab = document.querySelector('.tab-content.active');
+    if (activeTab && activeTab.id === 'scheduler') {
+        loadSchedulerData();
+    }
+}, 10000); // Atualiza a cada 10 segundos
