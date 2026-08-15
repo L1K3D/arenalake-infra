@@ -37,7 +37,9 @@ services:
       - SPARK_MODE=master
     ports:
       - "8080:8080"                             # Spark Master Web UI (Job monitoring)
-      - "7077:7077"                             # Spark internal RPC port for Workers
+      - "7077:7077"
+    volumes:
+      - ./jobs:/jobs                             # Spark internal RPC port for Workers
     networks:
       - arenalake-net
 

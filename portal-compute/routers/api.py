@@ -1,32 +1,23 @@
-# ============================================================================
-# ArenaLake API Router - REST Endpoints
-# ============================================================================
-# This module defines REST APIs for the dashboard frontend.
-# Endpoints handle:
-# - Data Catalog: list S3/MinIO buckets and files
-# - Workspace Metrics: CPU, RAM usage for user containers
-# - File Management: upload files to data lake
-# - Spark Monitoring: real-time job tracking and worker status
-# ============================================================================
-
 from fastapi import APIRouter, UploadFile, File, Form, Request
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse
 import urllib.request
 import json
 import re
-from core.s3_mgr import fetch_catalog_data, upload_file_to_datalake, get_file_details
-from core.docker_mgr import get_workspace_metrics
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 
-# Initialize router with /api prefix
-# All endpoints will be prefixed with /api/
+from core.s3_mgr import fetch_catalog_data, upload_file_to_datalake, get_file_details
+from core.docker_mgr import get_workspace_metrics, list_spark_jobs, run_spark_job
+
 router = APIRouter(prefix="/api")
+
+# --- INICIALIZA O MOTOR DE AGENDAMENTO (CRON) ---
+scheduler = BackgroundScheduler()
+scheduler.start()
 
 
 @router.get("/catalog")
 async def get_catalog():
-    """Fetch the complete data catalog from MinIO/S3.
-    Returns all buckets and their files/datasets.
-    """
     try:
         return JSONResponse(content={"status": "success", "data": fetch_catalog_data()})
     except Exception as e:
@@ -37,9 +28,6 @@ async def get_catalog():
 
 @router.get("/metrics/{usuario}")
 async def get_metrics(usuario: str):
-    """Retrieve real-time resource metrics (CPU, RAM) for a user's workspace.
-    Returns offline status if the workspace container is not running.
-    """
     try:
         metrics = get_workspace_metrics(usuario)
         if metrics.get("status") == "offline":
@@ -55,9 +43,6 @@ async def get_metrics(usuario: str):
 async def upload_file(
     bucket: str = Form(...), usuario: str = Form(...), file: UploadFile = File(...)
 ):
-    """Upload a file to the MinIO data lake.
-    The file is stored with metadata about who uploaded it.
-    """
     try:
         upload_file_to_datalake(bucket, file.file, file.filename, usuario)
         return JSONResponse(
@@ -71,9 +56,6 @@ async def upload_file(
 
 @router.get("/preview/{bucket}/{filename:path}")
 async def preview_file(bucket: str, filename: str):
-    """Fetch file metadata and preview content.
-    Returns file size, last modified date, uploader info, and preview data.
-    """
     try:
         details = get_file_details(bucket, filename)
         return JSONResponse(content={"status": "success", "data": details})
@@ -83,15 +65,114 @@ async def preview_file(bucket: str, filename: str):
         )
 
 
-# ============================================================================
-# Spark Cluster Monitoring Endpoints
-# ============================================================================
+# ==========================================
+# ROTAS DO ARENALAKE SCHEDULER E JOBS
+# ==========================================
+
+
+@router.get("/jobs")
+async def get_all_jobs():
+    """Lista os scripts .py disponíveis e os agendamentos ativos na memória"""
+    scripts = list_spark_jobs()
+
+    scheduled_jobs = []
+    for job in scheduler.get_jobs():
+        scheduled_jobs.append(
+            {
+                "id": job.id,
+                "name": job.name,
+                "next_run": (
+                    job.next_run_time.strftime("%d/%m/%Y %H:%M:%S")
+                    if job.next_run_time
+                    else "Pausado"
+                ),
+            }
+        )
+
+    return JSONResponse(
+        content={"status": "success", "scripts": scripts, "scheduled": scheduled_jobs}
+    )
+
+
+@router.post("/jobs/run/{job_name}")
+async def execute_job_now(job_name: str):
+    """Executa o script imediatamente"""
+    success = run_spark_job(job_name, origin="UI Manual")
+    if success:
+        return JSONResponse(
+            content={
+                "status": "success",
+                "message": f"A ordem para executar '{job_name}' foi enviada ao Spark!",
+            }
+        )
+    return JSONResponse(
+        content={"status": "error", "message": "Erro ao disparar job."}, status_code=500
+    )
+
+
+@router.post("/jobs/schedule")
+async def schedule_job_cron(job_name: str = Form(...), cron_expr: str = Form(...)):
+    """Agenda um script usando padrão Cron"""
+    try:
+        # Valida e cria a regra de agendamento (Ex: "0 2 * * *")
+        trigger = CronTrigger.from_crontab(cron_expr)
+        job_id = f"job_{job_name.replace('.py', '')}"
+
+        # Se já existir um agendamento pra esse script, remove o antigo
+        if scheduler.get_job(job_id):
+            scheduler.remove_job(job_id)
+
+        scheduler.add_job(
+            func=run_spark_job,
+            trigger=trigger,
+            args=[job_name, "Cron Scheduler"],
+            id=job_id,
+            name=job_name,
+        )
+        return JSONResponse(
+            content={
+                "status": "success",
+                "message": f"Job {job_name} agendado! (Cron: {cron_expr})",
+            }
+        )
+    except ValueError:
+        return JSONResponse(
+            content={
+                "status": "error",
+                "message": "Formato Cron inválido. Use algo como '0 2 * * *'.",
+            },
+            status_code=400,
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={"status": "error", "message": str(e)}, status_code=500
+        )
+
+
+@router.delete("/jobs/schedule/{job_id}")
+async def remove_scheduled_job(job_id: str):
+    """Cancela um agendamento"""
+    if scheduler.get_job(job_id):
+        scheduler.remove_job(job_id)
+        return JSONResponse(
+            content={
+                "status": "success",
+                "message": "Agendamento cancelado com sucesso.",
+            }
+        )
+    return JSONResponse(
+        content={"status": "error", "message": "Agendamento não encontrado."},
+        status_code=404,
+    )
+
+
+# ==========================================
+# ROTAS DO CLUSTER SPARK (MONITORAMENTO)
+# ==========================================
+
 
 @router.get("/spark/status")
 async def get_spark_status():
-    """Fetch overall Apache Spark cluster status.
-    Returns list of active workers, running jobs, and completed jobs.
-    """
     try:
         url = "http://spark-master:8080/json/"
         with urllib.request.urlopen(url) as response:
@@ -112,23 +193,14 @@ async def get_spark_status():
 
 @router.get("/spark/app/{app_id}/jobs")
 async def get_spark_app_jobs(app_id: str):
-    """Fetch detailed job progress for a specific Spark application.
-    
-    Scrapes the Spark Master and Driver UIs to extract task progress in real-time.
-    Requires connecting to the Driver's REST API on port 4040.
-    
-    Note: The Spark Master API doesn't expose the Driver URL, so HTML scraping is used.
-    """
     import urllib.error
 
     try:
-        # 1. O Master não expõe a URL via JSON, então raspamos a página HTML dele internamente!
         app_page_url = f"http://spark-master:8080/app/?appId={app_id}"
         req_page = urllib.request.Request(app_page_url)
         with urllib.request.urlopen(req_page) as response:
             app_html = response.read().decode("utf-8")
 
-        # 2. Busca com Regex exatamente o link HTTP (ex: http://172.18.0.x:4040) do Driver UI
         match = re.search(
             r'href="(http://[^"]+)">(Application Detail UI|Application UI)</a>',
             app_html,
@@ -136,17 +208,15 @@ async def get_spark_app_jobs(app_id: str):
         )
 
         if not match:
-            # Se o link sumiu do HTML, o Job terminou e o Spark fechou a porta 4040
             return JSONResponse(
                 content={
                     "status": "error",
-                    "message": "O processamento finalizou e o Spark desativou o monitoramento ao vivo.",
+                    "message": "O processamento finalizou ou não possui UI ativa.",
                 }
             )
 
         driver_url = match.group(1).rstrip("/")
 
-        # 3. Bate na API do Driver (seu Jupyter) para achar o ID interno que ele está usando
         driver_api_base = f"{driver_url}/api/v1/applications"
         req_driver = urllib.request.Request(driver_api_base)
         with urllib.request.urlopen(req_driver) as response:
@@ -162,7 +232,6 @@ async def get_spark_app_jobs(app_id: str):
 
         real_driver_app_id = driver_apps[0]["id"]
 
-        # 4. Finalmente puxa os Jobs perfeitamente!
         jobs_url = f"{driver_api_base}/{real_driver_app_id}/jobs"
         req_jobs = urllib.request.Request(jobs_url)
         with urllib.request.urlopen(req_jobs) as response:
@@ -170,11 +239,11 @@ async def get_spark_app_jobs(app_id: str):
 
         return JSONResponse(content={"status": "success", "jobs": jobs_data})
 
-    except urllib.error.URLError as e:
+    except urllib.error.URLError:
         return JSONResponse(
             content={
                 "status": "error",
-                "message": "O Driver parou de responder na porta 4040 (Job Concluído).",
+                "message": "Driver parou de responder na porta 4040 (Job Concluído).",
             }
         )
     except Exception as e:

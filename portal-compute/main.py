@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from routers import api, ui
 
 # Initialize the FastAPI application
-app = FastAPI()
+app = FastAPI(title="ArenaLake Portal")
 
 # Mount static file directory
 # Serves CSS, JavaScript, and other static assets from /static path
