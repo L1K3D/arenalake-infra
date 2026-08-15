@@ -23,19 +23,19 @@ except Exception as e:
 
 def provision_workspace(usuario: str, perfil: str = "standard"):
     """Provision Docker containers for a user's workspace.
-    
+
     Creates two dedicated containers per user:
     1. VS Code IDE container: web-based development environment
     2. Spark Worker container: distributed computing node
-    
+
     Hardware profiles:
     - standard: 2 CPU cores, 4GB total RAM (VS Code 1GB, Worker 3GB)
     - extreme: 6 CPU cores, 8GB total RAM (VS Code 2GB, Worker 6GB)
-    
+
     Args:
         usuario: Username (used in container names and subdomain)
         perfil: Hardware profile ("standard" or "extreme")
-    
+
     Returns:
         domain: The user's domain name (username.localhost)
     """
@@ -95,7 +95,6 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         image="arenalake-workspace:latest",
         name=container_name_vscode,
         detach=True,
-
         command="--auth none --user-data-dir /home/coder/project/.vscode-data/data --extensions-dir /home/coder/project/.vscode-data/extensions",
         environment=[
             "SPARK_MASTER=spark://spark-master:7077",
@@ -157,9 +156,9 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
 
 def get_workspace_metrics(usuario: str):
     """Fetch real-time resource usage metrics for a user's workspace.
-    
+
     Aggregates CPU and memory usage from both VS Code and Spark Worker containers.
-    
+
     Returns:
         Dictionary with status and metrics, or offline status if containers not running.
         Metrics include:
@@ -234,3 +233,55 @@ def get_workspace_metrics(usuario: str):
         "memory_limit_mb": mem_limit_mb,
         "memory_percent": mem_percent,
     }
+
+
+def list_spark_jobs():
+    """Lê a pasta /jobs de dentro do container do Spark Master"""
+    if not client:
+        return []
+    try:
+        master_container = None
+        for c in client.containers.list(filters={"status": "running"}):
+            if "spark-master" in c.name:
+                master_container = c
+                break
+
+        if not master_container:
+            return []
+
+        # Pede pro master listar os scripts .py
+        res = master_container.exec_run("sh -c 'ls -1 /jobs/*.py 2>/dev/null'")
+        if res.exit_code == 0:
+            output = res.output.decode("utf-8").strip()
+            if output:
+                # Extrai só o nome do arquivo limpo (ex: first_job.py)
+                return [f.split("/")[-1] for f in output.split("\n")]
+        return []
+    except Exception as e:
+        print(f"Erro ao listar jobs no Spark: {e}")
+        return []
+
+
+def run_spark_job(job_name: str, origin: str = "manual"):
+    """Dispara um spark-submit silencioso em background no Master"""
+    if not client:
+        return False
+    try:
+        master_container = None
+        for c in client.containers.list(filters={"status": "running"}):
+            if "spark-master" in c.name:
+                master_container = c
+                break
+
+        if not master_container:
+            raise Exception("Spark Master offline")
+
+        print(f"[{origin.upper()}] Disparando job: {job_name}")
+
+        # O spark-submit roda direto no nó master apontando pro script
+        cmd = f"spark-submit --master spark://spark-master:7077 /jobs/{job_name}"
+        master_container.exec_run(cmd, detach=True)
+        return True
+    except Exception as e:
+        print(f"Erro ao executar job {job_name}: {e}")
+        return False

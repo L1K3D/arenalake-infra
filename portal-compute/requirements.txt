@@ -23,3 +23,5 @@ pyspark
 
 # Apache Arrow for Parquet file support
 pyarrow
+
+apscheduler
