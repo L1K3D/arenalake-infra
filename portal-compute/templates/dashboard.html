@@ -4,7 +4,8 @@
 <head>
     <title>ArenaLake Dashboard - {{ usuario }}</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/css/dashboard.css">
+    <!-- MÁGICA DO CACHE AQUI (adicionamos o ?v=2) -->
+    <link rel="stylesheet" href="/static/css/dashboard.css?v=2">
 </head>
 
 <body>
@@ -221,7 +222,8 @@
     <script>
         window.dashboardConfig = { usuario: "{{ usuario }}", domain: "{{ domain }}" };
     </script>
-    <script src="/static/js/dashboard.js"></script>
+    <!-- MÁGICA DO CACHE AQUI (adicionamos o ?v=2) -->
+    <script src="/static/js/dashboard.js?v=2"></script>
 </body>
 
 </html>
