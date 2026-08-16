@@ -112,10 +112,10 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         nano_cpus=cpu_limit,
         labels={
             "traefik.enable": "true",
-            # Usa PathPrefix com catch-all ( /workspace/heitor/ ) para o Traefik pegar tudo
+            # Captura a rota base e qualquer sub-caminho
             f"traefik.http.routers.vscode-{usuario}.rule": f"PathPrefix(`/workspace/{usuario}`)",
             f"traefik.http.routers.vscode-{usuario}.entrypoints": "web",
-            # O StripPrefix remove o /workspace/heitor antes de mandar pro VS Code
+            # Middleware para remover o prefixo da URL antes de enviar ao code-server
             f"traefik.http.middlewares.strip-{usuario}.stripprefix.prefixes": f"/workspace/{usuario}",
             f"traefik.http.routers.vscode-{usuario}.middlewares": f"strip-{usuario}",
             f"traefik.http.services.vscode-{usuario}.loadbalancer.server.port": "8080",
