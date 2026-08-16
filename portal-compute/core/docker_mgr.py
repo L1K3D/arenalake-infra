@@ -112,10 +112,10 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         nano_cpus=cpu_limit,
         labels={
             "traefik.enable": "true",
-            # Roteia qualquer requisição que comece com /workspace/usuario
+            # Captura a rota base e qualquer sub-caminho
             f"traefik.http.routers.vscode-{usuario}.rule": f"PathPrefix(`/workspace/{usuario}`)",
             f"traefik.http.routers.vscode-{usuario}.entrypoints": "web",
-            # Remove o /workspace/usuario antes de entregar para o VS Code (evita erro 404 interno)
+            # Middleware para remover o prefixo da URL antes de enviar ao code-server
             f"traefik.http.middlewares.strip-{usuario}.stripprefix.prefixes": f"/workspace/{usuario}",
             f"traefik.http.routers.vscode-{usuario}.middlewares": f"strip-{usuario}",
             f"traefik.http.services.vscode-{usuario}.loadbalancer.server.port": "8080",
