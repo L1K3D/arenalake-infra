@@ -39,7 +39,7 @@ services:
       - "${SPARK_UI_PORT:-8080}:8080"
       - "${SPARK_RPC_PORT:-7077}:7077"
     volumes:
-      - ./jobs:/jobs                             # Spark internal RPC port for Workers
+      - ${DATALAKE_STORAGE_PATH}/spark_jobs:/jobs                             # Spark internal RPC port for Workers
     networks:
       - arenalake-net
 
@@ -58,7 +58,7 @@ services:
       - "${MINIO_CONSOLE_PORT:-9001}:9001"                            # MinIO Web Console Port
     volumes:
       # Mounts the persistent volume to ensure data survives container restarts
-      - minio_data:/data
+      - ${DATALAKE_STORAGE_PATH}/minio_data:/data
     networks:
       - arenalake-net
 
@@ -91,6 +91,7 @@ services:
       # Docker-out-of-Docker (DooD): Allows the Portal container to spawn 
       # sibling containers (VS Code/Spark Workers) directly on the host machine.
       - /var/run/docker.sock:/var/run/docker.sock
+      - ${DATALAKE_STORAGE_PATH}/projects_data:/app/projects_data
     networks:
       - arenalake-net
 
