@@ -21,6 +21,8 @@ except Exception as e:
     client = None
 
 network_name = os.getenv("WORKSPACE_NETWORK")
+tailscale_url = os.getenv("TAILSCALE_BASE_URL")
+vscode_port = os.getenv("VSCODE_EXTERNAL_PORT")
 
 
 def provision_workspace(usuario: str, perfil: str = "standard"):
@@ -48,7 +50,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
     # Each user gets a dedicated IDE and Spark worker
     container_name_vscode = f"vscode-{usuario}"
     container_name_worker = f"spark-worker-{usuario}"
-    domain = f"/workspace/{usuario}"
+    domain = f"{tailscale_url}:{vscode_port}"
 
     # Set resource limits based on selected hardware profile
     if perfil == "extreme":
@@ -120,6 +122,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
             f"traefik.http.routers.vscode-{usuario}.middlewares": f"strip-{usuario}",
             f"traefik.http.services.vscode-{usuario}.loadbalancer.server.port": "8080",
         },
+        ports={'8080/tcp': 8085},
     )
 
     # ========================================================================
