@@ -77,7 +77,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
             pass
 
     # Create user project directory on host filesystem
-    base_path = os.getenv("HOST_PROJECT_PATH", "/tmp/network_name")
+    base_path = os.getenv("HOST_PROJECT_PATH", f"/tmp/{network_name}")
     host_dir = f"{base_path}/projects_data/{usuario}"
     os.makedirs(host_dir, exist_ok=True)
     os.chmod(host_dir, 0o777)
@@ -107,7 +107,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         ],
         # Mount user project directory (persists work across container restarts)
         volumes={host_dir: {"bind": "/home/coder/project", "mode": "rw"}},
-        network="network_name_arenalake-net",
+        network=network_name,
         mem_limit=vscode_ram,
         nano_cpus=cpu_limit,
         labels={
@@ -148,7 +148,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         command=["-c", startup_worker_cmd],
         environment=[f"MINIO_ACCESS_KEY={minio_ak}", f"MINIO_SECRET_KEY={minio_sk}"],
         volumes={host_dir: {"bind": "/home/coder/project", "mode": "rw"}},
-        network="network_name_arenalake-net",
+        network=network_name,
         mem_limit=worker_ram,
         nano_cpus=cpu_limit,
     )
