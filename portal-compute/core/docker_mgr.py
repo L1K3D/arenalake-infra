@@ -48,7 +48,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
     # Each user gets a dedicated IDE and Spark worker
     container_name_vscode = f"vscode-{usuario}"
     container_name_worker = f"spark-worker-{usuario}"
-    domain = f"{usuario}.localhost"
+    domain = f"/workspace/{usuario}"
 
     # Set resource limits based on selected hardware profile
     if perfil == "extreme":
@@ -111,10 +111,13 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         mem_limit=vscode_ram,
         nano_cpus=cpu_limit,
         labels={
-            # Traefik reverse proxy configuration
-            # Makes VS Code accessible at http://username.localhost
             "traefik.enable": "true",
-            f"traefik.http.routers.vscode-{usuario}.rule": f"Host(`{domain}`)",
+            # Roteia qualquer requisição que comece com /workspace/usuario
+            f"traefik.http.routers.vscode-{usuario}.rule": f"PathPrefix(`/workspace/{usuario}`)",
+            f"traefik.http.routers.vscode-{usuario}.entrypoints": "web",
+            # Remove o /workspace/usuario antes de entregar para o VS Code (evita erro 404 interno)
+            f"traefik.http.middlewares.strip-{usuario}.stripprefix.prefixes": f"/workspace/{usuario}",
+            f"traefik.http.routers.vscode-{usuario}.middlewares": f"strip-{usuario}",
             f"traefik.http.services.vscode-{usuario}.loadbalancer.server.port": "8080",
         },
     )
