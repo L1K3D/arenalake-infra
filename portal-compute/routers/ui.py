@@ -13,6 +13,7 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from core.docker_mgr import provision_workspace
+import os
 
 # Initialize router and Jinja2 template engine
 router = APIRouter()
@@ -55,8 +56,12 @@ async def provisionar_ambiente(
 
 @router.get("/dashboard/{usuario}", response_class=HTMLResponse)
 async def dashboard(request: Request, usuario: str):
-    # O iframe vai carregar o caminho relativo limpo
-    domain = f"/workspace/{usuario}"
+    tailscale_url = os.getenv("TAILSCALE_BASE_URL", "https://arenalakeserver.tail8b9a43.ts.net")
+    vscode_port = os.getenv("VSCODE_EXTERNAL_PORT", "8085")
+    
+    # Monta a URL externa correta com a porta
+    domain = f"{tailscale_url}:{vscode_port}"
+    
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
