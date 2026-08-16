@@ -94,6 +94,11 @@ services:
       - ${DATALAKE_STORAGE_PATH}/projects_data:/app/projects_data
     networks:
       - arenalake-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portal.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.portal.entrypoints=web"
+      - "traefik.http.services.portal.loadbalancer.server.port=8000"
 
 # -----------------------------------------------------------------------------
 # Global Networks and Volumes
