@@ -55,9 +55,8 @@ async def provisionar_ambiente(
 
 @router.get("/dashboard/{usuario}", response_class=HTMLResponse)
 async def dashboard(request: Request, usuario: str):
-    # Render the main user dashboard
-    # The domain is used in the template to access the user's VS Code IDE iframe
-    domain = f"{usuario}.localhost"
+    # O iframe vai carregar o caminho relativo limpo
+    domain = f"/workspace/{usuario}"
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
