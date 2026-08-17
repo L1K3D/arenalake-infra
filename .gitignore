@@ -6,3 +6,5 @@ projects_data/
 
 # Jobs do Spark
 spark_jobs/
+
+MANUAL_DEV.md
