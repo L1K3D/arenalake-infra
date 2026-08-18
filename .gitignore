@@ -1,11 +1,6 @@
-# Segredos e Credenciais
 .env
-
-# Arquivos projetos de usuário
 projects_data/
-
-# Jobs do Spark
 spark_jobs/
-
 MANUAL_DEV.md
 docs/
+minio_data/
