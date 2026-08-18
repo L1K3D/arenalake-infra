@@ -107,22 +107,18 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
             f"WORKSPACE_RAM={spark_ram}",
             f"WORKSPACE_CORES={spark_cores}",
         ],
-        # Mount user project directory (persists work across container restarts)
         volumes={host_dir: {"bind": "/home/coder/project", "mode": "rw"}},
         network=network_name,
         mem_limit=vscode_ram,
         nano_cpus=cpu_limit,
         labels={
             "traefik.enable": "true",
-            # Captura a rota base e qualquer sub-caminho
             f"traefik.http.routers.vscode-{usuario}.rule": f"PathPrefix(`/workspace/{usuario}`)",
             f"traefik.http.routers.vscode-{usuario}.entrypoints": "web",
-            # Middleware para remover o prefixo da URL antes de enviar ao code-server
             f"traefik.http.middlewares.strip-{usuario}.stripprefix.prefixes": f"/workspace/{usuario}",
             f"traefik.http.routers.vscode-{usuario}.middlewares": f"strip-{usuario}",
             f"traefik.http.services.vscode-{usuario}.loadbalancer.server.port": "8080",
         },
-        ports={'8080/tcp': 8085},
     )
 
     # ========================================================================

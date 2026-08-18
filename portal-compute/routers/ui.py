@@ -56,11 +56,11 @@ async def provisionar_ambiente(
 
 @router.get("/dashboard/{usuario}", response_class=HTMLResponse)
 async def dashboard(request: Request, usuario: str):
-    tailscale_url = os.getenv("TAILSCALE_BASE_URL", "https://arenalakeserver.tail8b9a43.ts.net")
-    vscode_port = os.getenv("VSCODE_EXTERNAL_PORT", "8085")
+    tailscale_url = os.getenv("TAILSCALE_BASE_URL")
+    vscode_port = os.getenv("VSCODE_EXTERNAL_PORT")
     
     # Monta a URL externa correta com a porta
-    domain = f"{tailscale_url}:{vscode_port}"
+    domain = f"{tailscale_url}:{vscode_port}/workspace/{usuario}"
     
     return templates.TemplateResponse(
         request=request,
