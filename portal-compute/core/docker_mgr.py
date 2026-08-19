@@ -97,11 +97,21 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         )
 
     # 1. Sobe o container do VS Code (A Interface)
+    startup_vscode_cmd = (
+        f"sudo chown -R coder:coder /home/coder/project && "
+        f"echo 'PS1=\"{usuario}@\\h:\\w\\$ \"' >> /home/coder/.bashrc && "
+        f"/usr/bin/entrypoint.sh --bind-addr 0.0.0.0:8080 --auth none "
+        f"--user-data-dir /home/coder/project/.vscode-data/data "
+        f"--extensions-dir /home/coder/project/.vscode-data/extensions "
+        f"/home/coder/project"
+    )
+
     client.containers.run(
         image="arenalake-workspace:latest",
         name=container_name_vscode,
         detach=True,
-        command="--auth none --user-data-dir /home/coder/project/.vscode-data/data --extensions-dir /home/coder/project/.vscode-data/extensions",
+        entrypoint="/bin/sh",  # <--- Mudamos o entrypoint para o shell
+        command=["-c", startup_vscode_cmd],  # <--- Passamos nosso script composto
         environment=[
             "SPARK_MASTER=spark://spark-master:7077",
             f"MINIO_ACCESS_KEY={minio_ak}",
