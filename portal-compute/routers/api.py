@@ -7,7 +7,12 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from core.s3_mgr import fetch_catalog_data, upload_file_to_datalake, get_file_details
-from core.docker_mgr import get_workspace_metrics, list_spark_jobs, run_spark_job
+from core.docker_mgr import (
+    get_workspace_metrics,
+    list_spark_jobs,
+    run_spark_job,
+    get_allocatable_resources,
+)
 
 router = APIRouter(prefix="/api")
 
@@ -108,6 +113,16 @@ async def execute_job_now(job_name: str):
     return JSONResponse(
         content={"status": "error", "message": "Erro ao disparar job."}, status_code=500
     )
+
+
+@router.get("/system/resources")
+async def get_system_resources():
+    data = get_allocatable_resources()
+    if "error" in data:
+        return JSONResponse(
+            content={"status": "error", "message": data["error"]}, status_code=500
+        )
+    return JSONResponse(content={"status": "success", "data": data})
 
 
 @router.post("/jobs/schedule")

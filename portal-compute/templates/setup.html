@@ -15,6 +15,12 @@
         <h2>⚙️ Configuração do Workspace</h2>
         <p class="subtitle">Bem-vindo(a), <b>{{ usuario }}</b>. Selecione o poder computacional para a sua sessão.</p>
 
+        <!-- Painel de Recursos em Tempo Real -->
+        <div id="resource-banner"
+            style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; margin-bottom: 25px; text-align: center; color: #c9d1d9;">
+            📊 <b>Buscando recursos disponíveis no servidor...</b>
+        </div>
+
         <!-- Provisioning Form: Submits the user and selected hardware profile to the backend (/provisionar) -->
         <form action="/provisionar" method="post" id="setupForm">
             <!-- Hidden input field to pass the logged-in username to the backend securely -->
@@ -34,6 +40,10 @@
                     </div>
                     <div class="machine-desc">Ideal para tarefas do dia a dia, desenvolvimento de scripts básicos e
                         análise exploratória de dados.</div>
+                    <div class="insufficient-resource" id="warn-standard"
+                        style="display: none; color: #f85149; font-size: 0.8em; margin-top: 10px; font-weight: bold;">
+                        Recursos Insuficientes
+                    </div>
                 </label>
 
                 <!-- EXTREME PROFILE CARD -->
@@ -48,6 +58,10 @@
                     </div>
                     <div class="machine-desc">Alta performance. Recomendado para uso intenso no Apache Spark e
                         algoritmos de Machine Learning.</div>
+                    <div class="insufficient-resource" id="warn-extreme"
+                        style="display: none; color: #f85149; font-size: 0.8em; margin-top: 10px; font-weight: bold;">
+                        Recursos Insuficientes
+                    </div>
                 </label>
             </div>
 
@@ -58,6 +72,93 @@
 
     <!-- External script handling card selection logic and button activation -->
     <script src="/static/js/setup.js"></script>
+
+    <!-- Monitoramento em Tempo Real e Lógica de Bloqueio -->
+    <script>
+        async function fetchSystemResources() {
+            try {
+                const response = await fetch('/api/system/resources');
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    const data = result.data;
+                    const banner = document.getElementById('resource-banner');
+
+                    // Atualiza o painel visual com os recursos livres
+                    banner.innerHTML = `
+                        <div style="font-size: 0.9em; color: #8b949e; margin-bottom: 5px;">Recursos Livres para Alocação no Host:</div>
+                        <div style="font-size: 1.2em;">
+                            CPU: <span style="color: #58a6ff; font-weight: bold;">${data.available_cpus.toFixed(1)} Cores</span> &nbsp;|&nbsp; 
+                            RAM: <span style="color: #3fb950; font-weight: bold;">${data.available_mem_gb.toFixed(1)} GB</span>
+                        </div>
+                    `;
+
+                    // Valida os recursos contra os limites dos perfis
+                    verificarDisponibilidade(data.available_cpus, data.available_mem_gb);
+                }
+            } catch (error) {
+                console.error('Erro ao buscar recursos do host:', error);
+            }
+        }
+
+        function verificarDisponibilidade(cpusLivres, ramLivre) {
+            const cardStandard = document.getElementById('card-standard');
+            const radioStandard = document.querySelector('input[value="standard"]');
+            const warnStandard = document.getElementById('warn-standard');
+
+            const cardExtreme = document.getElementById('card-extreme');
+            const radioExtreme = document.querySelector('input[value="extreme"]');
+            const warnExtreme = document.getElementById('warn-extreme');
+
+            const btnLaunch = document.getElementById('btnLaunch');
+
+            // Regra do Perfil Standard (Exige: 2 CPU e 4 GB RAM)
+            if (cpusLivres < 2 || ramLivre < 4) {
+                cardStandard.style.opacity = '0.4';
+                cardStandard.style.pointerEvents = 'none';
+                radioStandard.disabled = true;
+                warnStandard.style.display = 'block';
+
+                // Se o usuário já tinha selecionado e os recursos acabaram, desmarca
+                if (radioStandard.checked) {
+                    radioStandard.checked = false;
+                    btnLaunch.disabled = true;
+                    btnLaunch.innerText = 'Selecione um Perfil Acima';
+                    cardStandard.classList.remove('selected'); // Ajuste conforme seu setup.js
+                }
+            } else {
+                cardStandard.style.opacity = '1';
+                cardStandard.style.pointerEvents = 'auto';
+                radioStandard.disabled = false;
+                warnStandard.style.display = 'none';
+            }
+
+            // Regra do Perfil Extreme (Exige: 6 CPU e 8 GB RAM)
+            if (cpusLivres < 6 || ramLivre < 8) {
+                cardExtreme.style.opacity = '0.4';
+                cardExtreme.style.pointerEvents = 'none';
+                radioExtreme.disabled = true;
+                warnExtreme.style.display = 'block';
+
+                // Se o usuário já tinha selecionado e os recursos acabaram, desmarca
+                if (radioExtreme.checked) {
+                    radioExtreme.checked = false;
+                    btnLaunch.disabled = true;
+                    btnLaunch.innerText = 'Selecione um Perfil Acima';
+                    cardExtreme.classList.remove('selected'); // Ajuste conforme seu setup.js
+                }
+            } else {
+                cardExtreme.style.opacity = '1';
+                cardExtreme.style.pointerEvents = 'auto';
+                radioExtreme.disabled = false;
+                warnExtreme.style.display = 'none';
+            }
+        }
+
+        // Dispara a primeira busca na hora e repete a cada 5 segundos
+        fetchSystemResources();
+        setInterval(fetchSystemResources, 5000);
+    </script>
 </body>
 
 </html>
