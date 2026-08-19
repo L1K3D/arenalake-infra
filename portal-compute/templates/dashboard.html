@@ -65,6 +65,14 @@
                         title="Alterar perfil de Hardware">🔄 Reiniciar / Setup</button>
                 </form>
 
+                <!-- NOVO: Botão de Desligar (Kill Switch) -->
+                <form action="/shutdown" method="post" style="margin: 0; margin-left: 10px;">
+                    <input type="hidden" name="usuario" value="{{ usuario }}">
+                    <button type="submit" class="btn"
+                        style="background-color: #da3633; border: 1px solid #b62324; color: white; font-weight: bold;"
+                        title="Desligar ambiente e liberar recursos">🛑 Desligar</button>
+                </form>
+
                 <span style="color: #2ea043; font-weight: bold; font-size: 0.85em; margin-left: 5px;">● Online</span>
             </div>
         </div>

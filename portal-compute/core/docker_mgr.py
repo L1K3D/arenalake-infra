@@ -12,6 +12,7 @@
 
 import os
 import docker
+import time as tm
 
 # Initialize Docker client (connects to the local Docker daemon)
 try:
@@ -23,6 +24,7 @@ except Exception as e:
 network_name = os.getenv("WORKSPACE_NETWORK")
 tailscale_url = os.getenv("TAILSCALE_BASE_URL")
 vscode_port = os.getenv("VSCODE_EXTERNAL_PORT")
+WORKSPACE_LAST_SEEN = {}
 
 
 def provision_workspace(usuario: str, perfil: str = "standard"):
@@ -331,3 +333,38 @@ def get_allocatable_resources():
         }
     except Exception as e:
         return {"error": str(e)}
+
+
+def update_workspace_activity(usuario: str):
+    """Atualiza o 'heartbeat' do usuário indicando que ele está com a aba aberta."""
+    WORKSPACE_LAST_SEEN[usuario] = tm.time()
+
+
+def shutdown_workspace(usuario: str):
+    """Derruba os containers de um usuário específico e libera o hardware."""
+    if not client:
+        return
+    for c_name in [f"vscode-{usuario}", f"spark-worker-{usuario}"]:
+        try:
+            container = client.containers.get(c_name)
+            container.stop()
+            container.remove()
+            print(f"Container {c_name} removido com sucesso.")
+        except:
+            pass
+
+    # Limpa o usuário do rastreio de inatividade
+    if usuario in WORKSPACE_LAST_SEEN:
+        del WORKSPACE_LAST_SEEN[usuario]
+
+
+def verify_idle_workspaces():
+    """Varre os workspaces ativos e derruba os que estão ociosos há mais de 15 minutos."""
+    current_time = tm.time()
+    idle_timeout = 15 * 60  # 15 minutos convertidos em segundos
+
+    # Usamos list() para poder modificar o dicionário durante o loop sem causar erros
+    for usuario, last_seen in list(WORKSPACE_LAST_SEEN.items()):
+        if (current_time - last_seen) > idle_timeout:
+            print(f"Workspace de '{usuario}' ocioso por mais de 15 min. Desligando...")
+            shutdown_workspace(usuario)

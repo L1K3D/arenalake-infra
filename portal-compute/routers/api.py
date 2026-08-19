@@ -12,6 +12,8 @@ from core.docker_mgr import (
     list_spark_jobs,
     run_spark_job,
     get_allocatable_resources,
+    update_workspace_activity,
+    verify_idle_workspaces,
 )
 
 router = APIRouter(prefix="/api")
@@ -37,6 +39,10 @@ async def get_metrics(usuario: str):
         metrics = get_workspace_metrics(usuario)
         if metrics.get("status") == "offline":
             return JSONResponse(content=metrics, status_code=404)
+
+        # O workspace está online e o usuário está com a aba aberta! Atualiza o timer.
+        update_workspace_activity(usuario)
+
         return JSONResponse(content=metrics)
     except Exception as e:
         return JSONResponse(
@@ -265,3 +271,12 @@ async def get_spark_app_jobs(app_id: str):
         return JSONResponse(
             content={"status": "error", "message": f"Erro interno: {str(e)}"}
         )
+
+
+scheduler.add_job(
+    verify_idle_workspaces,
+    "interval",
+    minutes=1,
+    id="idle_monitor",
+    name="Monitor de Ociosidade",
+)
