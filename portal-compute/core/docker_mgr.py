@@ -289,3 +289,45 @@ def run_spark_job(job_name: str, origin: str = "manual"):
     except Exception as e:
         print(f"Erro ao executar job {job_name}: {e}")
         return False
+
+
+def get_allocatable_resources():
+    """Calcula os recursos livres no host do Docker para novas alocações."""
+    if not client:
+        return {"error": "Cliente Docker offline"}
+    try:
+        # Pega as informações do host (o servidor físico/VM)
+        info = client.info()
+        total_cpus = info.get("NCPU", 0)
+        total_mem_bytes = info.get("MemTotal", 0)
+
+        allocated_cpus = 0.0
+        allocated_mem_bytes = 0
+
+        # Soma os recursos reservados pelos workspaces ativos
+        for c in client.containers.list():
+            if c.name.startswith("vscode-") or c.name.startswith("spark-worker-"):
+                host_config = c.attrs.get("HostConfig", {})
+
+                # NanoCpus é a medida do Docker em bilionésimos de CPU
+                nano_cpus = host_config.get("NanoCpus", 0)
+                allocated_cpus += nano_cpus / 1e9
+
+                # Memória em bytes
+                mem_limit = host_config.get("Memory", 0)
+                allocated_mem_bytes += mem_limit
+
+        # Calcula o disponível (Total - Alocado)
+        available_cpus = max(0, total_cpus - allocated_cpus)
+        available_mem_bytes = max(0, total_mem_bytes - allocated_mem_bytes)
+
+        return {
+            "total_cpus": total_cpus,
+            "total_mem_gb": round(total_mem_bytes / (1024**3), 2),
+            "allocated_cpus": allocated_cpus,
+            "allocated_mem_gb": round(allocated_mem_bytes / (1024**3), 2),
+            "available_cpus": available_cpus,
+            "available_mem_gb": round(available_mem_bytes / (1024**3), 2),
+        }
+    except Exception as e:
+        return {"error": str(e)}
