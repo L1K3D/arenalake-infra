@@ -95,20 +95,29 @@ function initCharts() {
  * @param {string} tabId - ID of tab to activate (workspace, data, compute, spark)
  * @param {Element} element - The menu item that was clicked
  */
+let biGridInicializado = false;
+let biGrid = null;
+
 function switchTab(tabId, element) {
-    // Hide all tabs
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-    // Remove active class from all menu items
     document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
 
-    // Show selected tab and mark menu item as active
     document.getElementById(tabId).classList.add('active');
     element.classList.add('active');
-    closePanel();  // Close file preview panel if open
+    closePanel();
 
-    // Load data when switching to specific tabs
     if (tabId === 'data') loadCatalog();
     if (tabId === 'compute') initCharts();
+
+    // NOVA LÓGICA DO BI:
+    if (tabId === 'bi' && !biGridInicializado) {
+        biGrid = GridStack.init({
+            cellHeight: 120,
+            margin: 10,
+            resizable: { handles: 'e, se, s, sw, w' }
+        }, '.grid-stack');
+        biGridInicializado = true;
+    }
 }
 
 /* ============================================================================
@@ -130,6 +139,8 @@ async function loadCatalog() {
             globalCatalogData = data.data;  // Cache data
             updateFolderDropdown();
             renderCatalogTable();
+
+            atualizarListaDatasetsBI();
         }
     } catch (e) {
         // Show error message in table if catalog fetch fails
@@ -685,3 +696,221 @@ setInterval(() => {
         loadSchedulerData();
     }
 }, 10000); // Atualiza a cada 10 segundos
+
+// ==============================================================
+// ARENALAKE BI TOOLS - LÓGICA DO DASHBOARD
+// ==============================================================
+
+function abrirModalVisual() {
+    const tabela = document.getElementById('biDatasetSelector').value;
+    if (!tabela) {
+        alert("Por favor, selecione uma Tabela/Dataset primeiro!");
+        return;
+    }
+    document.getElementById('biModal').style.display = 'flex';
+}
+
+function fecharModalVisual() {
+    document.getElementById('biModal').style.display = 'none';
+}
+
+async function confirmarNovoVisual() {
+    const selector = document.getElementById('biDatasetSelector').value;
+    const tipo = document.getElementById('biTipoGrafico').value;
+    const eixoX = document.getElementById('biEixoX').value;
+    const eixoY = document.getElementById('biEixoY').value;
+    const agregacao = document.getElementById('biAgregacao').value;
+
+    if (!selector) return alert("Selecione uma tabela.");
+    if (!eixoX || !eixoY) return alert("Selecione os eixos X e Y.");
+
+    const [bucket, filename] = selector.split('|');
+    fecharModalVisual();
+
+    try {
+        const res = await fetch('/api/bi/gerar_dados', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bucket, filename, eixo_x: eixoX, eixo_y: eixoY, agregacao, tipo_grafico: tipo })
+        });
+        const result = await res.json();
+
+        if (result.status === 'success') {
+            const idUnico = 'chart_' + Math.random().toString(36).substr(2, 9);
+            const titulo = `${agregacao.toUpperCase()} de ${eixoY} por ${eixoX}`;
+            adicionarGraficoGrid(idUnico, titulo, tipo, result.data);
+        } else {
+            alert("Erro no processamento dos dados: " + result.message);
+        }
+    } catch (e) {
+        alert("Erro ao conectar com o motor analítico.");
+    }
+}
+
+window.biCharts = window.biCharts || {};
+
+function adicionarGraficoGrid(id, titulo, tipo, dados) {
+    // CORREÇÃO: Removemos a classe duplicada e forçamos o Flexbox a usar 100% do GridStack
+    let widgetHtml = `
+        <div style="display: flex; flex-direction: column; height: 100%; width: 100%;">
+            <div class="chart-header-bi">
+                <span class="titulo-grafico">${titulo}</span>
+                <div class="actions">
+                    <span onclick="abrirModalEdicao('${id}')" title="Editar">✏️</span>
+                    <span onclick="removerGraficoGrid(this, '${id}')" title="Excluir">🗑️</span>
+                </div>
+            </div>
+            <div id="${id}" style="flex: 1; min-height: 0; width: 100%;"></div>
+        </div>
+    `;
+
+    // Adiciona o widget ao grid
+    biGrid.addWidget({ w: 6, h: 3, content: widgetHtml });
+
+    // Inicializa o ECharts no container injetado
+    let chartDom = document.getElementById(id);
+    let myChart = echarts.init(chartDom, 'dark', { backgroundColor: 'transparent' });
+
+    let option = {
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'category', data: dados.categorias },
+        yAxis: { type: 'value' },
+        series: [{
+            data: dados.valores,
+            type: tipo === 'bar' || tipo === 'line' ? tipo : 'bar',
+            itemStyle: { color: '#58a6ff' }
+        }]
+    };
+
+    // Ajuste para gráfico de pizza
+    if (tipo === 'pie') {
+        option.xAxis = null;
+        option.yAxis = null;
+        option.series = [{
+            type: 'pie',
+            radius: '70%',
+            data: dados.categorias.map((cat, i) => ({ name: cat, value: dados.valores[i] }))
+        }];
+    }
+
+    myChart.setOption(option);
+    window.biCharts[id] = myChart;
+
+    // Redimensiona o gráfico assim que o DOM terminar de renderizar a altura
+    setTimeout(() => { if (window.biCharts[id]) window.biCharts[id].resize(); }, 150);
+
+    // Garante que o gráfico se ajuste quando o card for esticado/encolhido
+    biGrid.on('resizestop', function () {
+        Object.values(window.biCharts).forEach(c => c.resize());
+    });
+}
+
+function removerGraficoGrid(element, id) {
+    biGrid.removeWidget(element.closest('.grid-stack-item'));
+    if (window.biCharts[id]) delete window.biCharts[id];
+}
+
+// -------------------------------------------------------------------
+// LÓGICA DE EDIÇÃO
+// -------------------------------------------------------------------
+let chartEmEdicao = null;
+
+function abrirModalEdicao(id) {
+    chartEmEdicao = id;
+    const chart = window.biCharts[id];
+    const option = chart.getOption();
+
+    const header = document.getElementById(id).previousElementSibling;
+    const tituloSpan = header.querySelector('.titulo-grafico');
+    document.getElementById('biEditTitulo').value = tituloSpan.innerText;
+
+    let corAtual = '#58a6ff';
+    if (option.series[0].itemStyle && option.series[0].itemStyle.color) {
+        corAtual = option.series[0].itemStyle.color;
+    }
+    document.getElementById('biEditCor').value = corAtual;
+
+    document.getElementById('biEditModal').style.display = 'flex';
+}
+
+function salvarEdicaoGrafico() {
+    if (!chartEmEdicao) return;
+
+    const novoTitulo = document.getElementById('biEditTitulo').value;
+    const novaCor = document.getElementById('biEditCor').value;
+
+    const chartDom = document.getElementById(chartEmEdicao);
+    const tituloSpan = chartDom.previousElementSibling.querySelector('.titulo-grafico');
+    tituloSpan.innerText = novoTitulo;
+
+    const chart = window.biCharts[chartEmEdicao];
+    const option = chart.getOption();
+
+    if (option.series[0].type !== 'pie') {
+        option.series[0].itemStyle = { color: novaCor };
+    }
+
+    chart.setOption(option, true);
+
+    document.getElementById('biEditModal').style.display = 'none';
+    chartEmEdicao = null;
+}
+
+function atualizarListaDatasetsBI() {
+    const biSelector = document.getElementById('biDatasetSelector');
+    if (!biSelector) return;
+
+    let optionsHtml = '<option value="">Selecione a Tabela...</option>';
+
+    for (const bucket in globalCatalogData) {
+        const files = globalCatalogData[bucket];
+        files.forEach(f => {
+            if (f.endsWith('.csv') || f.endsWith('.parquet') || f.includes('part-')) {
+                // Passamos bucket e filename no value
+                const value = `${bucket}|${f}`;
+                optionsHtml += `<option value="${value}">📁 ${f} (${bucket})</option>`;
+            }
+        });
+    }
+    biSelector.innerHTML = optionsHtml;
+}
+
+// Busca as colunas via Pandas quando o usuário escolhe a tabela
+async function carregarColunasDataset() {
+    const selector = document.getElementById('biDatasetSelector');
+    const eixoX = document.getElementById('biEixoX');
+    const eixoY = document.getElementById('biEixoY');
+
+    if (!selector.value) {
+        eixoX.innerHTML = '<option value="">Selecione a tabela primeiro...</option>';
+        eixoY.innerHTML = '<option value="">Selecione a tabela primeiro...</option>';
+        return;
+    }
+
+    const [bucket, filename] = selector.value.split('|');
+
+    eixoX.innerHTML = '<option value="">Extraindo metadados...</option>';
+    eixoY.innerHTML = '<option value="">Extraindo metadados...</option>';
+
+    try {
+        const res = await fetch('/api/bi/colunas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bucket: bucket, filename: filename })
+        });
+        const data = await res.json();
+
+        if (data.status === 'success') {
+            let colsHtml = '<option value="">Selecione a coluna...</option>';
+            data.colunas.forEach(col => {
+                colsHtml += `<option value="${col}">${col}</option>`;
+            });
+            eixoX.innerHTML = colsHtml;
+            eixoY.innerHTML = colsHtml;
+        } else {
+            alert("Erro ao extrair colunas: " + data.message);
+        }
+    } catch (e) {
+        alert("Falha de conexão com o backend.");
+    }
+}

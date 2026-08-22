@@ -1,10 +1,31 @@
-from fastapi import APIRouter, UploadFile, File, Form, Request
-from fastapi.responses import JSONResponse
 import urllib.request
 import json
 import re
+import pandas as pd
+import os
+import io
+
+from fastapi import APIRouter, UploadFile, File, Form, Request
+from fastapi.responses import JSONResponse
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from pydantic import BaseModel
+from core.s3_mgr import get_s3_client
+
+
+class BiColumnsRequest(BaseModel):
+    bucket: str
+    filename: str
+
+
+class VisualRequest(BaseModel):
+    bucket: str
+    filename: str
+    eixo_x: str
+    eixo_y: str
+    agregacao: str
+    tipo_grafico: str
+
 
 from core.s3_mgr import fetch_catalog_data, upload_file_to_datalake, get_file_details
 from core.docker_mgr import (
@@ -119,6 +140,68 @@ async def execute_job_now(job_name: str):
     return JSONResponse(
         content={"status": "error", "message": "Erro ao disparar job."}, status_code=500
     )
+
+
+@router.post("/bi/colunas")
+async def get_bi_columns(req: BiColumnsRequest):
+    try:
+        # Usa o cliente Boto3 nativo do seu sistema (Zero timeouts na rede)
+        s3_client = get_s3_client()
+        obj = s3_client.get_object(Bucket=req.bucket, Key=req.filename)
+
+        if req.filename.endswith(".csv"):
+            df = pd.read_csv(io.BytesIO(obj["Body"].read()), nrows=0)
+        else:
+            df = pd.read_parquet(io.BytesIO(obj["Body"].read()))
+
+        return JSONResponse(
+            content={"status": "success", "colunas": df.columns.tolist()}
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={"status": "error", "message": str(e)}, status_code=500
+        )
+
+
+@router.post("/bi/gerar_dados")
+async def gerar_dados_bi(req: VisualRequest):
+    try:
+        s3_client = get_s3_client()
+        obj = s3_client.get_object(Bucket=req.bucket, Key=req.filename)
+        file_data = io.BytesIO(obj["Body"].read())
+
+        cols_to_use = [req.eixo_x, req.eixo_y]
+
+        if req.filename.endswith(".csv"):
+            df = pd.read_csv(file_data, usecols=cols_to_use)
+        else:
+            df = pd.read_parquet(file_data, columns=cols_to_use)
+
+        df = df.dropna(subset=[req.eixo_x, req.eixo_y])
+
+        # CORREÇÃO: Só converte para número se NÃO for contagem (COUNT).
+        if req.agregacao != "count":
+            df[req.eixo_y] = pd.to_numeric(df[req.eixo_y], errors="coerce").fillna(0)
+
+        if req.agregacao == "sum":
+            df_agrupado = df.groupby(req.eixo_x)[req.eixo_y].sum().reset_index()
+        elif req.agregacao == "avg":
+            df_agrupado = df.groupby(req.eixo_x)[req.eixo_y].mean().reset_index()
+        else:
+            df_agrupado = df.groupby(req.eixo_x)[req.eixo_y].count().reset_index()
+
+        df_agrupado = df_agrupado.head(50)
+
+        resposta = {
+            "categorias": df_agrupado[req.eixo_x].astype(str).tolist(),
+            "valores": df_agrupado[req.eixo_y].tolist(),
+        }
+        return JSONResponse(content={"status": "success", "data": resposta})
+
+    except Exception as e:
+        return JSONResponse(
+            content={"status": "error", "message": str(e)}, status_code=500
+        )
 
 
 @router.get("/system/resources")

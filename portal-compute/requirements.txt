@@ -25,3 +25,9 @@ pyspark
 pyarrow
 
 apscheduler
+
+pydantic
+
+fsspec
+
+s3fs
