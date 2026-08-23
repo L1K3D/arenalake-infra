@@ -719,6 +719,7 @@ async function confirmarNovoVisual() {
     const tipo = document.getElementById('biTipoGrafico').value;
     const eixoX = document.getElementById('biEixoX').value;
     const eixoY = document.getElementById('biEixoY').value;
+    const eixoZ = document.getElementById('biEixoZ').value;
     const agregacao = document.getElementById('biAgregacao').value;
 
     if (!selector) return alert("Selecione uma tabela.");
@@ -731,14 +732,17 @@ async function confirmarNovoVisual() {
         const res = await fetch('/api/bi/gerar_dados', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bucket, filename, eixo_x: eixoX, eixo_y: eixoY, agregacao, tipo_grafico: tipo })
+            body: JSON.stringify({ bucket, filename, eixo_x: eixoX, eixo_y: eixoY, eixo_z: eixoZ, agregacao, tipo_grafico: tipo })
         });
         const result = await res.json();
 
         if (result.status === 'success') {
             const idUnico = 'chart_' + Math.random().toString(36).substr(2, 9);
             const titulo = `${agregacao.toUpperCase()} de ${eixoY} por ${eixoX}`;
-            adicionarGraficoGrid(idUnico, titulo, tipo, result.data);
+
+            // Salvamos as configurações escolhidas para poder editar depois
+            const config = { bucket, filename, eixo_x: eixoX, eixo_y: eixoY, eixo_z: eixoZ, agregacao, tipo };
+            adicionarGraficoGrid(idUnico, titulo, tipo, result.data, config);
         } else {
             alert("Erro no processamento dos dados: " + result.message);
         }
@@ -747,10 +751,74 @@ async function confirmarNovoVisual() {
     }
 }
 
+// Criamos uma função separada para gerar a Option do Echarts, facilitando o re-uso na edição
+function getEchartsOption(tipo, dados) {
+    let option = {
+        tooltip: { trigger: 'axis' },
+        color: ['#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6'], // Paleta da sua imagem
+        xAxis: { type: 'category', data: dados.categorias },
+        yAxis: { type: 'value' },
+        series: []
+    };
+
+    // A Mágica: Stacked Bar = Eixos Invertidos (Horizontal). Stacked Column cai no normal (Vertical).
+    if (tipo === 'stacked_bar') {
+        option.xAxis = { type: 'value' };
+        option.yAxis = { type: 'category', data: dados.categorias };
+    }
+
+    if (dados.is_stacked) {
+        option.legend = { textStyle: { color: '#c9d1d9' }, bottom: 0 };
+        dados.series.forEach(serie => {
+            option.series.push({
+                name: serie.name,
+                data: serie.data,
+                type: 'bar',
+                stack: 'total',
+                emphasis: { focus: 'series' }
+            });
+        });
+    } else {
+        if (tipo === 'pie') {
+            option.xAxis = null; option.yAxis = null;
+            option.series = [{
+                type: 'pie', radius: '70%',
+                data: dados.categorias.map((cat, i) => ({ name: cat, value: dados.valores[i] }))
+            }];
+        } else if (tipo === 'funnel') {
+            // TRATAMENTO PARA O GRÁFICO DE FUNIL
+            option.xAxis = null; option.yAxis = null;
+            option.series = [{
+                type: 'funnel',
+                left: '10%',
+                top: '10%',
+                bottom: '10%',
+                width: '80%',
+                min: 0,
+                max: Math.max(...dados.valores, 100),
+                minSize: '0%',
+                maxSize: '100%',
+                sort: 'descending',
+                gap: 2,
+                label: { show: true, position: 'inside', color: '#fff' },
+                data: dados.categorias.map((cat, i) => ({ name: cat, value: dados.valores[i] }))
+            }];
+        } else {
+            let isArea = (tipo === 'area');
+            option.series = [{
+                data: dados.valores,
+                type: isArea ? 'line' : (tipo === 'line' ? 'line' : 'bar'),
+                areaStyle: isArea ? {} : undefined,
+                itemStyle: { color: '#58a6ff' }
+            }];
+        }
+    }
+    return option;
+}
+
 window.biCharts = window.biCharts || {};
 
-function adicionarGraficoGrid(id, titulo, tipo, dados) {
-    // CORREÇÃO: Removemos a classe duplicada e forçamos o Flexbox a usar 100% do GridStack
+function adicionarGraficoGrid(id, titulo, tipo, dados, config) {
     let widgetHtml = `
         <div style="display: flex; flex-direction: column; height: 100%; width: 100%;">
             <div class="chart-header-bi">
@@ -760,49 +828,53 @@ function adicionarGraficoGrid(id, titulo, tipo, dados) {
                     <span onclick="removerGraficoGrid(this, '${id}')" title="Excluir">🗑️</span>
                 </div>
             </div>
-            <div id="${id}" style="flex: 1; min-height: 0; width: 100%;"></div>
+            <div id="${id}" style="flex: 1; min-height: 0; width: 100%; overflow: hidden;"></div>
         </div>
     `;
 
-    // Adiciona o widget ao grid
     biGrid.addWidget({ w: 6, h: 3, content: widgetHtml });
+    let containerDom = document.getElementById(id);
 
-    // Inicializa o ECharts no container injetado
-    let chartDom = document.getElementById(id);
-    let myChart = echarts.init(chartDom, 'dark', { backgroundColor: 'transparent' });
+    // SE FOR TABELA OU MATRIZ, RENDERIZAMOS HTML PURO ESTILIZADO
+    if (tipo === 'table' || tipo === 'matrix') {
+        let htmlTable = `<div class="bi-table-container"><table class="bi-custom-table"><thead><tr>`;
 
-    let option = {
-        tooltip: { trigger: 'axis' },
-        xAxis: { type: 'category', data: dados.categorias },
-        yAxis: { type: 'value' },
-        series: [{
-            data: dados.valores,
-            type: tipo === 'bar' || tipo === 'line' ? tipo : 'bar',
-            itemStyle: { color: '#58a6ff' }
-        }]
-    };
+        // Monta o cabeçalho
+        if (tipo === 'table') {
+            dados.colunas.forEach(col => { htmlTable += `<th>${col}</th>`; });
+        } else {
+            htmlTable += `<th>${dados.index_nome || 'Categoria'}</th>`;
+            dados.colunas.forEach(col => { htmlTable += `<th>${col}</th>`; });
+        }
+        htmlTable += `</tr></thead><tbody>`;
 
-    // Ajuste para gráfico de pizza
-    if (tipo === 'pie') {
-        option.xAxis = null;
-        option.yAxis = null;
-        option.series = [{
-            type: 'pie',
-            radius: '70%',
-            data: dados.categorias.map((cat, i) => ({ name: cat, value: dados.valores[i] }))
-        }];
+        // Monta as linhas
+        dados.linhas.forEach(row => {
+            htmlTable += `<tr>`;
+            row.forEach(cell => {
+                let val = (typeof cell === 'number') ? cell.toLocaleString(undefined, { maximumFractionDigits: 2 }) : cell;
+                htmlTable += `<td>${val}</td>`;
+            });
+            htmlTable += `</tr>`;
+        });
+        htmlTable += `</tbody></table></div>`;
+
+        containerDom.innerHTML = htmlTable;
+
+        // Salvamos os metadados para edição futura
+        let dummyChartObj = { arenaConfig: config, getOption: () => ({ series: [] }), setOption: () => { } };
+        window.biCharts[id] = dummyChartObj;
+        return;
     }
 
-    myChart.setOption(option);
+    // CASO CONTRÁRIO, SEGUE A RENDERIZAÇÃO NORMAL DOS GRÁFICOS ECHARTS...
+    let myChart = echarts.init(containerDom, 'dark', { backgroundColor: 'transparent' });
+    myChart.arenaConfig = config;
+    myChart.setOption(getEchartsOption(tipo, dados));
+
     window.biCharts[id] = myChart;
-
-    // Redimensiona o gráfico assim que o DOM terminar de renderizar a altura
     setTimeout(() => { if (window.biCharts[id]) window.biCharts[id].resize(); }, 150);
-
-    // Garante que o gráfico se ajuste quando o card for esticado/encolhido
-    biGrid.on('resizestop', function () {
-        Object.values(window.biCharts).forEach(c => c.resize());
-    });
+    biGrid.on('resizestop', function () { Object.values(window.biCharts).forEach(c => c.resize()); });
 }
 
 function removerGraficoGrid(element, id) {
@@ -811,46 +883,137 @@ function removerGraficoGrid(element, id) {
 }
 
 // -------------------------------------------------------------------
-// LÓGICA DE EDIÇÃO
+// LÓGICA DE EDIÇÃO (CORES GRANULARES E TROCA DE MÉTRICAS)
 // -------------------------------------------------------------------
 let chartEmEdicao = null;
 
-function abrirModalEdicao(id) {
+async function abrirModalEdicao(id) {
     chartEmEdicao = id;
     const chart = window.biCharts[id];
+    const config = chart.arenaConfig;
     const option = chart.getOption();
 
-    const header = document.getElementById(id).previousElementSibling;
-    const tituloSpan = header.querySelector('.titulo-grafico');
-    document.getElementById('biEditTitulo').value = tituloSpan.innerText;
+    // 1. Título
+    document.getElementById('biEditTitulo').value = document.getElementById(id).previousElementSibling.querySelector('.titulo-grafico').innerText;
 
-    let corAtual = '#58a6ff';
-    if (option.series[0].itemStyle && option.series[0].itemStyle.color) {
-        corAtual = option.series[0].itemStyle.color;
-    }
-    document.getElementById('biEditCor').value = corAtual;
-
+    // Mostra feedback visual enquanto carrega as colunas
+    document.getElementById('biEditColorsContainer').innerHTML = '<div style="color:#8b949e; text-align: center;">Carregando configurações...</div>';
     document.getElementById('biEditModal').style.display = 'flex';
+
+    // 2. Busca colunas da tabela vinculada a este gráfico para preencher os Selects
+    const res = await fetch('/api/bi/colunas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bucket: config.bucket, filename: config.filename })
+    });
+    const data = await res.json();
+
+    let colsHtml = '<option value="">(Nenhum)</option>';
+    if (data.status === 'success') {
+        data.colunas.forEach(col => { colsHtml += `<option value="${col}">${col}</option>`; });
+    }
+
+    ['biEditEixoX', 'biEditEixoY', 'biEditEixoZ'].forEach(el => document.getElementById(el).innerHTML = colsHtml);
+
+    // Restaura os valores atuais
+    document.getElementById('biEditEixoX').value = config.eixo_x;
+    document.getElementById('biEditEixoY').value = config.eixo_y;
+    document.getElementById('biEditEixoZ').value = config.eixo_z || "";
+    document.getElementById('biEditAgregacao').value = config.agregacao;
+
+    // 3. Monta o painel de Cores dinâmico
+    const colorsContainer = document.getElementById('biEditColorsContainer');
+    colorsContainer.innerHTML = '';
+
+    if (config.tipo === 'pie' || config.tipo === 'funnel') {
+        option.series[0].data.forEach((item, index) => {
+            let defaultColor = option.color[index % option.color.length];
+            let currentColor = (item.itemStyle && item.itemStyle.color) ? item.itemStyle.color : defaultColor;
+            colorsContainer.innerHTML += `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 13px; color: #c9d1d9;">🔻 ${item.name}</span>
+                    <input type="color" class="bi-input color-picker-edit" data-index="${index}" value="${currentColor}" style="height: 30px; width: 50px; padding: 0;">
+                </div>`;
+        });
+    } else if (config.tipo.includes('stacked')) {
+        option.series.forEach((serie, index) => {
+            let defaultColor = option.color[index % option.color.length];
+            let currentColor = (serie.itemStyle && serie.itemStyle.color) ? serie.itemStyle.color : defaultColor;
+            colorsContainer.innerHTML += `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 13px; color: #c9d1d9;">🏷️ ${serie.name}</span>
+                    <input type="color" class="bi-input color-picker-edit" data-index="${index}" value="${currentColor}" style="height: 30px; width: 50px; padding: 0;">
+                </div>`;
+        });
+    } else {
+        let currentColor = (option.series[0].itemStyle && option.series[0].itemStyle.color) ? option.series[0].itemStyle.color : '#58a6ff';
+        colorsContainer.innerHTML += `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 13px; color: #c9d1d9;">🎨 Cor Principal do Gráfico</span>
+                <input type="color" class="bi-input color-picker-edit" data-index="0" value="${currentColor}" style="height: 30px; width: 50px; padding: 0;">
+            </div>`;
+    }
 }
 
-function salvarEdicaoGrafico() {
+async function salvarEdicaoGrafico() {
     if (!chartEmEdicao) return;
+    const id = chartEmEdicao;
+    const chart = window.biCharts[id];
+    let config = chart.arenaConfig;
 
     const novoTitulo = document.getElementById('biEditTitulo').value;
-    const novaCor = document.getElementById('biEditCor').value;
+    const novoX = document.getElementById('biEditEixoX').value;
+    const novoY = document.getElementById('biEditEixoY').value;
+    const novoZ = document.getElementById('biEditEixoZ').value;
+    const novaAgregacao = document.getElementById('biEditAgregacao').value;
 
-    const chartDom = document.getElementById(chartEmEdicao);
-    const tituloSpan = chartDom.previousElementSibling.querySelector('.titulo-grafico');
-    tituloSpan.innerText = novoTitulo;
+    document.getElementById(id).previousElementSibling.querySelector('.titulo-grafico').innerText = novoTitulo;
 
-    const chart = window.biCharts[chartEmEdicao];
-    const option = chart.getOption();
+    // Se o usuário trocou alguma coluna, precisamos re-processar os dados no Python
+    let dataChanged = (novoX !== config.eixo_x || novoY !== config.eixo_y || novoZ !== config.eixo_z || novaAgregacao !== config.agregacao);
 
-    if (option.series[0].type !== 'pie') {
-        option.series[0].itemStyle = { color: novaCor };
+    if (dataChanged) {
+        try {
+            const res = await fetch('/api/bi/gerar_dados', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    bucket: config.bucket, filename: config.filename,
+                    eixo_x: novoX, eixo_y: novoY, eixo_z: novoZ, agregacao: novaAgregacao, tipo_grafico: config.tipo
+                })
+            });
+            const result = await res.json();
+            if (result.status === 'success') {
+                config.eixo_x = novoX; config.eixo_y = novoY; config.eixo_z = novoZ; config.agregacao = novaAgregacao;
+                chart.setOption(getEchartsOption(config.tipo, result.data), true);
+            } else {
+                alert("Erro ao recalcular os dados: " + result.message);
+            }
+        } catch (e) {
+            alert("Falha de conexão.");
+        }
+    } else {
+        // Se os dados continuam os mesmos, aplicamos apenas as cores escolhidas
+        const option = chart.getOption();
+        const pickers = document.querySelectorAll('.color-picker-edit');
+
+        pickers.forEach(picker => {
+            let idx = parseInt(picker.getAttribute('data-index'));
+            let color = picker.value;
+
+            if (config.tipo === 'pie' || config.tipo === 'funnel') {
+                if (!option.series[0].data[idx].itemStyle) option.series[0].data[idx].itemStyle = {};
+                option.series[0].data[idx].itemStyle.color = color;
+            } else if (config.tipo.includes('stacked')) {
+                if (!option.series[idx].itemStyle) option.series[idx].itemStyle = {};
+                option.series[idx].itemStyle.color = color;
+            } else {
+                if (!option.series[0].itemStyle) option.series[0].itemStyle = {};
+                option.series[0].itemStyle.color = color;
+            }
+        });
+        chart.setOption(option, true);
     }
-
-    chart.setOption(option, true);
 
     document.getElementById('biEditModal').style.display = 'none';
     chartEmEdicao = null;
@@ -902,15 +1065,69 @@ async function carregarColunasDataset() {
 
         if (data.status === 'success') {
             let colsHtml = '<option value="">Selecione a coluna...</option>';
-            data.colunas.forEach(col => {
-                colsHtml += `<option value="${col}">${col}</option>`;
-            });
+            data.colunas.forEach(col => { colsHtml += `<option value="${col}">${col}</option>`; });
             eixoX.innerHTML = colsHtml;
             eixoY.innerHTML = colsHtml;
+            document.getElementById('biEixoZ').innerHTML = '<option value="">(Nenhum)</option>' + colsHtml;
         } else {
             alert("Erro ao extrair colunas: " + data.message);
         }
     } catch (e) {
         alert("Falha de conexão com o backend.");
+    }
+}
+
+// ==============================================================
+// FUNÇÕES DE EXPORTAÇÃO DE RELATÓRIO (PNG e PDF)
+// ==============================================================
+async function exportarDashboard(formato) {
+    const gridArea = document.querySelector('.grid-container');
+
+    // Verifica se tem algum card no Dashboard
+    if (biGrid.engine.nodes.length === 0) {
+        alert("O Dashboard está vazio. Adicione gráficos antes de exportar.");
+        return;
+    }
+
+    // Pequeno ajuste cosmético temporário: tira as bordas tracejadas para a "foto" ficar mais limpa
+    const bordaOriginal = gridArea.style.border;
+    gridArea.style.border = 'none';
+
+    try {
+        // html2canvas tira a foto exata dos elementos HTML
+        const canvas = await html2canvas(gridArea, {
+            backgroundColor: '#0d1117',
+            scale: 2, // Dobra a resolução para o PDF/PNG ficar em alta qualidade
+            useCORS: true
+        });
+
+        const imgData = canvas.toDataURL('image/png');
+
+        if (formato === 'png') {
+            // Cria um link invisível, anexa a imagem e clica nele para forçar o download
+            let link = document.createElement('a');
+            link.download = `ArenaLake_Relatorio_${new Date().toISOString().slice(0, 10)}.png`;
+            link.href = imgData;
+            link.click();
+        }
+        else if (formato === 'pdf') {
+            // Inicializa a biblioteca PDF e configura a página como Paisagem (Landscape) formato A4
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('l', 'mm', 'a4');
+
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            // Calcula a altura proporcional da imagem no PDF
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+            // Adiciona a imagem, centraliza no topo e salva o documento
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdf.save(`ArenaLake_Relatorio_${new Date().toISOString().slice(0, 10)}.pdf`);
+        }
+    } catch (error) {
+        alert("Ocorreu um erro ao gerar o relatório.");
+        console.error(error);
+    } finally {
+        // Restaura a borda da interface
+        gridArea.style.border = bordaOriginal;
     }
 }

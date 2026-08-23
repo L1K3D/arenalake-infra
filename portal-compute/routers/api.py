@@ -25,6 +25,7 @@ class VisualRequest(BaseModel):
     eixo_y: str
     agregacao: str
     tipo_grafico: str
+    eixo_z: str = ""
 
 
 from core.s3_mgr import fetch_catalog_data, upload_file_to_datalake, get_file_details
@@ -166,36 +167,111 @@ async def get_bi_columns(req: BiColumnsRequest):
 @router.post("/bi/gerar_dados")
 async def gerar_dados_bi(req: VisualRequest):
     try:
+        from core.s3_mgr import get_s3_client
+        import io
+
         s3_client = get_s3_client()
         obj = s3_client.get_object(Bucket=req.bucket, Key=req.filename)
         file_data = io.BytesIO(obj["Body"].read())
 
         cols_to_use = [req.eixo_x, req.eixo_y]
+        if req.eixo_z:
+            cols_to_use.append(req.eixo_z)
 
         if req.filename.endswith(".csv"):
             df = pd.read_csv(file_data, usecols=cols_to_use)
         else:
             df = pd.read_parquet(file_data, columns=cols_to_use)
 
-        df = df.dropna(subset=[req.eixo_x, req.eixo_y])
-
-        # CORREÇÃO: Só converte para número se NÃO for contagem (COUNT).
+        # Remove nulos e converte métrica
+        df = df.dropna(subset=cols_to_use)
         if req.agregacao != "count":
             df[req.eixo_y] = pd.to_numeric(df[req.eixo_y], errors="coerce").fillna(0)
 
-        if req.agregacao == "sum":
-            df_agrupado = df.groupby(req.eixo_x)[req.eixo_y].sum().reset_index()
-        elif req.agregacao == "avg":
-            df_agrupado = df.groupby(req.eixo_x)[req.eixo_y].mean().reset_index()
+        # SE O USUÁRIO ESCOLHER UMA SÉRIE (EMPILHADO)
+        if req.eixo_z:
+            if req.agregacao == "sum":
+                df_agrupado = (
+                    df.groupby([req.eixo_x, req.eixo_z])[req.eixo_y].sum().reset_index()
+                )
+            elif req.agregacao == "avg":
+                df_agrupado = (
+                    df.groupby([req.eixo_x, req.eixo_z])[req.eixo_y]
+                    .mean()
+                    .reset_index()
+                )
+            else:
+                df_agrupado = (
+                    df.groupby([req.eixo_x, req.eixo_z])[req.eixo_y]
+                    .count()
+                    .reset_index()
+                )
+
+            # Faz o pivot para preparar os dados pro Echarts
+            df_pivot = df_agrupado.pivot(
+                index=req.eixo_x, columns=req.eixo_z, values=req.eixo_y
+            ).fillna(0)
+            df_pivot = df_pivot.head(50)
+
+            series_data = []
+            for col in df_pivot.columns:
+                series_data.append({"name": str(col), "data": df_pivot[col].tolist()})
+
+            resposta = {
+                "categorias": df_pivot.index.astype(str).tolist(),
+                "series": series_data,
+                "is_stacked": True,
+            }
+
+        if req.tipo_grafico == 'table':
+            cols_table = [req.eixo_x, req.eixo_y]
+            if req.eixo_z: cols_table.append(req.eixo_z)
+            df_table = df[cols_table].head(50)
+            
+            resposta = {
+                "colunas": cols_table,
+                "linhas": df_table.values.tolist(),
+                "is_table": True
+            }
+
+        # SE FOR MATRIZ (MATRIX / PIVOT)
+        elif req.tipo_grafico == 'matrix':
+            if not req.eixo_z:
+                # Se não passar eixo Z para a matriz, usamos o eixo Y como valor e cruzamos X com outra dimensão se houver, ou criamos um resumo
+                df_agrupado = df.groupby(req.eixo_x)[req.eixo_y].count().reset_index()
+                df_pivot = pd.DataFrame({req.eixo_y: df_agrupado[req.eixo_y].values}, index=df_agrupado[req.eixo_x].values)
+            else:
+                if req.agregacao == "sum":
+                    df_agg = df.groupby([req.eixo_x, req.eixo_z])[req.eixo_y].sum().reset_index()
+                elif req.agregacao == "avg":
+                    df_agg = df.groupby([req.eixo_x, req.eixo_z])[req.eixo_y].mean().reset_index()
+                else:
+                    df_agg = df.groupby([req.eixo_x, req.eixo_z])[req.eixo_y].count().reset_index()
+                
+                df_pivot = df_agg.pivot(index=req.eixo_x, columns=req.eixo_z, values=req.eixo_y).fillna(0)
+
+            resposta = {
+                "colunas": [str(c) for c in df_pivot.columns],
+                "index_nome": req.eixo_x,
+                "linhas": df_pivot.reset_index().values.tolist(),
+                "is_matrix": True
+            }
+
+        # SE FOR GRÁFICO SIMPLES
         else:
-            df_agrupado = df.groupby(req.eixo_x)[req.eixo_y].count().reset_index()
+            if req.agregacao == "sum":
+                df_agrupado = df.groupby(req.eixo_x)[req.eixo_y].sum().reset_index()
+            elif req.agregacao == "avg":
+                df_agrupado = df.groupby(req.eixo_x)[req.eixo_y].mean().reset_index()
+            else:
+                df_agrupado = df.groupby(req.eixo_x)[req.eixo_y].count().reset_index()
 
-        df_agrupado = df_agrupado.head(50)
+            resposta = {
+                "categorias": df_agrupado[req.eixo_x].astype(str).tolist(),
+                "valores": df_agrupado[req.eixo_y].tolist(),
+                "is_stacked": False,
+            }
 
-        resposta = {
-            "categorias": df_agrupado[req.eixo_x].astype(str).tolist(),
-            "valores": df_agrupado[req.eixo_y].tolist(),
-        }
         return JSONResponse(content={"status": "success", "data": resposta})
 
     except Exception as e:

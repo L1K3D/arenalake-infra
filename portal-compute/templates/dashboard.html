@@ -4,8 +4,10 @@
 <head>
     <title>ArenaLake Dashboard - {{ usuario }}</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- MÁGICA DO CACHE AQUI (adicionamos o ?v=2) -->
-    <link rel="stylesheet" href="/static/css/dashboard.css?v=2">
+
+    <!-- CORREÇÃO AQUI: Mudamos para v=4 para o Chrome ser obrigado a baixar o visual novo -->
+    <link rel="stylesheet" href="/static/css/dashboard.css?v=10">
+
     <link href="https://cdn.jsdelivr.net/npm/gridstack@8.2.1/dist/gridstack.min.css" rel="stylesheet" />
 </head>
 
@@ -219,16 +221,40 @@
             <div class="card" style="display: block; display: flex; flex-direction: column; height: 100%;">
 
                 <!-- Barra de Ferramentas do BI -->
-                <div class="bi-top-bar">
-                    <h2 style="margin: 0; color: #58a6ff;">📊 Construtor de Dashboards</h2>
-                    <div style="display: flex; gap: 10px;">
-                        <!-- Adicionado o onchange aqui -->
-                        <select id="biDatasetSelector" class="bi-select" onchange="carregarColunasDataset()">
-                            <option value="">Carregando tabelas do DataLake...</option>
+                <div class="bi-ribbon">
+
+                    <!-- Item 1: Fonte de dados -->
+                    <div class="ribbon-item">
+                        <span class="ribbon-icon">🗄️</span>
+                        <select id="biDatasetSelector" class="ribbon-select" onchange="carregarColunasDataset()">
+                            <option value="">Fonte de dados</option>
                         </select>
-                        <button class="btn" style="background: #F2C811; color: black;" onclick="abrirModalVisual()">+
-                            Adicionar Visual</button>
                     </div>
+
+                    <div class="ribbon-divider"></div>
+
+                    <!-- Item 2: Adicionar visuais -->
+                    <div class="ribbon-item ribbon-btn" onclick="abrirModalVisual()">
+                        <span class="ribbon-icon">📊</span>
+                        <span class="ribbon-label">Adicionar visuais</span>
+                    </div>
+
+                    <div class="ribbon-divider"></div>
+
+                    <!-- Item 3: Exportar como imagem -->
+                    <div class="ribbon-item ribbon-btn" onclick="exportarDashboard('png')">
+                        <span class="ribbon-icon">🖼️</span>
+                        <span class="ribbon-label">Exportar como imagem</span>
+                    </div>
+
+                    <div class="ribbon-divider"></div>
+
+                    <!-- Item 4: Exportar como documento -->
+                    <div class="ribbon-item ribbon-btn" onclick="exportarDashboard('pdf')">
+                        <span class="ribbon-icon">📄</span>
+                        <span class="ribbon-label">Exportar como documento</span>
+                    </div>
+
                 </div>
 
                 <!-- (A div da grid-container continua aqui normalmente...) -->
@@ -245,21 +271,25 @@
                 <h3>Configurar Novo Gráfico</h3>
                 <label>Tipo de Gráfico:</label>
                 <select id="biTipoGrafico" class="bi-select" style="width: 100%; margin-bottom: 10px;">
-                    <option value="bar">Barras (Bar Chart)</option>
-                    <option value="line">Linha (Line Chart)</option>
-                    <option value="pie">Pizza (Pie Chart)</option>
+                    <option value="bar">📊 Barras Simples (Vertical)</option>
+                    <option value="stacked_column">📶 Colunas Empilhadas (Vertical)</option>
+                    <option value="stacked_bar">▤ Barras Empilhadas (Horizontal)</option>
+                    <option value="line">📈 Linha (Line Chart)</option>
+                    <option value="area">📉 Área (Area Chart)</option>
+                    <option value="funnel">🔻 Funil (Funnel Chart)</option>
+                    <option value="pie">🥧 Pizza (Pie Chart)</option>
+                    <option value="table">📋 Tabela Simples (Table)</option> <!-- <--- NOVO -->
+                    <option value="matrix">🧮 Tabela Matriz (Matrix)</option> <!-- <--- NOVO -->
                 </select>
 
-                <!-- Transformamos os Inputs em Selects -->
                 <label>Eixo X (Categoria):</label>
-                <select id="biEixoX" class="bi-select" style="width: 100%; margin-bottom: 10px;">
-                    <option value="">Selecione uma tabela primeiro...</option>
-                </select>
+                <select id="biEixoX" class="bi-select" style="width: 100%; margin-bottom: 10px;"></select>
 
                 <label>Eixo Y (Métrica):</label>
-                <select id="biEixoY" class="bi-select" style="width: 100%; margin-bottom: 10px;">
-                    <option value="">Selecione uma tabela primeiro...</option>
-                </select>
+                <select id="biEixoY" class="bi-select" style="width: 100%; margin-bottom: 10px;"></select>
+
+                <label>Agrupar por (Cor/Série) - Opcional:</label>
+                <select id="biEixoZ" class="bi-select" style="width: 100%; margin-bottom: 10px;"></select>
 
                 <label>Agregação do Eixo Y:</label>
                 <select id="biAgregacao" class="bi-select" style="width: 100%; margin-bottom: 20px;">
@@ -276,20 +306,49 @@
         </div>
 
         <div id="biEditModal" class="bi-modal">
-            <div class="bi-modal-content">
+            <div class="bi-modal-content" style="width: 480px;">
                 <h3>Editar Gráfico</h3>
 
                 <label>Título do Gráfico:</label>
-                <input type="text" id="biEditTitulo" class="bi-input" style="width: 100%; margin-bottom: 10px;">
+                <input type="text" id="biEditTitulo" class="bi-input" style="width: 100%; margin-bottom: 15px;">
 
-                <label>Cor Principal (Barras/Linhas):</label>
-                <input type="color" id="biEditCor" class="bi-input"
-                    style="width: 100%; height: 40px; padding: 2px; margin-bottom: 20px;">
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label>Eixo X (Categoria):</label>
+                        <select id="biEditEixoX" class="bi-select" style="width: 100%; margin-bottom: 10px;"></select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label>Eixo Y (Métrica):</label>
+                        <select id="biEditEixoY" class="bi-select" style="width: 100%; margin-bottom: 10px;"></select>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label>Agrupar por (Série):</label>
+                        <select id="biEditEixoZ" class="bi-select" style="width: 100%; margin-bottom: 10px;"></select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label>Agregação:</label>
+                        <select id="biEditAgregacao" class="bi-select" style="width: 100%; margin-bottom: 15px;">
+                            <option value="sum">Soma (SUM)</option>
+                            <option value="avg">Média (AVG)</option>
+                            <option value="count">Contagem (COUNT)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <label>Cores (Fatias/Séries):</label>
+                <div id="biEditColorsContainer"
+                    style="max-height: 140px; overflow-y: auto; background: #161b22; padding: 10px; border-radius: 4px; border: 1px solid #30363d; margin-bottom: 20px;">
+                    <!-- Os inputs de cores aparecerão magicamente aqui -->
+                </div>
 
                 <div style="display: flex; justify-content: flex-end; gap: 10px;">
                     <button class="btn" style="background: #da3633;"
                         onclick="document.getElementById('biEditModal').style.display='none'">Cancelar</button>
-                    <button class="btn" style="background: #238636;" onclick="salvarEdicaoGrafico()">Salvar</button>
+                    <button class="btn" style="background: #238636;" onclick="salvarEdicaoGrafico()">Salvar
+                        Alterações</button>
                 </div>
             </div>
         </div>
@@ -313,9 +372,11 @@
         window.dashboardConfig = { usuario: "{{ usuario }}", domain: "{{ domain }}" };
     </script>
     <!-- MÁGICA DO CACHE AQUI (adicionamos o ?v=2) -->
-    <script src="/static/js/dashboard.js?v=2"></script>
+    <script src="/static/js/dashboard.js?v=3"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/gridstack@8.2.1/dist/gridstack-all.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </body>
 
 </html>

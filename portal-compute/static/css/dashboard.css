@@ -382,13 +382,91 @@ th {
 /* ============================================================================
    ARENALAKE BI TOOLS - STYLES
    ============================================================================ */
-.bi-top-bar {
+.bi-ribbon {
     display: flex;
-    justify-content: space-between;
+    flex-direction: row;
     align-items: center;
-    border-bottom: 1px solid #30363d;
-    padding-bottom: 15px;
+    justify-content: center;
+    /* <--- CENTRALIZOU TUDO AQUI */
+    background-color: #111111;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 6px 20px;
+    /* <--- DIMINUIU A ALTURA DA BARRA (antes era 12px) */
     margin-bottom: 15px;
+    gap: 15px;
+}
+
+.ribbon-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 140px;
+    padding: 4px 10px;
+    /* <--- DIMINUIU O ESPAÇAMENTO INTERNO DOS BOTÕES */
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+}
+
+.ribbon-btn {
+    cursor: pointer;
+}
+
+.ribbon-btn:hover {
+    background-color: #21262d;
+}
+
+.ribbon-icon {
+    font-size: 26px;
+    /* <--- ÍCONES LEVEMENTE MENORES */
+    margin-bottom: 2px;
+    /* <--- MENOS ESPAÇO ENTRE ÍCONE E TEXTO */
+}
+
+.ribbon-label {
+    font-size: 13px;
+    /* <--- FONTE LEVEMENTE MENOR */
+    color: #ffffff;
+    text-align: center;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.ribbon-divider {
+    width: 2px;
+    height: 35px;
+    /* <--- DIVISÓRIA MAIS CURTA ACOMPANHANDO A NOVA ALTURA */
+    background-color: #ffffff;
+    border-radius: 1px;
+}
+
+/* O seletor de dados disfarçado de label (MANTÉM IGUAL) */
+.ribbon-select {
+    background: transparent;
+    color: #ffffff;
+    border: none;
+    font-size: 13px;
+    text-align: center;
+    cursor: pointer;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    outline: none;
+    width: 100%;
+
+    /* TRUQUE PARA ESCONDER A SETINHA DO DROPDOWN NATIVO */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    text-align-last: center;
+}
+
+.ribbon-select option {
+    background: #161b22;
+    color: #ffffff;
+    text-align: left;
+}
+
+.ribbon-select:hover {
+    text-decoration: underline;
 }
 
 .bi-select,
@@ -465,4 +543,40 @@ th {
     margin-top: 10px;
     font-size: 0.9em;
     color: #8b949e;
+}
+
+.bi-table-container {
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background: #0d1117;
+    border-radius: 4px;
+    border: 1px solid #30363d;
+}
+
+.bi-custom-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    color: #c9d1d9;
+    text-align: left;
+}
+
+.bi-custom-table th {
+    background: #161b22;
+    color: #58a6ff;
+    padding: 8px 10px;
+    border-bottom: 2px solid #30363d;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.bi-custom-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #21262d;
+}
+
+.bi-custom-table tr:hover {
+    background: #161b2250;
 }
