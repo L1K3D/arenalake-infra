@@ -722,8 +722,19 @@ async function confirmarNovoVisual() {
     const eixoZ = document.getElementById('biEixoZ').value;
     const agregacao = document.getElementById('biAgregacao').value;
 
+    // CAPTURA AS NOVAS VARIÁVEIS DA TABELA
+    const tema = document.getElementById('biTemaTabela').value;
+    const ordenarPor = document.getElementById('biOrdenarPor').value;
+    const ordem = document.getElementById('biOrdem').value;
+    const limiteLinhas = parseInt(document.getElementById('biLimiteLinhas').value) || 100;
+    const colunasSelecionadas = Array.from(document.getElementById('biColunasTabela').selectedOptions).map(opt => opt.value);
+
     if (!selector) return alert("Selecione uma tabela.");
-    if (!eixoX || !eixoY) return alert("Selecione os eixos X e Y.");
+
+    // VALIDAÇÃO INTELIGENTE (Ignora Eixo X e Y se for tabela)
+    if (tipo === 'table' && colunasSelecionadas.length === 0) return alert("Selecione pelo menos 1 coluna para a tabela.");
+    if (tipo === 'kpi' && !eixoY) return alert("Selecione a métrica (Eixo Y)."); // Validação do KPI
+    if (tipo !== 'table' && tipo !== 'kpi' && (!eixoX || !eixoY)) return alert("Selecione os eixos X e Y.");
 
     const [bucket, filename] = selector.split('|');
     fecharModalVisual();
@@ -732,16 +743,26 @@ async function confirmarNovoVisual() {
         const res = await fetch('/api/bi/gerar_dados', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bucket, filename, eixo_x: eixoX, eixo_y: eixoY, eixo_z: eixoZ, agregacao, tipo_grafico: tipo })
+            body: JSON.stringify({
+                bucket, filename, eixo_x: eixoX, eixo_y: eixoY, eixo_z: eixoZ,
+                agregacao, tipo_grafico: tipo, colunas_tabela: colunasSelecionadas,
+                tema: tema, ordenar_por: ordenarPor, ordem: ordem, limite_linhas: limiteLinhas
+            })
         });
         const result = await res.json();
+        const config = { bucket, filename, eixo_x: eixoX, eixo_y: eixoY, eixo_z: eixoZ, agregacao, tipo, colunas_tabela: colunasSelecionadas, tema, ordenar_por: ordenarPor, ordem, limite_linhas: limiteLinhas };
 
         if (result.status === 'success') {
             const idUnico = 'chart_' + Math.random().toString(36).substr(2, 9);
-            const titulo = `${agregacao.toUpperCase()} de ${eixoY} por ${eixoX}`;
 
-            // Salvamos as configurações escolhidas para poder editar depois
-            const config = { bucket, filename, eixo_x: eixoX, eixo_y: eixoY, eixo_z: eixoZ, agregacao, tipo };
+            // LÓGICA INTELIGENTE DE TÍTULO
+            let titulo = '';
+            if (tipo === 'table' || tipo === 'matrix') titulo = 'Tabela de Dados';
+            else if (tipo === 'kpi') titulo = `Indicador: ${agregacao.toUpperCase()} de ${eixoY}`;
+            else titulo = `${agregacao.toUpperCase()} de ${eixoY} por ${eixoX}`;
+
+            // Salvamos as configurações escolhidas
+            const config = { bucket, filename, eixo_x: eixoX, eixo_y: eixoY, eixo_z: eixoZ, agregacao, tipo, colunas_tabela: colunasSelecionadas, tema: tema, ordenar_por: ordenarPor, ordem, limite_linhas: limiteLinhas };
             adicionarGraficoGrid(idUnico, titulo, tipo, result.data, config);
         } else {
             alert("Erro no processamento dos dados: " + result.message);
@@ -803,6 +824,39 @@ function getEchartsOption(tipo, dados) {
                 label: { show: true, position: 'inside', color: '#fff' },
                 data: dados.categorias.map((cat, i) => ({ name: cat, value: dados.valores[i] }))
             }];
+        } else if (tipo === 'scatter') {
+            return {
+                tooltip: {
+                    trigger: 'item',
+                    backgroundColor: 'rgba(13, 17, 23, 0.9)',
+                    borderColor: '#30363d',
+                    textStyle: { color: '#c9d1d9' },
+                    formatter: function (param) {
+                        return `<div style="font-weight:bold;margin-bottom:5px;">${param.seriesName}</div>
+                            <span style="display:inline-block;margin-right:5px;border-radius:10px;width:9px;height:9px;background-color:${param.color};"></span> X: ${param.data[0]}<br/>
+                            <span style="display:inline-block;margin-right:5px;border-radius:10px;width:9px;height:9px;background-color:${param.color};"></span> Y: ${param.data[1]}`;
+                    }
+                },
+                legend: dados.has_z ? { textStyle: { color: '#c9d1d9' }, top: 10 } : null,
+                xAxis: {
+                    type: 'value',
+                    name: 'Eixo X', // Você pode injetar config.eixo_x aqui se passar a config pra função
+                    splitLine: { lineStyle: { color: '#30363d', type: 'dashed' } }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: 'Eixo Y',
+                    splitLine: { lineStyle: { color: '#30363d', type: 'dashed' } }
+                },
+                grid: { left: '3%', right: '8%', bottom: '3%', containLabel: true },
+                series: dados.series.map(s => ({
+                    name: s.name,
+                    type: 'scatter',
+                    data: s.data,
+                    symbolSize: 12, // Tamanho da bolinha
+                    itemStyle: { opacity: 0.8 } // Leve transparência para pontos sobrepostos
+                }))
+            };
         } else {
             let isArea = (tipo === 'area');
             option.series = [{
@@ -865,6 +919,27 @@ function adicionarGraficoGrid(id, titulo, tipo, dados, config) {
         let dummyChartObj = { arenaConfig: config, getOption: () => ({ series: [] }), setOption: () => { } };
         window.biCharts[id] = dummyChartObj;
         return;
+    } else if (tipo === 'kpi') {
+        let formatter = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
+        let valorFormatado = formatter.format(dados.valor);
+
+        let corKpi = '#58a6ff'; // Azul padrão
+        if (config.tema === 'green') corKpi = '#3fb950';
+        if (config.tema === 'orange') corKpi = '#f59e0b';
+        if (config.tema === 'padrao') corKpi = '#c9d1d9'; // Cinza claro
+
+        // INJETANDO ESTILOS DIRETO NO HTML PARA GARANTIR O VISUAL PREMIUM
+        let htmlKpi = `
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; text-align: center; box-sizing: border-box; padding: 10px;">
+            <div style="font-size: 3.5rem; font-weight: 800; color: ${corKpi}; line-height: 1.1; text-shadow: 0px 4px 15px ${corKpi}40;">${valorFormatado}</div>
+            <div style="font-size: 0.85rem; color: #8b949e; margin-top: 8px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: bold;">${config.agregacao} DE ${config.eixo_y}</div>
+        </div>`;
+
+        containerDom.innerHTML = htmlKpi;
+
+        let dummyChartObj = { arenaConfig: config, getOption: () => ({ series: [] }), setOption: () => { } };
+        window.biCharts[id] = dummyChartObj;
+        return;
     }
 
     // CASO CONTRÁRIO, SEGUE A RENDERIZAÇÃO NORMAL DOS GRÁFICOS ECHARTS...
@@ -893,14 +968,10 @@ async function abrirModalEdicao(id) {
     const config = chart.arenaConfig;
     const option = chart.getOption();
 
-    // 1. Título
     document.getElementById('biEditTitulo').value = document.getElementById(id).previousElementSibling.querySelector('.titulo-grafico').innerText;
-
-    // Mostra feedback visual enquanto carrega as colunas
     document.getElementById('biEditColorsContainer').innerHTML = '<div style="color:#8b949e; text-align: center;">Carregando configurações...</div>';
     document.getElementById('biEditModal').style.display = 'flex';
 
-    // 2. Busca colunas da tabela vinculada a este gráfico para preencher os Selects
     const res = await fetch('/api/bi/colunas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -909,49 +980,71 @@ async function abrirModalEdicao(id) {
     const data = await res.json();
 
     let colsHtml = '<option value="">(Nenhum)</option>';
+    let colsMultiHtml = '';
     if (data.status === 'success') {
-        data.colunas.forEach(col => { colsHtml += `<option value="${col}">${col}</option>`; });
+        data.colunas.forEach(col => {
+            colsHtml += `<option value="${col}">${col}</option>`;
+            colsMultiHtml += `<option value="${col}">${col}</option>`;
+        });
     }
 
-    ['biEditEixoX', 'biEditEixoY', 'biEditEixoZ'].forEach(el => document.getElementById(el).innerHTML = colsHtml);
+    // Preenche todos os selects
+    ['biEditEixoX', 'biEditEixoY', 'biEditEixoZ', 'biEditOrdenarPor'].forEach(el => document.getElementById(el).innerHTML = colsHtml);
+    document.getElementById('biEditColunasTabela').innerHTML = colsMultiHtml;
 
-    // Restaura os valores atuais
+    // Restaura valores normais
     document.getElementById('biEditEixoX').value = config.eixo_x;
     document.getElementById('biEditEixoY').value = config.eixo_y;
     document.getElementById('biEditEixoZ').value = config.eixo_z || "";
     document.getElementById('biEditAgregacao').value = config.agregacao;
+    document.getElementById('biEditTemaTabela').value = config.tema || 'padrao';
+    document.getElementById('biEditOrdenarPor').value = config.ordenar_por || '';
+    document.getElementById('biEditOrdem').value = config.ordem || 'asc';
+    document.getElementById('biEditLimiteLinhas').value = config.limite_linhas || 100;
 
-    // 3. Monta o painel de Cores dinâmico
+    // Restaura as colunas múltiplas selecionadas
+    if (config.colunas_tabela) {
+        Array.from(document.getElementById('biEditColunasTabela').options).forEach(opt => {
+            if (config.colunas_tabela.includes(opt.value)) opt.selected = true;
+        });
+    }
+
+    // Alterna a visualização dos painéis para esconder Eixos se for tabela
+    toggleCamposGrafico('edit');
+
+    // Monta o painel de Cores dinâmico apenas se NÃO for tabela/matriz
     const colorsContainer = document.getElementById('biEditColorsContainer');
     colorsContainer.innerHTML = '';
 
-    if (config.tipo === 'pie' || config.tipo === 'funnel') {
-        option.series[0].data.forEach((item, index) => {
-            let defaultColor = option.color[index % option.color.length];
-            let currentColor = (item.itemStyle && item.itemStyle.color) ? item.itemStyle.color : defaultColor;
+    if (config.tipo !== 'table' && config.tipo !== 'matrix') {
+        if (config.tipo === 'pie' || config.tipo === 'funnel') {
+            option.series[0].data.forEach((item, index) => {
+                let defaultColor = option.color[index % option.color.length];
+                let currentColor = (item.itemStyle && item.itemStyle.color) ? item.itemStyle.color : defaultColor;
+                colorsContainer.innerHTML += `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-size: 13px; color: #c9d1d9;">🔻 ${item.name}</span>
+                        <input type="color" class="bi-input color-picker-edit" data-index="${index}" value="${currentColor}" style="height: 30px; width: 50px; padding: 0;">
+                    </div>`;
+            });
+        } else if (config.tipo.includes('stacked')) {
+            option.series.forEach((serie, index) => {
+                let defaultColor = option.color[index % option.color.length];
+                let currentColor = (serie.itemStyle && serie.itemStyle.color) ? serie.itemStyle.color : defaultColor;
+                colorsContainer.innerHTML += `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-size: 13px; color: #c9d1d9;">🏷️ ${serie.name}</span>
+                        <input type="color" class="bi-input color-picker-edit" data-index="${index}" value="${currentColor}" style="height: 30px; width: 50px; padding: 0;">
+                    </div>`;
+            });
+        } else {
+            let currentColor = (option.series[0].itemStyle && option.series[0].itemStyle.color) ? option.series[0].itemStyle.color : '#58a6ff';
             colorsContainer.innerHTML += `
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <span style="font-size: 13px; color: #c9d1d9;">🔻 ${item.name}</span>
-                    <input type="color" class="bi-input color-picker-edit" data-index="${index}" value="${currentColor}" style="height: 30px; width: 50px; padding: 0;">
+                    <span style="font-size: 13px; color: #c9d1d9;">🎨 Cor Principal do Gráfico</span>
+                    <input type="color" class="bi-input color-picker-edit" data-index="0" value="${currentColor}" style="height: 30px; width: 50px; padding: 0;">
                 </div>`;
-        });
-    } else if (config.tipo.includes('stacked')) {
-        option.series.forEach((serie, index) => {
-            let defaultColor = option.color[index % option.color.length];
-            let currentColor = (serie.itemStyle && serie.itemStyle.color) ? serie.itemStyle.color : defaultColor;
-            colorsContainer.innerHTML += `
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <span style="font-size: 13px; color: #c9d1d9;">🏷️ ${serie.name}</span>
-                    <input type="color" class="bi-input color-picker-edit" data-index="${index}" value="${currentColor}" style="height: 30px; width: 50px; padding: 0;">
-                </div>`;
-        });
-    } else {
-        let currentColor = (option.series[0].itemStyle && option.series[0].itemStyle.color) ? option.series[0].itemStyle.color : '#58a6ff';
-        colorsContainer.innerHTML += `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <span style="font-size: 13px; color: #c9d1d9;">🎨 Cor Principal do Gráfico</span>
-                <input type="color" class="bi-input color-picker-edit" data-index="0" value="${currentColor}" style="height: 30px; width: 50px; padding: 0;">
-            </div>`;
+        }
     }
 }
 
@@ -967,10 +1060,22 @@ async function salvarEdicaoGrafico() {
     const novoZ = document.getElementById('biEditEixoZ').value;
     const novaAgregacao = document.getElementById('biEditAgregacao').value;
 
+    // Captura campos de Tabela
+    const novoTema = document.getElementById('biEditTemaTabela').value;
+    const novoOrdenarPor = document.getElementById('biEditOrdenarPor').value;
+    const novaOrdem = document.getElementById('biEditOrdem').value;
+    const novoLimite = parseInt(document.getElementById('biEditLimiteLinhas').value) || 100;
+    const novasColunas = Array.from(document.getElementById('biEditColunasTabela').selectedOptions).map(opt => opt.value);
+
     document.getElementById(id).previousElementSibling.querySelector('.titulo-grafico').innerText = novoTitulo;
 
-    // Se o usuário trocou alguma coluna, precisamos re-processar os dados no Python
-    let dataChanged = (novoX !== config.eixo_x || novoY !== config.eixo_y || novoZ !== config.eixo_z || novaAgregacao !== config.agregacao);
+    // Checa se algum dado estrutural mudou
+    let dataChanged = (
+        novoX !== config.eixo_x || novoY !== config.eixo_y || novoZ !== config.eixo_z ||
+        novaAgregacao !== config.agregacao || novoTema !== config.tema ||
+        novoOrdenarPor !== config.ordenar_por || novaOrdem !== config.ordem || novoLimite !== config.limite_linhas ||
+        JSON.stringify(novasColunas) !== JSON.stringify(config.colunas_tabela)
+    );
 
     if (dataChanged) {
         try {
@@ -979,21 +1084,52 @@ async function salvarEdicaoGrafico() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     bucket: config.bucket, filename: config.filename,
-                    eixo_x: novoX, eixo_y: novoY, eixo_z: novoZ, agregacao: novaAgregacao, tipo_grafico: config.tipo
+                    eixo_x: novoX, eixo_y: novoY, eixo_z: novoZ, agregacao: novaAgregacao,
+                    tipo_grafico: config.tipo, colunas_tabela: novasColunas, tema: novoTema,
+                    ordenar_por: novoOrdenarPor, ordem: novaOrdem, limite_linhas: novoLimite
                 })
             });
             const result = await res.json();
+
             if (result.status === 'success') {
-                config.eixo_x = novoX; config.eixo_y = novoY; config.eixo_z = novoZ; config.agregacao = novaAgregacao;
-                chart.setOption(getEchartsOption(config.tipo, result.data), true);
+                config.eixo_x = novoX; config.eixo_y = novoY; config.eixo_z = novoZ;
+                config.agregacao = novaAgregacao; config.colunas_tabela = novasColunas; config.tema = novoTema;
+
+                // Se for tabela, re-renderizamos a DOM manualmente
+                if (config.tipo === 'table' || config.tipo === 'matrix') {
+                    const dados = result.data;
+                    let classeTema = config.tema ? `theme-${config.tema}` : 'theme-padrao';
+                    let htmlTable = `<div class="bi-table-container"><table class="bi-custom-table ${classeTema}"><thead><tr>`;
+
+                    if (config.tipo === 'table') {
+                        dados.colunas.forEach(col => { htmlTable += `<th>${col}</th>`; });
+                    } else {
+                        htmlTable += `<th>${dados.index_nome || 'Categoria'}</th>`;
+                        dados.colunas.forEach(col => { htmlTable += `<th>${col}</th>`; });
+                    }
+                    htmlTable += `</tr></thead><tbody>`;
+
+                    dados.linhas.forEach(row => {
+                        htmlTable += `<tr>`;
+                        row.forEach(cell => {
+                            let val = (typeof cell === 'number') ? cell.toLocaleString(undefined, { maximumFractionDigits: 2 }) : cell;
+                            htmlTable += `<td>${val}</td>`;
+                        });
+                        htmlTable += `</tr>`;
+                    });
+                    htmlTable += `</tbody></table></div>`;
+                    document.getElementById(id).innerHTML = htmlTable;
+                } else {
+                    chart.setOption(getEchartsOption(config.tipo, result.data), true);
+                }
             } else {
                 alert("Erro ao recalcular os dados: " + result.message);
             }
         } catch (e) {
             alert("Falha de conexão.");
         }
-    } else {
-        // Se os dados continuam os mesmos, aplicamos apenas as cores escolhidas
+    } else if (config.tipo !== 'table' && config.tipo !== 'matrix') {
+        // Se os dados continuam os mesmos e for gráfico, aplicamos apenas as cores
         const option = chart.getOption();
         const pickers = document.querySelectorAll('.color-picker-edit');
 
@@ -1013,6 +1149,23 @@ async function salvarEdicaoGrafico() {
             }
         });
         chart.setOption(option, true);
+    } else if (config.tipo === 'kpi') {
+        let formatter = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
+        let valorFormatado = formatter.format(result.data.valor);
+
+        let corKpi = '#58a6ff';
+        if (config.tema === 'green') corKpi = '#3fb950';
+        if (config.tema === 'orange') corKpi = '#f59e0b';
+        if (config.tema === 'padrao') corKpi = '#c9d1d9';
+
+        let htmlKpi = `
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; text-align: center; box-sizing: border-box; padding: 10px;">
+                        <div style="font-size: 3.5rem; font-weight: 800; color: ${corKpi}; line-height: 1.1; text-shadow: 0px 4px 15px ${corKpi}40;">${valorFormatado}</div>
+                        <div style="font-size: 0.85rem; color: #8b949e; margin-top: 8px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: bold;">${config.agregacao} DE ${config.eixo_y}</div>
+                    </div>`;
+        document.getElementById(id).innerHTML = htmlKpi;
+    } else {
+        chart.setOption(getEchartsOption(config.tipo, result.data), true);
     }
 
     document.getElementById('biEditModal').style.display = 'none';
@@ -1064,11 +1217,15 @@ async function carregarColunasDataset() {
         const data = await res.json();
 
         if (data.status === 'success') {
-            let colsHtml = '<option value="">Selecione a coluna...</option>';
-            data.colunas.forEach(col => { colsHtml += `<option value="${col}">${col}</option>`; });
-            eixoX.innerHTML = colsHtml;
-            eixoY.innerHTML = colsHtml;
-            document.getElementById('biEixoZ').innerHTML = '<option value="">(Nenhum)</option>' + colsHtml;
+            let colsHtml = '<option value="">(Nenhum)</option>';
+            let colsMultiHtml = '';
+            data.colunas.forEach(col => {
+                colsHtml += `<option value="${col}">${col}</option>`;
+                colsMultiHtml += `<option value="${col}">${col}</option>`;
+            });
+            // NOVO: Adicionado biOrdenarPor na lista
+            ['biEixoX', 'biEixoY', 'biEixoZ', 'biOrdenarPor'].forEach(el => document.getElementById(el).innerHTML = colsHtml);
+            document.getElementById('biColunasTabela').innerHTML = colsMultiHtml;
         } else {
             alert("Erro ao extrair colunas: " + data.message);
         }
@@ -1129,5 +1286,40 @@ async function exportarDashboard(formato) {
     } finally {
         // Restaura a borda da interface
         gridArea.style.border = bordaOriginal;
+    }
+}
+
+function toggleCamposGrafico(modo) {
+    let prefix = modo === 'create' ? 'bi' : 'biEdit';
+    let tipo = document.getElementById(prefix + 'TipoGrafico')?.value;
+
+    if (modo === 'edit' && window.biCharts[chartEmEdicao]) tipo = window.biCharts[chartEmEdicao].arenaConfig.tipo;
+
+    const isTable = (tipo === 'table');
+    const isMatrix = (tipo === 'matrix');
+    const isKpi = (tipo === 'kpi');
+    const isScatter = (tipo === 'scatter'); // NOVO
+
+    document.getElementById(prefix + 'EixosComuns').style.display = isTable ? 'none' : 'block';
+
+    // Esconde Eixos específicos para KPI
+    if (document.getElementById(prefix + 'DivEixoX')) document.getElementById(prefix + 'DivEixoX').style.display = isKpi ? 'none' : 'block';
+    if (document.getElementById(prefix + 'DivEixoZ')) document.getElementById(prefix + 'DivEixoZ').style.display = isKpi ? 'none' : 'block';
+
+    // NOVO: Esconde Agregação para Tabelas e Scatter Plot
+    if (document.getElementById(prefix + 'DivAgregacao')) {
+        document.getElementById(prefix + 'DivAgregacao').style.display = (isTable || isScatter) ? 'none' : 'block';
+    }
+
+    document.getElementById(prefix + 'DivColunasTabela').style.display = isTable ? 'block' : 'none';
+
+    // O Tema só não se aplica ao Scatter e aos gráficos comuns
+    document.getElementById(prefix + 'DivTemaTabela').style.display = (isTable || isMatrix || isKpi) ? 'block' : 'none';
+
+    // NOVO: O Limite de Linhas é muito útil no Scatter também!
+    document.getElementById(prefix + 'DivConfigTabela').style.display = (isTable || isMatrix || isScatter) ? 'block' : 'none';
+
+    if (modo === 'edit') {
+        document.getElementById('biEditColorSection').style.display = (isTable || isMatrix || isKpi) ? 'none' : 'block';
     }
 }

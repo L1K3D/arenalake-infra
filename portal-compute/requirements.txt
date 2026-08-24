@@ -31,3 +31,7 @@ pydantic
 fsspec
 
 s3fs
+
+pydantic
+
+typing

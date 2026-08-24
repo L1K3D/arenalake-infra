@@ -6,7 +6,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- CORREÇÃO AQUI: Mudamos para v=4 para o Chrome ser obrigado a baixar o visual novo -->
-    <link rel="stylesheet" href="/static/css/dashboard.css?v=10">
+    <link rel="stylesheet" href="/static/css/dashboard.css?v=15">
 
     <link href="https://cdn.jsdelivr.net/npm/gridstack@8.2.1/dist/gridstack.min.css" rel="stylesheet" />
 </head>
@@ -217,6 +217,7 @@
             </div>
         </div>
 
+        <!-- 6. ABA BI TOOLS -->
         <div id="bi" class="tab-content padded-tab">
             <div class="card" style="display: block; display: flex; flex-direction: column; height: 100%;">
 
@@ -257,7 +258,6 @@
 
                 </div>
 
-                <!-- (A div da grid-container continua aqui normalmente...) -->
                 <div class="grid-container"
                     style="flex-grow: 1; background: #0d1117; border: 1px dashed #30363d; border-radius: 8px; padding: 10px; overflow-y: auto;">
                     <div class="grid-stack"></div>
@@ -270,7 +270,9 @@
             <div class="bi-modal-content">
                 <h3>Configurar Novo Gráfico</h3>
                 <label>Tipo de Gráfico:</label>
-                <select id="biTipoGrafico" class="bi-select" style="width: 100%; margin-bottom: 10px;">
+                <!-- EVENTO ONCHANGE PARA ALTERNAR OS CAMPOS DA TELA -->
+                <select id="biTipoGrafico" class="bi-select" style="width: 100%; margin-bottom: 15px;"
+                    onchange="toggleCamposGrafico('create')">
                     <option value="bar">📊 Barras Simples (Vertical)</option>
                     <option value="stacked_column">📶 Colunas Empilhadas (Vertical)</option>
                     <option value="stacked_bar">▤ Barras Empilhadas (Horizontal)</option>
@@ -278,25 +280,76 @@
                     <option value="area">📉 Área (Area Chart)</option>
                     <option value="funnel">🔻 Funil (Funnel Chart)</option>
                     <option value="pie">🥧 Pizza (Pie Chart)</option>
-                    <option value="table">📋 Tabela Simples (Table)</option> <!-- <--- NOVO -->
-                    <option value="matrix">🧮 Tabela Matriz (Matrix)</option> <!-- <--- NOVO -->
+                    <option value="table">📋 Tabela Simples (Table)</option>
+                    <option value="matrix">🧮 Tabela Matriz (Matrix)</option>
+                    <option value="kpi">💡 Cartão KPI (Big Number)</option>
+                    <option value="scatter">📍 Dispersão (Scatter Plot)</option>
                 </select>
 
-                <label>Eixo X (Categoria):</label>
-                <select id="biEixoX" class="bi-select" style="width: 100%; margin-bottom: 10px;"></select>
+                <!-- BLOCO 1: Eixos Normais e Matriz -->
+                <div id="biEixosComuns">
+                    <div id="biDivEixoX">
+                        <label>Eixo X (Categoria):</label>
+                        <select id="biEixoX" class="bi-select" style="width: 100%; margin-bottom: 10px;"></select>
+                    </div>
 
-                <label>Eixo Y (Métrica):</label>
-                <select id="biEixoY" class="bi-select" style="width: 100%; margin-bottom: 10px;"></select>
+                    <label>Eixo Y (Métrica):</label>
+                    <select id="biEixoY" class="bi-select" style="width: 100%; margin-bottom: 10px;"></select>
 
-                <label>Agrupar por (Cor/Série) - Opcional:</label>
-                <select id="biEixoZ" class="bi-select" style="width: 100%; margin-bottom: 10px;"></select>
+                    <div id="biDivEixoZ">
+                        <label>Agrupar por (Cor/Série) - Opcional:</label>
+                        <select id="biEixoZ" class="bi-select" style="width: 100%; margin-bottom: 10px;"></select>
+                    </div>
 
-                <label>Agregação do Eixo Y:</label>
-                <select id="biAgregacao" class="bi-select" style="width: 100%; margin-bottom: 20px;">
-                    <option value="sum">Soma (SUM)</option>
-                    <option value="avg">Média (AVG)</option>
-                    <option value="count">Contagem (COUNT)</option>
-                </select>
+                    <!-- NOVO: DIV QUE ISOLA A AGREGAÇÃO PARA PODER ESCONDER NO SCATTER -->
+                    <div id="biDivAgregacao">
+                        <label>Agregação do Eixo Y:</label>
+                        <select id="biAgregacao" class="bi-select" style="width: 100%; margin-bottom: 20px;">
+                            <option value="sum">Soma (SUM)</option>
+                            <option value="avg">Média (AVG)</option>
+                            <option value="count">Contagem (COUNT)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- BLOCO 2: Múltiplas Colunas para Tabela -->
+                <div id="biDivColunasTabela" style="display: none;">
+                    <label>Selecione as Colunas (Segure CTRL para vários):</label>
+                    <select id="biColunasTabela" class="bi-select" multiple size="6"
+                        style="width: 100%; margin-bottom: 20px;"></select>
+                </div>
+
+                <!-- BLOCO 3: Tema Visual da Tabela/Matriz -->
+                <div id="biDivTemaTabela" style="display: none;">
+                    <label>Tema Estilo Microsoft:</label>
+                    <select id="biTemaTabela" class="bi-select" style="width: 100%; margin-bottom: 20px;">
+                        <option value="padrao">⚫ Padrão Dark (Zebra)</option>
+                        <option value="blue">🔵 Estilo Azul (Blue Accent)</option>
+                        <option value="green">🟢 Estilo Verde (Green Accent)</option>
+                        <option value="orange">🟠 Estilo Laranja (Orange Accent)</option>
+                    </select>
+                </div>
+
+                <!-- BLOCO 4: Limite e Ordenação -->
+                <div id="biDivConfigTabela" style="display: none;">
+                    <div style="display: flex; gap: 10px;">
+                        <div style="flex: 1;">
+                            <label>Ordenar por:</label>
+                            <select id="biOrdenarPor" class="bi-select"
+                                style="width: 100%; margin-bottom: 10px;"></select>
+                        </div>
+                        <div style="flex: 1;">
+                            <label>Ordem:</label>
+                            <select id="biOrdem" class="bi-select" style="width: 100%; margin-bottom: 10px;">
+                                <option value="asc">Crescente (A-Z, 0-9)</option>
+                                <option value="desc">Decrescente (Z-A, 9-0)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <label>Limite de Linhas:</label>
+                    <input type="number" id="biLimiteLinhas" class="bi-input" style="width: 100%; margin-bottom: 20px;"
+                        value="100" min="1" max="5000">
+                </div>
 
                 <div style="display: flex; justify-content: flex-end; gap: 10px;">
                     <button class="btn" style="background: #da3633;" onclick="fecharModalVisual()">Cancelar</button>
@@ -305,43 +358,78 @@
             </div>
         </div>
 
+        <!-- MODAL DE EDIÇÃO AVANÇADA -->
         <div id="biEditModal" class="bi-modal">
             <div class="bi-modal-content" style="width: 480px;">
-                <h3>Editar Gráfico</h3>
+                <h3>Editar Gráfico / Tabela</h3>
 
-                <label>Título do Gráfico:</label>
+                <label>Título do Visual:</label>
                 <input type="text" id="biEditTitulo" class="bi-input" style="width: 100%; margin-bottom: 15px;">
 
-                <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1;">
-                        <label>Eixo X (Categoria):</label>
-                        <select id="biEditEixoX" class="bi-select" style="width: 100%; margin-bottom: 10px;"></select>
+                <div id="biEditEixosComuns">
+                    <div style="display: flex; gap: 10px;">
+                        <div style="flex: 1;" id="biEditDivEixoX"><label>Eixo X (Categoria):</label><select
+                                id="biEditEixoX" class="bi-select" style="width: 100%; margin-bottom: 10px;"></select>
+                        </div>
+                        <div style="flex: 1;"><label>Eixo Y (Métrica):</label><select id="biEditEixoY" class="bi-select"
+                                style="width: 100%; margin-bottom: 10px;"></select></div>
                     </div>
-                    <div style="flex: 1;">
-                        <label>Eixo Y (Métrica):</label>
-                        <select id="biEditEixoY" class="bi-select" style="width: 100%; margin-bottom: 10px;"></select>
+                    <div style="display: flex; gap: 10px;">
+                        <div style="flex: 1;" id="biEditDivEixoZ"><label>Agrupar por (Série):</label><select
+                                id="biEditEixoZ" class="bi-select" style="width: 100%; margin-bottom: 10px;"></select>
+                        </div>
+
+                        <!-- NOVO: DIV QUE ISOLA A AGREGAÇÃO PARA PODER ESCONDER NO SCATTER (EDIÇÃO) -->
+                        <div style="flex: 1;" id="biEditDivAgregacao"><label>Agregação:</label><select
+                                id="biEditAgregacao" class="bi-select" style="width: 100%; margin-bottom: 15px;">
+                                <option value="sum">Soma (SUM)</option>
+                                <option value="avg">Média (AVG)</option>
+                                <option value="count">Contagem (COUNT)</option>
+                            </select></div>
                     </div>
                 </div>
 
-                <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1;">
-                        <label>Agrupar por (Série):</label>
-                        <select id="biEditEixoZ" class="bi-select" style="width: 100%; margin-bottom: 10px;"></select>
-                    </div>
-                    <div style="flex: 1;">
-                        <label>Agregação:</label>
-                        <select id="biEditAgregacao" class="bi-select" style="width: 100%; margin-bottom: 15px;">
-                            <option value="sum">Soma (SUM)</option>
-                            <option value="avg">Média (AVG)</option>
-                            <option value="count">Contagem (COUNT)</option>
-                        </select>
-                    </div>
+                <div id="biEditDivColunasTabela" style="display: none;">
+                    <label>Colunas Selecionadas (Segure CTRL para editar):</label>
+                    <select id="biEditColunasTabela" class="bi-select" multiple size="5"
+                        style="width: 100%; margin-bottom: 15px;"></select>
                 </div>
 
-                <label>Cores (Fatias/Séries):</label>
-                <div id="biEditColorsContainer"
-                    style="max-height: 140px; overflow-y: auto; background: #161b22; padding: 10px; border-radius: 4px; border: 1px solid #30363d; margin-bottom: 20px;">
-                    <!-- Os inputs de cores aparecerão magicamente aqui -->
+                <div id="biEditDivTemaTabela" style="display: none;">
+                    <label>Tema Estilo Microsoft:</label>
+                    <select id="biEditTemaTabela" class="bi-select" style="width: 100%; margin-bottom: 15px;">
+                        <option value="padrao">⚫ Padrão Dark (Zebra)</option>
+                        <option value="blue">🔵 Estilo Azul (Blue Accent)</option>
+                        <option value="green">🟢 Estilo Verde (Green Accent)</option>
+                        <option value="orange">🟠 Estilo Laranja (Orange Accent)</option>
+                    </select>
+                </div>
+
+                <div id="biEditDivConfigTabela" style="display: none;">
+                    <div style="display: flex; gap: 10px;">
+                        <div style="flex: 1;">
+                            <label>Ordenar por:</label>
+                            <select id="biEditOrdenarPor" class="bi-select"
+                                style="width: 100%; margin-bottom: 10px;"></select>
+                        </div>
+                        <div style="flex: 1;">
+                            <label>Ordem:</label>
+                            <select id="biEditOrdem" class="bi-select" style="width: 100%; margin-bottom: 10px;">
+                                <option value="asc">Crescente (A-Z, 0-9)</option>
+                                <option value="desc">Decrescente (Z-A, 9-0)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <label>Limite de Linhas:</label>
+                    <input type="number" id="biEditLimiteLinhas" class="bi-input"
+                        style="width: 100%; margin-bottom: 20px;" min="1" max="5000">
+                </div>
+
+                <div id="biEditColorSection">
+                    <label>Cores (Fatias/Séries):</label>
+                    <div id="biEditColorsContainer"
+                        style="max-height: 120px; overflow-y: auto; background: #161b22; padding: 10px; border-radius: 4px; border: 1px solid #30363d; margin-bottom: 20px;">
+                    </div>
                 </div>
 
                 <div style="display: flex; justify-content: flex-end; gap: 10px;">
@@ -372,7 +460,7 @@
         window.dashboardConfig = { usuario: "{{ usuario }}", domain: "{{ domain }}" };
     </script>
     <!-- MÁGICA DO CACHE AQUI (adicionamos o ?v=2) -->
-    <script src="/static/js/dashboard.js?v=3"></script>
+    <script src="/static/js/dashboard.js?v=4"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/gridstack@8.2.1/dist/gridstack-all.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
