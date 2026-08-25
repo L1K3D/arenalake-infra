@@ -6,7 +6,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- CORREÇÃO AQUI: Mudamos para v=4 para o Chrome ser obrigado a baixar o visual novo -->
-    <link rel="stylesheet" href="/static/css/dashboard.css?v=15">
+    <link rel="stylesheet" href="/static/css/dashboard.css?v=16">
 
     <link href="https://cdn.jsdelivr.net/npm/gridstack@8.2.1/dist/gridstack.min.css" rel="stylesheet" />
 </head>
@@ -242,6 +242,11 @@
 
                     <div class="ribbon-divider"></div>
 
+                    <div class="ribbon-item ribbon-btn" onclick="abrirModalFiltroGlobal()">
+                        <span class="ribbon-icon">🔍</span>
+                        <span class="ribbon-label">Filtro Global</span>
+                    </div>
+
                     <!-- Item 3: Exportar como imagem -->
                     <div class="ribbon-item ribbon-btn" onclick="exportarDashboard('png')">
                         <span class="ribbon-icon">🖼️</span>
@@ -284,6 +289,8 @@
                     <option value="matrix">🧮 Tabela Matriz (Matrix)</option>
                     <option value="kpi">💡 Cartão KPI (Big Number)</option>
                     <option value="scatter">📍 Dispersão (Scatter Plot)</option>
+                    <option value="doughnut">🍩 Rosca (Doughnut Chart)</option>
+                    <option value="waterfall">🌊 Cascata (Waterfall Chart)</option>
                 </select>
 
                 <!-- BLOCO 1: Eixos Normais e Matriz -->
@@ -437,6 +444,29 @@
                         onclick="document.getElementById('biEditModal').style.display='none'">Cancelar</button>
                     <button class="btn" style="background: #238636;" onclick="salvarEdicaoGrafico()">Salvar
                         Alterações</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="biFiltroModal" class="bi-modal">
+            <div class="bi-modal-content" style="width: 400px;">
+                <h3 style="color: #58a6ff;">🔍 Segmentação de Dados (Global)</h3>
+
+                <label>Filtrar pela Coluna:</label>
+                <select id="biFiltroColuna" class="bi-select" style="width: 100%; margin-bottom: 15px;"
+                    onchange="carregarValoresFiltro()"></select>
+
+                <label>Escolha o Valor:</label>
+                <select id="biFiltroValor" class="bi-select" style="width: 100%; margin-bottom: 25px;">
+                    <option value="">(Selecione a coluna primeiro)</option>
+                </select>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button class="btn" style="background: #da3633;" onclick="limparFiltroGlobal()">🗑️ Limpar</button>
+                    <button class="btn" style="background: #238636;" onclick="aplicarFiltroGlobal()">Aplicar a
+                        Todos</button>
+                    <button class="btn" style="background: #21262d; border: 1px solid #30363d;"
+                        onclick="document.getElementById('biFiltroModal').style.display='none'">Fechar</button>
                 </div>
             </div>
         </div>
