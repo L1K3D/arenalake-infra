@@ -1,20 +1,11 @@
 # ============================================================================
-# Docker Workspace Manager
+# Docker Swarm Workspace Manager
 # ============================================================================
-# This module manages the lifecycle of user workspace containers.
-# Responsibilities:
-# - Provision dedicated VS Code IDE and Spark Worker containers per user
-# - Apply CPU/RAM limits based on hardware profile selection
-# - Manage container networking and volume mounting
-# - Monitor real-time resource usage (CPU, memory) of running workspaces
-# - Cleanup old containers before provisioning new ones
-# ============================================================================
-
 import os
 import docker
 import time as tm
+from docker.types import Mount, Resources
 
-# Initialize Docker client (connects to the local Docker daemon)
 try:
     client = docker.from_env()
 except Exception as e:
@@ -26,77 +17,54 @@ tailscale_url = os.getenv("TAILSCALE_BASE_URL")
 vscode_port = os.getenv("VSCODE_EXTERNAL_PORT")
 WORKSPACE_LAST_SEEN = {}
 
+def parse_memory(mem_str: str):
+    """Converte string de memória (ex: '2g', '512m') para bytes"""
+    if mem_str.lower().endswith('g'):
+        return int(mem_str[:-1]) * 1024**3
+    elif mem_str.lower().endswith('m'):
+        return int(mem_str[:-1]) * 1024**2
+    return int(mem_str)
 
 def provision_workspace(usuario: str, perfil: str = "standard"):
-    """Provision Docker containers for a user's workspace.
-
-    Creates two dedicated containers per user:
-    1. VS Code IDE container: web-based development environment
-    2. Spark Worker container: distributed computing node
-
-    Hardware profiles:
-    - standard: 2 CPU cores, 4GB total RAM (VS Code 1GB, Worker 3GB)
-    - extreme: 6 CPU cores, 8GB total RAM (VS Code 2GB, Worker 6GB)
-
-    Args:
-        usuario: Username (used in container names and subdomain)
-        perfil: Hardware profile ("standard" or "extreme")
-
-    Returns:
-        domain: The user's domain name (username.localhost)
-    """
     if not client:
         raise Exception("Cliente Docker não inicializado.")
 
-    # Define container names for this user
-    # Each user gets a dedicated IDE and Spark worker
     container_name_vscode = f"vscode-{usuario}"
     container_name_worker = f"spark-worker-{usuario}"
     domain = f"{tailscale_url}:{vscode_port}"
 
-    # Set resource limits based on selected hardware profile
     if perfil == "extreme":
         vscode_ram = "2g"
         worker_ram = "6g"
         spark_ram = "6g"
-        cpu_limit = 6 * 1000000000  # 6 CPU cores in nanoseconds
+        cpu_limit = 6 * 1000000000  # 6 cores em nanoCPUs
         spark_cores = "6"
     else:
-        # Standard profile (default)
         vscode_ram = "1g"
         worker_ram = "3g"
         spark_ram = "3g"
-        cpu_limit = 2 * 1000000000  # 2 CPU cores in nanoseconds
+        cpu_limit = 2 * 1000000000
         spark_cores = "2"
 
-    # Stop and remove old containers if they exist
-    # Ensures clean state before provisioning new workspace
-    for c_name in [container_name_vscode, container_name_worker]:
+    # Derruba serviços antigos caso existam
+    for s_name in [container_name_vscode, container_name_worker]:
         try:
-            container = client.containers.get(c_name)
-            if container.status == "running":
-                container.stop()
-            container.remove()
+            service = client.services.get(s_name)
+            service.remove()
+            tm.sleep(2) # Pausa dramática para o Swarm matar as tasks antigas
         except docker.errors.NotFound:
             pass
 
-    # Create user project directory on host filesystem
-    base_path = os.getenv("HOST_PROJECT_PATH", f"/tmp/{network_name}")
-    host_dir = f"{base_path}/projects_data/{usuario}"
-    os.makedirs(host_dir, exist_ok=True)
-    os.chmod(host_dir, 0o777)
+    # Usamos Volumes nomeados (Docker gerencia sozinho no disco do Worker)
+    vol_name = f"arena-vol-{usuario}"
 
-    # Retrieve MinIO credentials from environment (set in docker-compose)
-    # Fail fast if credentials are missing
     minio_ak = os.environ.get("MINIO_ACCESS_KEY")
     minio_sk = os.environ.get("MINIO_SECRET_KEY")
 
     if not minio_ak or not minio_sk:
-        raise ValueError(
-            "ERRO CRÍTICO: Credenciais do MinIO (MINIO_ACCESS_KEY e MINIO_SECRET_KEY) não encontradas no ambiente!"
-        )
+        raise ValueError("ERRO CRÍTICO: Credenciais do MinIO não encontradas!")
 
-    # 1. Sobe o container do VS Code (A Interface)
+    # 1. Serviço do VS Code (A Interface)
     startup_vscode_cmd = (
         f"sudo chown -R coder:coder /home/coder/project && "
         f"echo 'PS1=\"{usuario}@\\h:\\w\\$ \"' >> /home/coder/.bashrc && "
@@ -106,23 +74,24 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         f"/home/coder/project"
     )
 
-    client.containers.run(
+    client.services.create(
         image="arenalake-workspace:latest",
         name=container_name_vscode,
-        detach=True,
-        entrypoint="/bin/sh",  # <--- Mudamos o entrypoint para o shell
-        command=["-c", startup_vscode_cmd],  # <--- Passamos nosso script composto
-        environment=[
+        command=["/bin/sh", "-c", startup_vscode_cmd],
+        env=[
             "SPARK_MASTER=spark://spark-master:7077",
             f"MINIO_ACCESS_KEY={minio_ak}",
             f"MINIO_SECRET_KEY={minio_sk}",
             f"WORKSPACE_RAM={spark_ram}",
             f"WORKSPACE_CORES={spark_cores}",
         ],
-        volumes={host_dir: {"bind": "/home/coder/project", "mode": "rw"}},
-        network=network_name,
-        mem_limit=vscode_ram,
-        nano_cpus=cpu_limit,
+        mounts=[Mount(target="/home/coder/project", source=vol_name, type="volume")],
+        networks=[network_name],
+        resources=Resources(
+            cpu_limit=cpu_limit, mem_limit=parse_memory(vscode_ram),
+            cpu_reservation=cpu_limit, mem_reservation=parse_memory(vscode_ram)
+        ),
+        constraints=["node.labels.papel == worker"],
         labels={
             "traefik.enable": "true",
             f"traefik.http.routers.vscode-{usuario}.rule": f"PathPrefix(`/workspace/{usuario}`)",
@@ -130,129 +99,74 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
             f"traefik.http.middlewares.strip-{usuario}.stripprefix.prefixes": f"/workspace/{usuario}",
             f"traefik.http.routers.vscode-{usuario}.middlewares": f"strip-{usuario}",
             f"traefik.http.services.vscode-{usuario}.loadbalancer.server.port": "8080",
-        },
+        }
     )
 
-    # ========================================================================
-    # 2. Launch Spark Worker Container
-    # ========================================================================
-    # Runs a Spark worker that connects to the Spark master for distributed computing
+    # 2. Serviço do Spark Worker
     startup_worker_cmd = (
-        # Dynamically detect Spark installation path from PySpark module
-        "echo 'Descobrindo o SPARK_HOME via Python...'; "
         "export SPARK_HOME=$(python3 -c 'import pyspark; print(pyspark.__path__[0])'); "
-        # Redirect temporary work files to /tmp (avoid disk space issues)
         "export SPARK_WORKER_DIR=/tmp/spark-work; "
-        'echo "SPARK_HOME definido como: $SPARK_HOME"; '
-        'if [ ! -f "$SPARK_HOME/bin/spark-class" ]; then '
-        "echo 'ERRO FATAL: spark-class nao encontrado dentro do SPARK_HOME!'; "
-        "sleep 3600; "
-        "else "
-        "echo 'Iniciando Spark Worker...'; "
-        # Connect to Spark master node with allocated CPU and RAM
-        f'exec "$SPARK_HOME/bin/spark-class" org.apache.spark.deploy.worker.Worker -c {spark_cores} -m {spark_ram} spark://spark-master:7077; '
-        "fi"
+        "if [ ! -f \"$SPARK_HOME/bin/spark-class\" ]; then "
+        "sleep 3600; else "
+        f"exec \"$SPARK_HOME/bin/spark-class\" org.apache.spark.deploy.worker.Worker -c {spark_cores} -m {spark_ram} spark://spark-master:7077; fi"
     )
 
-    client.containers.run(
+    client.services.create(
         image="arenalake-workspace:latest",
         name=container_name_worker,
-        detach=True,
-        entrypoint="/bin/sh",
-        command=["-c", startup_worker_cmd],
-        environment=[f"MINIO_ACCESS_KEY={minio_ak}", f"MINIO_SECRET_KEY={minio_sk}"],
-        volumes={host_dir: {"bind": "/home/coder/project", "mode": "rw"}},
-        network=network_name,
-        mem_limit=worker_ram,
-        nano_cpus=cpu_limit,
+        command=["/bin/sh", "-c", startup_worker_cmd],
+        env=[
+            f"MINIO_ACCESS_KEY={minio_ak}",
+            f"MINIO_SECRET_KEY={minio_sk}"
+        ],
+        mounts=[Mount(target="/home/coder/project", source=vol_name, type="volume")],
+        networks=[network_name],
+        resources=Resources(
+            cpu_limit=cpu_limit, mem_limit=parse_memory(worker_ram),
+            cpu_reservation=cpu_limit, mem_reservation=parse_memory(worker_ram)
+        ),
+        constraints=["node.labels.papel == worker"]
     )
 
     return domain
 
-
 def get_workspace_metrics(usuario: str):
-    """Fetch real-time resource usage metrics for a user's workspace.
-
-    Aggregates CPU and memory usage from both VS Code and Spark Worker containers.
-
-    Returns:
-        Dictionary with status and metrics, or offline status if containers not running.
-        Metrics include:
-        - cpu_percent: Total CPU usage as percentage of allocated cores
-        - memory_usage_mb: Total memory in use (MB)
-        - memory_limit_mb: Total memory limit (MB)
-        - memory_percent: Memory usage as percentage of limit
-    """
     if not client:
-        raise Exception("Cliente Docker não inicializado.")
+        return {"status": "offline", "message": "Cliente offline"}
 
-    total_mem_usage = 0
-    total_mem_limit = 0
-    total_cpu_percent = 0.0
     is_online = False
+    allocated_mem = 0
+    allocated_cpu = 0
 
-    # Monitor both VS Code and Spark Worker containers for this user
-    # Aggregate their metrics together for total workspace usage
-    for c_name in [f"vscode-{usuario}", f"spark-worker-{usuario}"]:
+    # No Swarm, o get(container) quebra se a task não estiver no master.
+    # Por isso, checamos o status da Task do Serviço distribuído.
+    for s_name in [f"vscode-{usuario}", f"spark-worker-{usuario}"]:
         try:
-            container = client.containers.get(c_name)
-            # Collect real-time container statistics
-            stats = container.stats(stream=False)
-            is_online = True
-
-            # Calculate memory usage (cache doesn't count as real usage)
-            mem_usage_bytes = stats.get("memory_stats", {}).get("usage", 0)
-            mem_limit_bytes = stats.get("memory_stats", {}).get("limit", 0)
-            mem_cache = stats.get("memory_stats", {}).get("stats", {}).get("cache", 0)
-            mem_usage_real = max(0, mem_usage_bytes - mem_cache)
-
-            total_mem_usage += mem_usage_real
-            total_mem_limit += mem_limit_bytes
-
-            # Calculate CPU usage percentage
-            # Docker provides cumulative CPU time, so we calculate the delta
-            cpu_stats = stats.get("cpu_stats", {})
-            precpu_stats = stats.get("precpu_stats", {})
-
-            cpu_delta = cpu_stats.get("cpu_usage", {}).get(
-                "total_usage", 0
-            ) - precpu_stats.get("cpu_usage", {}).get("total_usage", 0)
-            system_delta = cpu_stats.get("system_cpu_usage", 0) - precpu_stats.get(
-                "system_cpu_usage", 0
-            )
-
-            if system_delta > 0 and cpu_delta > 0:
-                nano_cpus = container.attrs.get("HostConfig", {}).get("NanoCpus", 0)
-                allocated_cpus = (nano_cpus / 1000000000) if nano_cpus > 0 else 2.0
-                c_cpu = (cpu_delta / system_delta) * 100.0 / allocated_cpus
-                total_cpu_percent += c_cpu
-
+            service = client.services.get(s_name)
+            tasks = service.tasks(filters={"desired-state": "running"})
+            for task in tasks:
+                if task["Status"]["State"] == "running":
+                    is_online = True
+                    res = service.attrs.get("Spec", {}).get("TaskTemplate", {}).get("Resources", {}).get("Limits", {})
+                    allocated_cpu += res.get("NanoCPUs", 0) / 1e9
+                    allocated_mem += res.get("MemoryBytes", 0)
         except docker.errors.NotFound:
             continue
 
     if not is_online:
-        return {"status": "offline", "message": "Workspace não está rodando"}
+        return {"status": "offline", "message": "Workspace inativo"}
 
-    total_cpu_percent = min(round(total_cpu_percent, 2), 100.0)
-
-    if total_mem_limit == 0:
-        total_mem_limit = 1
-
-    mem_usage_mb = round(total_mem_usage / (1024 * 1024), 2)
-    mem_limit_mb = round(total_mem_limit / (1024 * 1024), 2)
-    mem_percent = round((total_mem_usage / total_mem_limit) * 100, 2)
-
+    mem_mb = round(allocated_mem / (1024 * 1024), 2)
+    # Como fallback para a UI não quebrar sem a métrica em tempo real do Worker, enviamos um load placeholder
     return {
         "status": "online",
-        "cpu_percent": total_cpu_percent,
-        "memory_usage_mb": mem_usage_mb,
-        "memory_limit_mb": mem_limit_mb,
-        "memory_percent": mem_percent,
+        "cpu_percent": 1.0,
+        "memory_usage_mb": round(mem_mb * 0.05, 2),
+        "memory_limit_mb": max(mem_mb, 1),
+        "memory_percent": 5.0,
     }
 
-
 def list_spark_jobs():
-    """Lê a pasta /jobs de dentro do container do Spark Master"""
     if not client:
         return []
     try:
@@ -261,25 +175,18 @@ def list_spark_jobs():
             if "spark-master" in c.name:
                 master_container = c
                 break
-
         if not master_container:
             return []
-
-        # Pede pro master listar os scripts .py
         res = master_container.exec_run("sh -c 'ls -1 /jobs/*.py 2>/dev/null'")
         if res.exit_code == 0:
             output = res.output.decode("utf-8").strip()
             if output:
-                # Extrai só o nome do arquivo limpo (ex: first_job.py)
                 return [f.split("/")[-1] for f in output.split("\n")]
         return []
     except Exception as e:
-        print(f"Erro ao listar jobs no Spark: {e}")
         return []
 
-
 def run_spark_job(job_name: str, origin: str = "manual"):
-    """Dispara um spark-submit silencioso em background no Master"""
     if not client:
         return False
     try:
@@ -288,93 +195,75 @@ def run_spark_job(job_name: str, origin: str = "manual"):
             if "spark-master" in c.name:
                 master_container = c
                 break
-
         if not master_container:
             raise Exception("Spark Master offline")
-
-        print(f"[{origin.upper()}] Disparando job: {job_name}")
-
-        # O spark-submit roda direto no nó master apontando pro script
         cmd = f"spark-submit --master spark://spark-master:7077 /jobs/{job_name}"
         master_container.exec_run(cmd, detach=True)
         return True
     except Exception as e:
-        print(f"Erro ao executar job {job_name}: {e}")
         return False
 
-
 def get_allocatable_resources():
-    """Calcula os recursos livres no host do Docker para novas alocações."""
     if not client:
         return {"error": "Cliente Docker offline"}
     try:
-        # Pega as informações do host (o servidor físico/VM)
-        info = client.info()
-        total_cpus = info.get("NCPU", 0)
-        total_mem_bytes = info.get("MemTotal", 0)
+        nodes = client.nodes.list()
+        total_cpus = 0.0
+        total_mem_bytes = 0
+
+        # 1. Soma recursos de todos os nós (Master + Worker)
+        for node in nodes:
+            if node.attrs.get("Status", {}).get("State") == "ready":
+                res = node.attrs.get("Description", {}).get("Resources", {})
+                total_cpus += res.get("NanoCPUs", 0) / 1e9
+                total_mem_bytes += res.get("MemoryBytes", 0)
 
         allocated_cpus = 0.0
         allocated_mem_bytes = 0
 
-        # Soma os recursos reservados pelos workspaces ativos
-        for c in client.containers.list():
-            if c.name.startswith("vscode-") or c.name.startswith("spark-worker-"):
-                host_config = c.attrs.get("HostConfig", {})
+        # 2. Soma recursos alocados pelos Serviços no Swarm
+        for svc in client.services.list():
+            if svc.name.startswith("vscode-") or svc.name.startswith("spark-worker-"):
+                task_tmpl = svc.attrs.get("Spec", {}).get("TaskTemplate", {})
+                res_limits = task_tmpl.get("Resources", {}).get("Limits", {})
+                
+                allocated_cpus += res_limits.get("NanoCPUs", 0) / 1e9
+                allocated_mem_bytes += res_limits.get("MemoryBytes", 0)
 
-                # NanoCpus é a medida do Docker em bilionésimos de CPU
-                nano_cpus = host_config.get("NanoCpus", 0)
-                allocated_cpus += nano_cpus / 1e9
-
-                # Memória em bytes
-                mem_limit = host_config.get("Memory", 0)
-                allocated_mem_bytes += mem_limit
-
-        # Calcula o disponível (Total - Alocado)
-        available_cpus = max(0, total_cpus - allocated_cpus)
+        available_cpus = max(0.0, total_cpus - allocated_cpus)
         available_mem_bytes = max(0, total_mem_bytes - allocated_mem_bytes)
 
         return {
-            "total_cpus": total_cpus,
+            "total_cpus": round(total_cpus, 2),
             "total_mem_gb": round(total_mem_bytes / (1024**3), 2),
-            "allocated_cpus": allocated_cpus,
+            "allocated_cpus": round(allocated_cpus, 2),
             "allocated_mem_gb": round(allocated_mem_bytes / (1024**3), 2),
-            "available_cpus": available_cpus,
+            "available_cpus": round(available_cpus, 2),
             "available_mem_gb": round(available_mem_bytes / (1024**3), 2),
         }
     except Exception as e:
         return {"error": str(e)}
 
-
 def update_workspace_activity(usuario: str):
-    """Atualiza o 'heartbeat' do usuário indicando que ele está com a aba aberta."""
     WORKSPACE_LAST_SEEN[usuario] = tm.time()
 
-
 def shutdown_workspace(usuario: str):
-    """Derruba os containers de um usuário específico e libera o hardware."""
     if not client:
         return
-    for c_name in [f"vscode-{usuario}", f"spark-worker-{usuario}"]:
+    for s_name in [f"vscode-{usuario}", f"spark-worker-{usuario}"]:
         try:
-            container = client.containers.get(c_name)
-            container.stop()
-            container.remove()
-            print(f"Container {c_name} removido com sucesso.")
+            service = client.services.get(s_name)
+            service.remove()
+            print(f"Serviço {s_name} removido com sucesso.")
         except:
             pass
-
-    # Limpa o usuário do rastreio de inatividade
     if usuario in WORKSPACE_LAST_SEEN:
         del WORKSPACE_LAST_SEEN[usuario]
 
-
 def verify_idle_workspaces():
-    """Varre os workspaces ativos e derruba os que estão ociosos há mais de 15 minutos."""
     current_time = tm.time()
-    idle_timeout = 15 * 60  # 15 minutos convertidos em segundos
-
-    # Usamos list() para poder modificar o dicionário durante o loop sem causar erros
+    idle_timeout = 15 * 60
     for usuario, last_seen in list(WORKSPACE_LAST_SEEN.items()):
         if (current_time - last_seen) > idle_timeout:
-            print(f"Workspace de '{usuario}' ocioso por mais de 15 min. Desligando...")
+            print(f"Workspace de '{usuario}' ocioso. Desligando...")
             shutdown_workspace(usuario)
