@@ -75,7 +75,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
     )
 
     client.services.create(
-        image="arenalake-workspace:latest",
+        image="ghcr.io/l1k3d/arenalake-infra/arenalake-workspace:latest",
         name=container_name_vscode,
         command=["/bin/sh", "-c", startup_vscode_cmd],
         env=[
@@ -113,7 +113,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
     )
 
     client.services.create(
-        image="arenalake-workspace:latest",
+        image="ghcr.io/l1k3d/arenalake-infra/arenalake-workspace:latest",
         name=container_name_worker,
         command=["/bin/sh", "-c", startup_worker_cmd],
         env=[
