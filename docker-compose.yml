@@ -1,37 +1,32 @@
 # -----------------------------------------------------------------------------
-# ArenaLake MVP Configuration - Core Infrastructure
-# This file orchestrates the foundational services required for the Data Lake,
-# routing, distributed processing, and the automated workspace provisioning.
+# ArenaLake MVP Configuration - Core Infrastructure (Swarm Ready)
 # -----------------------------------------------------------------------------
 services:
 
-  # 1. GATEWAY / ROUTER (Traefik)
-  # Acts as a reverse proxy, dynamically routing traffic to the user workspaces
-  # and exposing internal services securely without opening multiple ports.
   traefik:
     image: traefik:v2.11
     environment:
       - DOCKER_API_VERSION=1.41
     command:
-      - "--api.insecure=true"                   # Enables the Traefik web UI dashboard
+      - "--api.insecure=true"
       - "--api.dashboard=true"
-      - "--providers.docker=true"               # Listens to Docker events to route dynamically
+      - "--providers.docker=true"
       - "--providers.docker.endpoint=unix:///var/run/docker.sock"
-      - "--providers.docker.exposedbydefault=false" # Only routes containers with explicit labels
-      - "--entrypoints.web.address=:80"         # Main entrypoint for HTTP traffic
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
       - "--providers.docker.swarmMode=true"
     ports:
       - "${TRAEFIK_WEB_PORT:-80}:80"
-      - "${TRAEFIK_DASH_PORT:-8088}:8080"                            # Traefik Dashboard port
+      - "${TRAEFIK_DASH_PORT:-8088}:8080"
     volumes:
-      # Required for Traefik to read container states and labels
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - arenalake-net
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
 
-  # 2. PROCESSING BRAIN (Spark Master)
-  # The central orchestrator for the Apache Spark cluster. It manages the 
-  # dedicated worker nodes that are spun up dynamically per user.
   spark-master:
     image: bitnamilegacy/spark:3.5
     environment:
@@ -40,75 +35,74 @@ services:
       - "${SPARK_UI_PORT:-8080}:8080"
       - "${SPARK_RPC_PORT:-7077}:7077"
     volumes:
-      - ${DATALAKE_STORAGE_PATH}/spark_jobs:/jobs                             # Spark internal RPC port for Workers
+      - ${DATALAKE_STORAGE_PATH}/spark_jobs:/jobs
     networks:
       - arenalake-net
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
 
-  # 3. DATA LAKE (MinIO)
-  # S3-compatible object storage serving as the core Data Lake repository 
-  # for raw (Bronze), refined (Silver), and aggregated (Gold) datasets.
   minio:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
     environment:
-      # Dynamic credentials injected from the host's .env file for security
       - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
       - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
     ports:
       - "${MINIO_API_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"                            # MinIO Web Console Port
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
-      # Mounts the persistent volume to ensure data survives container restarts
       - ${DATALAKE_STORAGE_PATH}/minio_data:/data
     networks:
       - arenalake-net
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
 
-  # 4. WORKSPACE BASE IMAGE BUILDER
-  # Ensures the "plug-and-play" capability by automatically building the custom 
-  # VS Code/Jupyter Docker image on the host before users attempt to log in.
   workspace-builder:
     build:
       context: .
       dockerfile: docker/Dockerfile.workspace
     image: arenalake-workspace:latest
-    # Exits immediately after the build is completed successfully
     command: echo "Imagem arenalake-workspace construída com sucesso!"
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
 
-  # 5. OPERATION ORCHESTRATOR (FastAPI Backend Portal)
-  # The core brain of the platform. Serves the UI, handles user authentication,
-  # queries MinIO, and spawns dynamic Docker containers for user workspaces.
   portal:
+    image: arenalake-prod-portal:latest
     build: 
       context: ./portal-compute
       dockerfile: Dockerfile
     env_file:
-       - .env                                   # Injects MinIO credentials and secrets
+       - .env
     environment:
-      # Injects the host's absolute path to map user directories dynamically
       - HOST_PROJECT_PATH=${PWD}
       - WORKSPACE_NETWORK=${WORKSPACE_NETWORK}
     ports:
-      - "${PORTAL_PORT:-8000}:8000"                            # Portal Web UI Port
+      - "${PORTAL_PORT:-8000}:8000"
     volumes:
-      # Docker-out-of-Docker (DooD): Allows the Portal container to spawn 
-      # sibling containers (VS Code/Spark Workers) directly on the host machine.
       - /var/run/docker.sock:/var/run/docker.sock
       - ${DATALAKE_STORAGE_PATH}/projects_data:/app/projects_data
     networks:
       - arenalake-net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.portal.rule=PathPrefix(`/`)"
-      - "traefik.http.routers.portal.entrypoints=web"
-      - "traefik.http.services.portal.loadbalancer.server.port=8000"
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.portal.rule=PathPrefix(`/`)"
+        - "traefik.http.routers.portal.entrypoints=web"
+        - "traefik.http.services.portal.loadbalancer.server.port=8000"
 
-# -----------------------------------------------------------------------------
-# Global Networks and Volumes
-# -----------------------------------------------------------------------------
 networks:
   arenalake-net:
     driver: overlay
-    attachable: true                           # Isolated network for all ArenaLake services
+    attachable: true
 
 volumes:
-  minio_data:                                 # Persistent storage for the Data Lake
+  minio_data:
