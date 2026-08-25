@@ -29,9 +29,10 @@ jobs:
 
       - name: Lowercase Repository Owner Name
         id: string_case
-        uses: inner-bottle/string-case-action@v1
-        with:
-          string: ${{ github.repository }}
+        run: |
+          # Transforma o nome do repo (ex: L1K3D/arenalake-infra) em minúsculas
+          LOWERCASE_REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "lowercase=$LOWERCASE_REPO" >> $GITHUB_OUTPUT
 
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
