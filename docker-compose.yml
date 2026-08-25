@@ -98,6 +98,7 @@ services:
         - "traefik.http.routers.portal.rule=PathPrefix(`/`)"
         - "traefik.http.routers.portal.entrypoints=web"
         - "traefik.http.services.portal.loadbalancer.server.port=8000"
+        - "traefik.docker.network=arenalake-prod_arenalake-net"
 
 networks:
   arenalake-net:

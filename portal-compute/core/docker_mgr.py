@@ -99,6 +99,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
             f"traefik.http.middlewares.strip-{usuario}.stripprefix.prefixes": f"/workspace/{usuario}",
             f"traefik.http.routers.vscode-{usuario}.middlewares": f"strip-{usuario}",
             f"traefik.http.services.vscode-{usuario}.loadbalancer.server.port": "8080",
+            "traefik.docker.network": network_name,
         }
     )
 
