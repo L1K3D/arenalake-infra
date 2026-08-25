@@ -746,7 +746,8 @@ async function confirmarNovoVisual() {
             body: JSON.stringify({
                 bucket, filename, eixo_x: eixoX, eixo_y: eixoY, eixo_z: eixoZ,
                 agregacao, tipo_grafico: tipo, colunas_tabela: colunasSelecionadas,
-                tema: tema, ordenar_por: ordenarPor, ordem: ordem, limite_linhas: limiteLinhas
+                tema: tema, ordenar_por: ordenarPor, ordem: ordem, limite_linhas: limiteLinhas,
+                filtro_coluna: window.globalFiltroColuna, filtro_valor: window.globalFiltroValor
             })
         });
         const result = await res.json();
@@ -856,6 +857,125 @@ function getEchartsOption(tipo, dados) {
                     symbolSize: 12, // Tamanho da bolinha
                     itemStyle: { opacity: 0.8 } // Leve transparência para pontos sobrepostos
                 }))
+            };
+        } else if (tipo === 'doughnut') {
+            // Prepara os dados no formato {name: 'Categoria', value: 10} que a Rosca exige
+            let chartData = dados.categorias.map((cat, idx) => ({
+                name: cat,
+                value: dados.valores[idx]
+            }));
+
+            return {
+                tooltip: {
+                    trigger: 'item',
+                    backgroundColor: 'rgba(13, 17, 23, 0.9)',
+                    borderColor: '#30363d',
+                    textStyle: { color: '#c9d1d9' }
+                },
+                legend: {
+                    top: 10,
+                    textStyle: { color: '#c9d1d9' }
+                },
+                series: [{
+                    name: 'Valores',
+                    type: 'pie',
+                    // O SEGREDO ESTÁ AQUI: O primeiro valor é o buraco interno, o segundo é o tamanho total
+                    radius: ['45%', '70%'],
+                    avoidLabelOverlap: false,
+                    itemStyle: {
+                        borderRadius: 5, // Borda arredondada nas fatias (Visual Premium)
+                        borderColor: '#0d1117', // Cria um "vão" entre as fatias da mesma cor do fundo
+                        borderWidth: 2
+                    },
+                    label: {
+                        show: false,
+                        position: 'center'
+                    },
+                    // Efeito PowerBI: Quando passa o mouse, o nome da fatia aparece no centro da rosca!
+                    emphasis: {
+                        label: {
+                            show: true,
+                            fontSize: 18,
+                            fontWeight: 'bold',
+                            color: '#c9d1d9'
+                        }
+                    },
+                    labelLine: { show: false },
+                    data: chartData
+                }]
+            };
+        } else if (tipo === 'waterfall') {
+            // MATEMÁTICA DA CASCATA: Calcula a base invisível, os aumentos e as quedas
+            let baseData = [];
+            let posData = [];
+            let negData = [];
+            let currentSum = 0;
+
+            dados.valores.forEach((val) => {
+                let num = parseFloat(val) || 0;
+                if (num >= 0) {
+                    posData.push(num);
+                    negData.push('-'); // '-' ignora a renderização da barra negativa
+                    baseData.push(currentSum);
+                    currentSum += num;
+                } else {
+                    posData.push('-');
+                    negData.push(Math.abs(num)); // Deixa positivo para a barra desenhar pra baixo da base
+                    currentSum += num;
+                    baseData.push(currentSum); // A base desce para encontrar a barra vermelha
+                }
+            });
+
+            return {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' },
+                    backgroundColor: 'rgba(13, 17, 23, 0.9)',
+                    borderColor: '#30363d',
+                    textStyle: { color: '#c9d1d9' },
+                    formatter: function (params) {
+                        let tar = params[1].value !== '-' ? params[1] : params[2];
+                        let formatterVal = new Intl.NumberFormat('pt-BR').format(tar.value);
+                        return `<b>${tar.name}</b><br/>${tar.seriesName} : ${formatterVal}`;
+                    }
+                },
+                legend: { data: ['Aumento', 'Queda'], textStyle: { color: '#c9d1d9' }, top: 10 },
+                grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+                xAxis: {
+                    type: 'category',
+                    data: dados.categorias,
+                    axisLabel: { color: '#8b949e' },
+                    splitLine: { show: false }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: { color: '#8b949e' },
+                    splitLine: { lineStyle: { color: '#30363d', type: 'dashed' } }
+                },
+                series: [
+                    {
+                        name: 'Base Invisível',
+                        type: 'bar',
+                        stack: 'Total',
+                        itemStyle: { borderColor: 'transparent', color: 'transparent' },
+                        emphasis: { itemStyle: { borderColor: 'transparent', color: 'transparent' } },
+                        data: baseData
+                    },
+                    {
+                        name: 'Aumento',
+                        type: 'bar',
+                        stack: 'Total',
+                        itemStyle: { color: '#3fb950', borderRadius: [3, 3, 0, 0] }, // Verde do GitHub
+                        data: posData
+                    },
+                    {
+                        name: 'Queda',
+                        type: 'bar',
+                        stack: 'Total',
+                        itemStyle: { color: '#f85149', borderRadius: [0, 0, 3, 3] }, // Vermelho do GitHub
+                        data: negData
+                    }
+                ]
             };
         } else {
             let isArea = (tipo === 'area');
@@ -1017,7 +1137,7 @@ async function abrirModalEdicao(id) {
     colorsContainer.innerHTML = '';
 
     if (config.tipo !== 'table' && config.tipo !== 'matrix') {
-        if (config.tipo === 'pie' || config.tipo === 'funnel') {
+        if (config.tipo === 'pie' || config.tipo === 'funnel' || config.tipo === 'doughnut') {
             option.series[0].data.forEach((item, index) => {
                 let defaultColor = option.color[index % option.color.length];
                 let currentColor = (item.itemStyle && item.itemStyle.color) ? item.itemStyle.color : defaultColor;
@@ -1137,7 +1257,7 @@ async function salvarEdicaoGrafico() {
             let idx = parseInt(picker.getAttribute('data-index'));
             let color = picker.value;
 
-            if (config.tipo === 'pie' || config.tipo === 'funnel') {
+            if (config.tipo === 'pie' || config.tipo === 'funnel' || config.tipo === 'doughnut') {
                 if (!option.series[0].data[idx].itemStyle) option.series[0].data[idx].itemStyle = {};
                 option.series[0].data[idx].itemStyle.color = color;
             } else if (config.tipo.includes('stacked')) {
@@ -1299,6 +1419,7 @@ function toggleCamposGrafico(modo) {
     const isMatrix = (tipo === 'matrix');
     const isKpi = (tipo === 'kpi');
     const isScatter = (tipo === 'scatter'); // NOVO
+    const isWaterfall = (tipo === 'waterfall');
 
     document.getElementById(prefix + 'EixosComuns').style.display = isTable ? 'none' : 'block';
 
@@ -1320,6 +1441,96 @@ function toggleCamposGrafico(modo) {
     document.getElementById(prefix + 'DivConfigTabela').style.display = (isTable || isMatrix || isScatter) ? 'block' : 'none';
 
     if (modo === 'edit') {
-        document.getElementById('biEditColorSection').style.display = (isTable || isMatrix || isKpi) ? 'none' : 'block';
+        // NOVO: Esconde a edição de cores para a Cascata (já usamos verde/vermelho por padrão)
+        document.getElementById('biEditColorSection').style.display = (isTable || isMatrix || isKpi || isWaterfall) ? 'none' : 'block';
+    }
+}
+
+// VARIÁVEIS DE FILTRO GLOBAL
+window.globalFiltroColuna = "";
+window.globalFiltroValor = "";
+
+async function abrirModalFiltroGlobal() {
+    const selector = document.getElementById('biDatasetSelector').value;
+    if (!selector) return alert("Selecione uma fonte de dados na barra superior primeiro.");
+
+    const [bucket, filename] = selector.split('|');
+    const res = await fetch('/api/bi/colunas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bucket, filename }) });
+    const data = await res.json();
+
+    if (data.status === 'success') {
+        let html = '<option value="">(Nenhum)</option>';
+        data.colunas.forEach(col => html += `<option value="${col}">${col}</option>`);
+        document.getElementById('biFiltroColuna').innerHTML = html;
+        document.getElementById('biFiltroColuna').value = window.globalFiltroColuna;
+
+        if (window.globalFiltroColuna) await carregarValoresFiltro();
+    }
+    document.getElementById('biFiltroModal').style.display = 'flex';
+}
+
+async function carregarValoresFiltro() {
+    const selector = document.getElementById('biDatasetSelector').value;
+    const coluna = document.getElementById('biFiltroColuna').value;
+    if (!coluna) return;
+
+    const [bucket, filename] = selector.split('|');
+    document.getElementById('biFiltroValor').innerHTML = '<option>Carregando...</option>';
+
+    const res = await fetch('/api/bi/valores_coluna', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bucket, filename, coluna }) });
+    const data = await res.json();
+
+    if (data.status === 'success') {
+        let html = '<option value="">(Todos)</option>';
+        data.valores.forEach(v => html += `<option value="${v}">${v}</option>`);
+        document.getElementById('biFiltroValor').innerHTML = html;
+        document.getElementById('biFiltroValor').value = window.globalFiltroValor;
+    }
+}
+
+async function aplicarFiltroGlobal() {
+    window.globalFiltroColuna = document.getElementById('biFiltroColuna').value;
+    window.globalFiltroValor = document.getElementById('biFiltroValor').value;
+    document.getElementById('biFiltroModal').style.display = 'none';
+    await recarregarTodosGraficos();
+}
+
+async function limparFiltroGlobal() {
+    window.globalFiltroColuna = "";
+    window.globalFiltroValor = "";
+    document.getElementById('biFiltroModal').style.display = 'none';
+    await recarregarTodosGraficos();
+}
+
+async function recarregarTodosGraficos() {
+    // Passa por todos os gráficos na grid e pede para o backend gerar os dados novamente com o filtro!
+    for (let id in window.biCharts) {
+        let chartObj = window.biCharts[id];
+        let config = chartObj.arenaConfig;
+        config.filtro_coluna = window.globalFiltroColuna;
+        config.filtro_valor = window.globalFiltroValor;
+
+        const res = await fetch('/api/bi/gerar_dados', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) });
+        const result = await res.json();
+
+        if (result.status === 'success') {
+            if (config.tipo === 'table' || config.tipo === 'matrix') {
+                // Aqui podemos apenas apagar e forçar o HTML a se recriar da mesma forma que na Edição
+                let classeTema = config.tema ? `theme-${config.tema}` : 'theme-padrao';
+                let htmlTable = `<div class="bi-table-container"><table class="bi-custom-table ${classeTema}"><thead><tr>`;
+                if (config.tipo === 'table') result.data.colunas.forEach(col => { htmlTable += `<th>${col}</th>`; });
+                else { htmlTable += `<th>${result.data.index_nome || 'Categoria'}</th>`; result.data.colunas.forEach(col => { htmlTable += `<th>${col}</th>`; }); }
+                htmlTable += `</tr></thead><tbody>`;
+                result.data.linhas.forEach(row => { htmlTable += `<tr>`; row.forEach(cell => { let val = (typeof cell === 'number') ? cell.toLocaleString(undefined, { maximumFractionDigits: 2 }) : cell; htmlTable += `<td>${val}</td>`; }); htmlTable += `</tr>`; });
+                htmlTable += `</tbody></table></div>`;
+                document.getElementById(id).innerHTML = htmlTable;
+            } else if (config.tipo === 'kpi') {
+                let valFormat = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(result.data.valor);
+                let cor = config.tema === 'green' ? '#3fb950' : (config.tema === 'orange' ? '#f59e0b' : (config.tema === 'padrao' ? '#c9d1d9' : '#58a6ff'));
+                document.getElementById(id).innerHTML = `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; text-align: center; box-sizing: border-box; padding: 10px;"><div style="font-size: 3.5rem; font-weight: 800; color: ${cor}; line-height: 1.1; text-shadow: 0px 4px 15px ${cor}40;">${valFormat}</div><div style="font-size: 0.85rem; color: #8b949e; margin-top: 8px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: bold;">${config.agregacao} DE ${config.eixo_y}</div></div>`;
+            } else {
+                chartObj.setOption(getEchartsOption(config.tipo, result.data), true);
+            }
+        }
     }
 }

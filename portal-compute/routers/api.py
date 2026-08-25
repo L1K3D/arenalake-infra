@@ -28,10 +28,18 @@ class VisualRequest(BaseModel):
     eixo_z: str = ""
     colunas_tabela: list = []
     tema: str = "padrao"
-    # NOVOS CAMPOS PARA TABELAS/MATRIZES
     limite_linhas: int = 100
     ordenar_por: str = ""
     ordem: str = "asc"
+    # NOVOS CAMPOS PARA O SLICER GLOBAL:
+    filtro_coluna: str = ""
+    filtro_valor: str = ""
+
+
+class FilterRequest(BaseModel):
+    bucket: str
+    filename: str
+    coluna: str
 
 
 from core.s3_mgr import fetch_catalog_data, upload_file_to_datalake, get_file_details
@@ -170,13 +178,29 @@ async def get_bi_columns(req: BiColumnsRequest):
         )
 
 
+@router.post("/bi/valores_coluna")
+async def valores_coluna_bi(req: FilterRequest):
+    try:
+        s3_client = get_s3_client()
+        obj = s3_client.get_object(Bucket=req.bucket, Key=req.filename)
+        df = (
+            pd.read_csv(io.BytesIO(obj["Body"].read()), usecols=[req.coluna])
+            if req.filename.endswith(".csv")
+            else pd.read_parquet(io.BytesIO(obj["Body"].read()), columns=[req.coluna])
+        )
+
+        valores = df[req.coluna].dropna().unique().tolist()
+        valores = sorted([str(v) for v in valores])
+        return JSONResponse(content={"status": "success", "valores": valores})
+    except Exception as e:
+        return JSONResponse(
+            content={"status": "error", "message": str(e)}, status_code=500
+        )
+
+
 @router.post("/bi/gerar_dados")
 async def gerar_dados_bi(req: VisualRequest):
     try:
-        from core.s3_mgr import get_s3_client
-        import io
-        import pandas as pd
-
         s3_client = get_s3_client()
         obj = s3_client.get_object(Bucket=req.bucket, Key=req.filename)
         file_data = io.BytesIO(obj["Body"].read())
@@ -188,16 +212,27 @@ async def gerar_dados_bi(req: VisualRequest):
             else [c for c in [req.eixo_x, req.eixo_y, req.eixo_z] if c]
         )
 
-        # Se for ordenar por uma coluna que não está na lista de visualização, adicionamos temporariamente
         if req.ordenar_por and req.ordenar_por not in cols_to_use:
             cols_to_use.append(req.ordenar_por)
+        if req.filtro_coluna and req.filtro_coluna not in cols_to_use:
+            cols_to_use.append(req.filtro_coluna)
 
         if req.filename.endswith(".csv"):
             df = pd.read_csv(file_data, usecols=cols_to_use)
         else:
             df = pd.read_parquet(file_data, columns=cols_to_use)
 
-        df = df.dropna(subset=[c for c in cols_to_use if c != req.ordenar_por])
+        # APLICA O FILTRO GLOBAL ANTES DE TUDO!
+        if req.filtro_coluna and req.filtro_valor:
+            df = df[df[req.filtro_coluna].astype(str) == str(req.filtro_valor)]
+
+        df = df.dropna(
+            subset=[
+                c
+                for c in cols_to_use
+                if c != req.ordenar_por and c != req.filtro_coluna
+            ]
+        )
 
         # 1. TABELA DE MÚLTIPLAS COLUNAS
         if req.tipo_grafico == "table":
@@ -235,7 +270,7 @@ async def gerar_dados_bi(req: VisualRequest):
 
             # Usa o limite de linhas para não travar o ECharts (milhões de pontos travam a tela)
             df_scatter = df.head(req.limite_linhas)
-            
+
             if req.eixo_z:
                 # Se tiver Eixo Z, separamos por categorias (Cores diferentes)
                 series_data = []
@@ -246,7 +281,11 @@ async def gerar_dados_bi(req: VisualRequest):
             else:
                 # Sem categoria, todos da mesma cor
                 pontos = df_scatter[[req.eixo_x, req.eixo_y]].values.tolist()
-                resposta = {"series": [{"name": "Distribuição", "data": pontos}], "is_scatter": True, "has_z": False}
+                resposta = {
+                    "series": [{"name": "Distribuição", "data": pontos}],
+                    "is_scatter": True,
+                    "has_z": False,
+                }
 
         # 2. TABELA MATRIZ
         elif req.tipo_grafico == "matrix":
