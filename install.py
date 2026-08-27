@@ -7,6 +7,10 @@ import time
 import json
 import socket
 
+# Códigos de cor para o terminal
+YELLOW = '\033[93m'
+CYAN = '\033[96m'
+RESET = '\033[0m'
 
 def check_root():
     if os.geteuid() != 0:
@@ -14,117 +18,68 @@ def check_root():
         print("Rode novamente usando: sudo python3 install.py")
         sys.exit(1)
 
-
 def check_existing_install():
-    """Evita que um usuário desatento destrua a configuração de produção"""
     if os.path.exists(".env"):
         print("\n" + "!" * 60)
         print(" ALERTA CRÍTICO: UMA INSTALAÇÃO JÁ FOI DETECTADA!")
         print(" Um arquivo .env já existe. Se você prosseguir, as credenciais")
         print(" e configurações atuais serão perdidas.")
         print("!" * 60)
-        resp = (
-            input(
-                "Tem CERTEZA que deseja sobrescrever a instalação atual? (S/N) [Padrão: N]: "
-            )
-            .strip()
-            .lower()
-        )
+        resp = input("Tem CERTEZA que deseja sobrescrever a instalação atual? (S/N) [Padrão: N]: ").strip().lower()
         if resp != "s":
-            print(
-                "\n[*] Instalação abortada por segurança. Nenhuma alteração foi feita."
-            )
+            print("\n[*] Instalação abortada por segurança. Nenhuma alteração foi feita.")
             sys.exit(0)
 
-
 def check_ports_available():
-    """Verifica se as portas vitais estão livres no servidor"""
     print("\n[*] Checando portas vitais do servidor...")
     vital_ports = [80, 443, 8000, 8080, 9000, 9001, 7077]
     ports_in_use = []
-
     for port in vital_ports:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             if s.connect_ex(("localhost", port)) == 0:
                 ports_in_use.append(port)
-
     if ports_in_use:
-        print(
-            "\n[Erro Crítico] As seguintes portas já estão em uso por outro programa:"
-        )
+        print("\n[Erro Crítico] As seguintes portas já estão em uso por outro programa:")
         for p in ports_in_use:
             print(f" - Porta {p}")
-        print(
-            "\nO ArenaLake precisa dessas portas livres para o Traefik, Portal e MinIO."
-        )
+        print("\nO ArenaLake precisa dessas portas livres para o Traefik, Portal e MinIO.")
         print("Pare o serviço conflitante (ex: Apache, Nginx) e tente novamente.")
         sys.exit(1)
     print("[+] Todas as portas necessárias estão livres!")
 
-
 def check_compose_file():
     if not os.path.isfile("docker-compose.yml"):
-        print(
-            "[Erro] O arquivo 'docker-compose.yml' não foi encontrado neste diretório."
-        )
+        print("[Erro] O arquivo 'docker-compose.yml' não foi encontrado neste diretório.")
         sys.exit(1)
-
 
 def install_dependencies():
     print("\n[*] Verificando dependências do sistema (Ubuntu)...")
-
-    # --- DOCKER ---
     if shutil.which("docker") is None:
         print("\n[*] Docker não encontrado. Instalando... (Pode levar alguns minutos)")
         try:
-            subprocess.run(
-                "curl -fsSL https://get.docker.com | sh",
-                shell=True,
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            docker_v = subprocess.run(
-                ["docker", "--version"], capture_output=True, text=True
-            ).stdout.strip()
+            subprocess.run("curl -fsSL https://get.docker.com | sh", shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            docker_v = subprocess.run(["docker", "--version"], capture_output=True, text=True).stdout.strip()
             print(f"[+] Docker instalado! | {docker_v}")
         except BaseException as error:
             print(f"\n[Erro] Falha ao instalar o Docker. | {error}")
             sys.exit(1)
     else:
-        docker_v = subprocess.run(
-            ["docker", "--version"], capture_output=True, text=True
-        ).stdout.strip()
+        docker_v = subprocess.run(["docker", "--version"], capture_output=True, text=True).stdout.strip()
         print(f"[+] Docker OK! | {docker_v}")
 
-    # --- TAILSCALE ---
     if shutil.which("tailscale") is None:
         print("\n[*] Tailscale não encontrado. Instalando...")
         try:
-            subprocess.run(
-                "curl -fsSL https://tailscale.com/install.sh | sh",
-                shell=True,
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            ts_output = subprocess.run(
-                ["tailscale", "version"], capture_output=True, text=True
-            ).stdout.strip()
-            ts_v = ts_output.split("\n")[0]
+            subprocess.run("curl -fsSL https://tailscale.com/install.sh | sh", shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            ts_v = subprocess.run(["tailscale", "version"], capture_output=True, text=True).stdout.strip().split("\n")[0]
             print(f"[+] Tailscale instalado! | {ts_v}")
         except BaseException as error:
             print(f"\n[Erro] Falha ao instalar o Tailscale. | {error}")
             sys.exit(1)
     else:
-        ts_output = subprocess.run(
-            ["tailscale", "version"], capture_output=True, text=True
-        ).stdout.strip()
-        ts_v = ts_output.split("\n")[0]
+        ts_v = subprocess.run(["tailscale", "version"], capture_output=True, text=True).stdout.strip().split("\n")[0]
         print(f"[+] Tailscale OK! | {ts_v}")
-
     time.sleep(1)
-
 
 def format_company_name(name):
     name = name.lower().strip()
@@ -132,27 +87,16 @@ def format_company_name(name):
     name = re.sub(r"_+", "_", name)
     return name
 
-
 def is_valid_password(password):
-    if len(password) < 10:
-        return False
-    if not re.search(r"[A-Z]", password):
-        return False
-    if not re.search(r"[a-z]", password):
-        return False
-    if not re.search(r"[0-9]", password):
-        return False
+    if len(password) < 10: return False
+    if not re.search(r"[A-Z]", password): return False
+    if not re.search(r"[a-z]", password): return False
+    if not re.search(r"[0-9]", password): return False
     return True
-
 
 def get_tailscale_url():
     try:
-        result = subprocess.run(
-            ["tailscale", "status", "--json"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        result = subprocess.run(["tailscale", "status", "--json"], capture_output=True, text=True, check=True)
         data = json.loads(result.stdout)
         dns_name = data.get("Self", {}).get("DNSName", "")
         if dns_name:
@@ -160,7 +104,6 @@ def get_tailscale_url():
     except Exception:
         pass
     return ""
-
 
 def main():
     check_root()
@@ -186,31 +129,18 @@ def main():
 
     print("\n--- Credenciais do DataLake ---")
     default_minio_user = f"{safe_company_name}_minio_admin"
-    minio_user = (
-        input(f"Login do Administrador [Padrão: {default_minio_user}]: ").strip()
-        or default_minio_user
-    )
+    minio_user = input(f"Login do Administrador [Padrão: {default_minio_user}]: ").strip() or default_minio_user
 
     minio_pass = ""
     while not is_valid_password(minio_pass):
-        minio_pass = input(
-            f"Senha (Mín. 10 chars, Maiúsculas, Minúsculas e Números): "
-        ).strip()
+        minio_pass = input(f"Senha (Mín. 10 chars, Maiúsculas, Minúsculas e Números): ").strip()
         if not is_valid_password(minio_pass):
             print("[Erro] Senha muito fraca. Tente novamente.\n")
 
     print("\n--- Políticas de Atualização ---")
-    ws_input = (
-        input("Atualizar Workspace automaticamente? (S/N) [Padrão: S]: ")
-        .strip()
-        .lower()
-    )
+    ws_input = input("Atualizar Workspace automaticamente? (S/N) [Padrão: S]: ").strip().lower()
     auto_update_ws = "false" if ws_input == "n" else "true"
-    core_input = (
-        input("Atualizar Core/Portal automaticamente? (S/N) [Padrão: N]: ")
-        .strip()
-        .lower()
-    )
+    core_input = input("Atualizar Core/Portal automaticamente? (S/N) [Padrão: N]: ").strip().lower()
     auto_update_core = "true" if core_input == "s" else "false"
 
     print("\n============================================================")
@@ -240,18 +170,28 @@ def main():
     else:
         print("\n[!] Não conseguimos capturar sua URL automaticamente.")
         while not tailscale_url:
-            tailscale_url = input(
-                "Cole a URL completa do servidor (ex: https://maquina.rede.ts.net): "
-            ).strip()
+            tailscale_url = input("Cole a URL completa do servidor (ex: https://maquina.rede.ts.net): ").strip()
 
     print("\n============================================================")
     print(" PASSO 3: FINALIZANDO E SUBINDO O CLUSTER")
     print("============================================================")
 
-    datalake_path = "/mnt/datalake/prod"
-    print(f"[*] Provisionando diretório de armazenamento em {datalake_path}...")
+    # -------------------------------------------------------------
+    # NOVIDADE 1: Diretório Dinâmico Local + Criação da subpasta MinIO
+    # -------------------------------------------------------------
+    current_project_dir = os.path.dirname(os.path.abspath(__file__))
+    datalake_path = os.path.join(current_project_dir, "datalake_data")
+    
+    print(f"[*] Provisionando diretórios de armazenamento em {datalake_path}...")
+    
+    # Cria a raiz do DataLake
     os.makedirs(datalake_path, exist_ok=True)
     os.chmod(datalake_path, 0o755)
+    
+    # Cria a subpasta específica do MinIO para evitar o erro do Swarm
+    minio_path = os.path.join(datalake_path, "minio_data")
+    os.makedirs(minio_path, exist_ok=True)
+    os.chmod(minio_path, 0o777)
 
     print("[*] Gerando o arquivo de ambiente (.env)...")
     env_content = f"""# --- DataLake Configurations ---
@@ -278,19 +218,11 @@ AUTO_UPDATE_CORE={auto_update_core}
 """
     with open(".env", "w") as env_file:
         env_file.write(env_content)
-
     os.chmod(".env", 0o600)
 
     print("[*] Preparando o Docker Swarm...")
-    if (
-        subprocess.run(["docker", "info"], capture_output=True, text=True).stdout.find(
-            "Swarm: active"
-        )
-        == -1
-    ):
-        subprocess.run(
-            ["docker", "swarm", "init"], check=False, stdout=subprocess.DEVNULL
-        )
+    if subprocess.run(["docker", "info"], capture_output=True, text=True).stdout.find("Swarm: active") == -1:
+        subprocess.run(["docker", "swarm", "init"], check=False, stdout=subprocess.DEVNULL)
 
     print("[*] Disparando o deploy (Isso pode levar alguns segundos)...")
     with open(".env", "r") as f:
@@ -301,25 +233,43 @@ AUTO_UPDATE_CORE={auto_update_core}
                 os.environ[key] = value
 
     try:
-        subprocess.run(
-            ["docker", "stack", "deploy", "-c", "docker-compose.yml", "arenalake-prod"],
-            check=True,
-            stdout=subprocess.DEVNULL,
-        )
-
-        # Monitoramento Pós-Deploy
+        subprocess.run(["docker", "stack", "deploy", "-c", "docker-compose.yml", "arenalake-prod"], check=True, stdout=subprocess.DEVNULL)
+        
         print("\n[*] Validando os serviços...")
         time.sleep(4)
         print("-" * 60)
         subprocess.run(["docker", "service", "ls"])
         print("-" * 60)
 
+        # -------------------------------------------------------------
+        # NOVIDADE 2: Automação Inteligente do Tailscale Funnel
+        # -------------------------------------------------------------
+        print(f"\n[*] Configurando exposição pública (Tailscale Funnel na porta 80)...")
+        funnel_result = subprocess.run(["tailscale", "funnel", "--bg", "80"], capture_output=True, text=True)
+        
+        funnel_output = funnel_result.stdout + funnel_result.stderr
+        
+        if "To enable, visit:" in funnel_output:
+            print(f"\n{YELLOW}============================================================{RESET}")
+            print(f"{YELLOW} AÇÃO NECESSÁRIA: O Funnel requer autorização na sua conta!{RESET}")
+            print(f"{YELLOW}============================================================{RESET}")
+            print("Para que seu site fique disponível na internet pública, copie o link")
+            print("abaixo, cole no navegador e aprove a liberação do Funnel:\n")
+            
+            # Extrai apenas o link limpo da resposta do Tailscale
+            for line in funnel_output.split('\n'):
+                if "https://login.tailscale.com" in line:
+                    print(f"{CYAN} -> {line.strip()}{RESET}")
+            print(f"\n{YELLOW}Após aprovar, o site estará no ar!{RESET}")
+        else:
+            print(f"[+] {CYAN}Tailscale Funnel ativado com sucesso! Seu site já está público.{RESET}")
+
         print("\n" + "=" * 60)
         print(f"  {raw_company} DataLake instalado e rodando com sucesso! 🚀")
         print("=" * 60)
+        
     except subprocess.CalledProcessError:
         print("\n[Erro] Ocorreu um problema ao iniciar o Docker Swarm.")
-
 
 if __name__ == "__main__":
     main()
