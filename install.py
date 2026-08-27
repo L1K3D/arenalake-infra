@@ -6,6 +6,7 @@ import shutil
 import time
 import json
 import socket
+import secrets
 
 
 def check_root():
@@ -173,6 +174,7 @@ def main():
     check_existing_install()
     install_dependencies()
     check_ports_available()
+    jwt_secret = secrets.token_hex(32)
 
     print("\n============================================================")
     print(" PASSO 1: CONFIGURAÇÕES BÁSICAS")
@@ -185,11 +187,8 @@ def main():
     workspace_network = f"arenalake-prod_{safe_company_name}_arenalake-net"
 
     print("\n--- Credenciais do DataLake ---")
-    default_minio_user = f"{safe_company_name}_minio_admin"
-    minio_user = (
-        input(f"Login do Administrador [Padrão: {default_minio_user}]: ").strip()
-        or default_minio_user
-    )
+    minio_user = f"arenalake_{safe_company_name}_minio_admin"
+    print(f"\n[*] Login do MinIO definido como: {minio_user}")
 
     minio_pass = ""
     while not is_valid_password(minio_pass):
@@ -197,6 +196,18 @@ def main():
             f"Senha (Mín. 10 chars, Maiúsculas, Minúsculas e Números): "
         ).strip()
         if not is_valid_password(minio_pass):
+            print("[Erro] Senha muito fraca. Tente novamente.\n")
+
+    print("\n--- Credenciais do Database ---")
+    dba_user = f"arenalake_{safe_company_name}_dba_admin"
+    print(f"\n[*] Login do Database definido como: {dba_user}")
+
+    dba_pass = ""
+    while not is_valid_password(dba_pass):
+        dba_pass = input(
+            f"Senha (Mín. 10 chars, Maiúsculas, Minúsculas e Números): "
+        ).strip()
+        if not is_valid_password(dba_pass):
             print("[Erro] Senha muito fraca. Tente novamente.\n")
 
     print("\n--- Políticas de Atualização ---")
@@ -248,7 +259,7 @@ def main():
     print(" PASSO 3: FINALIZANDO E SUBINDO O CLUSTER")
     print("============================================================")
 
-    datalake_path = "/mnt/datalake/prod"
+    datalake_path = f"/mnt/arenalake_{safe_company_name}_datalake/prod"
     print(f"[*] Provisionando diretório de armazenamento em {datalake_path}...")
     os.makedirs(datalake_path, exist_ok=True)
     os.chmod(datalake_path, 0o755)
@@ -258,6 +269,12 @@ def main():
 MINIO_ACCESS_KEY={minio_user}
 MINIO_SECRET_KEY={minio_pass}
 DATALAKE_STORAGE_PATH={datalake_path}
+
+# --- Core Security & Database ---
+DATABASE_URL=sqlite:///./arenalake_{safe_company_name}_core.db
+JWT_SECRET_KEY={jwt_secret}
+DBA_USERNAME={dba_user}
+DBA_PASSWORD={dba_pass}
 
 # --- Spark Cluster ---
 SPARK_MASTER_URL=spark://spark-master:7077
