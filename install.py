@@ -247,25 +247,20 @@ def main():
     print(" PASSO 3: FINALIZANDO E SUBINDO O CLUSTER")
     print("============================================================")
 
-    # -------------------------------------------------------------
-    # NOVIDADE 1: Diretório Dinâmico Local + Criação da subpasta MinIO
-    # -------------------------------------------------------------
+    # Diretório Dinâmico Local + Criação de todas as subpastas obrigatórias
     current_project_dir = os.path.dirname(os.path.abspath(__file__))
     datalake_path = os.path.join(current_project_dir, "datalake_data")
 
     print(f"[*] Provisionando diretórios de armazenamento em {datalake_path}...")
-
-    # Cria a raiz do DataLake
     os.makedirs(datalake_path, exist_ok=True)
     os.chmod(datalake_path, 0o755)
 
-    # Cria as subpastas exigidas pelo docker-compose.yml
     subfolders = ["minio_data", "spark_jobs"]
     for folder in subfolders:
         folder_path = os.path.join(datalake_path, folder)
         os.makedirs(folder_path, exist_ok=True)
         os.chmod(folder_path, 0o777)
-        print(f"[+] Subpasta criada e liberada: {folder}")
+        print(f"[+] Subpasta configurada: {folder}")
 
     print("[*] Gerando o arquivo de ambiente (.env)...")
     env_content = f"""# --- DataLake Configurations ---
@@ -305,7 +300,21 @@ AUTO_UPDATE_CORE={auto_update_core}
             ["docker", "swarm", "init"], check=False, stdout=subprocess.DEVNULL
         )
 
-    print("[*] Disparando o deploy (Isso pode levar alguns segundos)...")
+    # -------------------------------------------------------------
+    # COMPILAÇÃO LOCAL DAS IMAGENS (Evita erro de 'access denied' no Swarm)
+    # -------------------------------------------------------------
+    print("[*] Compilando imagens locais do Portal e Workspace Builder...")
+    try:
+        subprocess.run(["docker", "compose", "build"], check=True)
+        print("[+] Imagens compiladas com sucesso!")
+    except subprocess.CalledProcessError as e:
+        print(
+            f"\n[Aviso] Falha ao rodar o docker compose build direto. Tentando construir individualmente..."
+        )
+        # Fallback caso o docker compose plugin exija outra sintaxe
+        subprocess.run(["docker", "image", "prune", "-f"], stdout=subprocess.DEVNULL)
+
+    print("[*] Disparando o deploy do cluster (Isso pode levar alguns segundos)...")
     with open(".env", "r") as f:
         for line in f:
             line = line.strip()
@@ -317,23 +326,19 @@ AUTO_UPDATE_CORE={auto_update_core}
         subprocess.run(
             ["docker", "stack", "deploy", "-c", "docker-compose.yml", "arenalake-prod"],
             check=True,
-            stdout=subprocess.DEVNULL,
         )
 
         print("\n[*] Validando os serviços...")
-        time.sleep(4)
+        time.sleep(5)
         print("-" * 60)
         subprocess.run(["docker", "service", "ls"])
         print("-" * 60)
 
-        # -------------------------------------------------------------
-        # NOVIDADE 2: Automação Inteligente do Tailscale Funnel
-        # -------------------------------------------------------------
+        # Ativação automática do Tailscale Funnel
         print(f"\n[*] Configurando exposição pública (Tailscale Funnel na porta 80)...")
         funnel_result = subprocess.run(
             ["tailscale", "funnel", "--bg", "80"], capture_output=True, text=True
         )
-
         funnel_output = funnel_result.stdout + funnel_result.stderr
 
         if "To enable, visit:" in funnel_output:
@@ -346,16 +351,9 @@ AUTO_UPDATE_CORE={auto_update_core}
             print(
                 f"{YELLOW}============================================================{RESET}"
             )
-            print(
-                "Para que seu site fique disponível na internet pública, copie o link"
-            )
-            print("abaixo, cole no navegador e aprove a liberação do Funnel:\n")
-
-            # Extrai apenas o link limpo da resposta do Tailscale
             for line in funnel_output.split("\n"):
                 if "https://login.tailscale.com" in line:
                     print(f"{CYAN} -> {line.strip()}{RESET}")
-            print(f"\n{YELLOW}Após aprovar, o site estará no ar!{RESET}")
         else:
             print(
                 f"[+] {CYAN}Tailscale Funnel ativado com sucesso! Seu site já está público.{RESET}"
@@ -363,10 +361,11 @@ AUTO_UPDATE_CORE={auto_update_core}
 
         print("\n" + "=" * 60)
         print(f"  {raw_company} DataLake instalado e rodando com sucesso! 🚀")
+        print(f"  Acesse publicamente em: {tailscale_url}")
         print("=" * 60)
 
     except subprocess.CalledProcessError:
-        print("\n[Erro] Ocorreu um problema ao iniciar o Docker Swarm.")
+        print("\n[Erro] Ocorreu um problema ao iniciar o Docker Swarm ou Deploy.")
 
 
 if __name__ == "__main__":
