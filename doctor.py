@@ -37,7 +37,7 @@ def get_datalake_path():
 
 def check_resources():
     print("\n--- 1. Recursos do Servidor ---")
-    datalake_path = "/mnt/datalake/prod"
+    datalake_path = get_datalake_path() # <-- Usa o caminho dinâmico do .env
     if os.path.exists(datalake_path):
         total, used, free = shutil.disk_usage(datalake_path)
         free_gb = free / (2**30)
