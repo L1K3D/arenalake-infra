@@ -4,3 +4,4 @@ spark_jobs/
 MANUAL_DEV.md
 docs/
 minio_data/
+configs_scripts/
