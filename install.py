@@ -255,7 +255,7 @@ def main():
     os.makedirs(datalake_path, exist_ok=True)
     os.chmod(datalake_path, 0o755)
 
-    subfolders = ["minio_data", "spark_jobs"]
+    subfolders = ["minio_data", "spark_jobs", "projects_data"]
     for folder in subfolders:
         folder_path = os.path.join(datalake_path, folder)
         os.makedirs(folder_path, exist_ok=True)
