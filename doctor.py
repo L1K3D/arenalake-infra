@@ -1,7 +1,9 @@
 import os
 import subprocess
+import shutil
 import json
 
+# Códigos de cor
 GREEN = "\033[92m"
 YELLOW = "\033[93m"
 RED = "\033[91m"
@@ -35,39 +37,32 @@ def get_datalake_path():
 
 def check_resources():
     print("\n--- 1. Recursos do Servidor ---")
-    datalake_path = get_datalake_path()
+    datalake_path = "/mnt/datalake/prod"
     if os.path.exists(datalake_path):
-        total, used, free = (
-            os.statvfs(datalake_path).f_blocks * os.statvfs(datalake_path).f_frsize,
-            (os.statvfs(datalake_path).f_blocks - os.statvfs(datalake_path).f_bfree)
-            * os.statvfs(datalake_path).f_frsize,
-            os.statvfs(datalake_path).f_bavail * os.statvfs(datalake_path).f_frsize,
-        )
+        total, used, free = shutil.disk_usage(datalake_path)
         free_gb = free / (2**30)
         if free_gb > 20:
-            print_status(
-                "Disco (DataLake)", "OK", f"{free_gb:.1f} GB livres (Caminho local)."
-            )
+            print_status("Disco (DataLake)", "OK", f"{free_gb:.1f} GB livres.")
         elif free_gb > 5:
             print_status(
                 "Disco (DataLake)",
                 "WARN",
                 f"Apenas {free_gb:.1f} GB livres.",
-                "Limpe arquivos não utilizados.",
+                "Limpe arquivos não utilizados ou adicione mais espaço em disco.",
             )
         else:
             print_status(
                 "Disco (DataLake)",
                 "ERROR",
                 f"CRÍTICO! Apenas {free_gb:.1f} GB livres.",
-                "Limpe o disco urgente.",
+                "O banco pode travar! Rode 'docker system prune -a --volumes' para limpar o cache do Docker ou apague dados velhos.",
             )
     else:
         print_status(
             "Disco (DataLake)",
             "ERROR",
             f"Pasta {datalake_path} não encontrada!",
-            "Rode o install.py.",
+            "A pasta base foi apagada. Rode o install.py novamente para recriar a infraestrutura.",
         )
 
 
@@ -80,7 +75,7 @@ def check_environment():
             "Arquivo .env",
             "ERROR",
             "NÃO ENCONTRADO!",
-            "Rode o install.py para recriar.",
+            "Você está rodando o script na pasta errada ou o arquivo foi deletado. Rode o 'install.py' para recriar.",
         )
 
     if os.path.isfile("docker-compose.yml"):
@@ -90,16 +85,34 @@ def check_environment():
             "Docker Compose",
             "ERROR",
             "NÃO ENCONTRADO!",
-            "Certifique-se de estar na raiz do projeto.",
+            "Baixe o arquivo docker-compose.yml do repositório e coloque nesta pasta.",
         )
 
 
 def check_tailscale():
     print("\n--- 3. Rede e VPN (Tailscale) ---")
+    if shutil.which("tailscale") is None:
+        print_status(
+            "Tailscale",
+            "ERROR",
+            "Não está instalado.",
+            "Rode: curl -fsSL https://tailscale.com/install.sh | sh",
+        )
+        return
+
     try:
         result = subprocess.run(
             ["tailscale", "status", "--json"], capture_output=True, text=True
         )
+        if result.returncode != 0:
+            print_status(
+                "Tailscale",
+                "ERROR",
+                "Serviço parado.",
+                "Tente reiniciar o serviço rodando: sudo systemctl restart tailscaled",
+            )
+            return
+
         data = json.loads(result.stdout)
         backend_state = data.get("BackendState", "")
         if backend_state == "Running":
@@ -110,20 +123,33 @@ def check_tailscale():
                 "VPN Conexão",
                 "ERROR",
                 f"Desconectado ({backend_state}).",
-                "Rode 'sudo tailscale up'",
+                "Rode o comando 'sudo tailscale up' para reconectar sua máquina à rede.",
             )
-    except Exception:
-        print_status(
-            "Tailscale", "ERROR", "Falha na leitura.", "Verifique se está instalado."
-        )
+    except Exception as e:
+        print_status("Tailscale", "ERROR", f"Falha na leitura.", "Reinicie o servidor.")
 
 
 def check_docker_swarm():
     print("\n--- 4. Orquestração (Docker Swarm) ---")
+
     result = subprocess.run(["docker", "info"], capture_output=True, text=True)
+    if result.returncode != 0:
+        print_status(
+            "Docker Engine",
+            "ERROR",
+            "Docker parado ou quebrado!",
+            "Rode: sudo systemctl start docker",
+        )
+        return
+    else:
+        print_status("Docker Engine", "OK", "Rodando.")
+
     if "Swarm: active" not in result.stdout:
         print_status(
-            "Docker Swarm", "ERROR", "Cluster inativo.", "Rode: sudo docker swarm init"
+            "Docker Swarm",
+            "ERROR",
+            "Cluster inativo.",
+            "Para ativar, rode: sudo docker swarm init",
         )
         return
     else:
@@ -135,11 +161,21 @@ def check_docker_swarm():
             ["docker", "service", "ls", "--format", "{{.Name}}|{{.Replicas}}"],
             capture_output=True,
             text=True,
-        ).strip()
+        ).stdout.strip()
+        if not services_raw:
+            print_status(
+                "Serviços",
+                "WARN",
+                "Nenhum serviço rodando.",
+                "Rode: docker stack deploy -c docker-compose.yml arenalake-prod",
+            )
+            return
+
         for line in services_raw.split("\n"):
             if "arenalake-prod" in line:
                 name, replicas = line.split("|")
                 name = name.replace("arenalake-prod_", "")
+
                 active, target = replicas.split("/")
 
                 if active == target and int(target) > 0:
@@ -156,21 +192,33 @@ def check_docker_swarm():
                         name,
                         "WARN",
                         f"Instável ({active}/{target}).",
-                        "O Docker está tentando reiniciar.",
+                        "O Docker está tentando reiniciar o serviço. Aguarde alguns minutos.",
                     )
+
     except Exception:
-        print_status("Serviços", "ERROR", "Falha ao listar serviços.", "")
+        print_status(
+            "Serviços",
+            "ERROR",
+            "Falha ao listar serviços.",
+            "Verifique se o usuário tem permissão para rodar Docker.",
+        )
 
 
 def main():
     print("=" * 60)
     print("      ArenaLake - System Doctor (Diagnóstico)")
     print("=" * 60)
+    print("Analisando a saúde do seu cluster... \n")
+
     check_resources()
     check_environment()
     check_tailscale()
     check_docker_swarm()
+
     print("\n" + "=" * 60)
+    print(" Diagnóstico finalizado! Use as dicas acima para resolver.")
+    print(" Se o erro persistir, tire um print e acione o suporte.")
+    print("=" * 60 + "\n")
 
 
 if __name__ == "__main__":
