@@ -24,9 +24,20 @@ def print_status(component, status, message, tip=None):
             print(f"         {CYAN}🔧 Solução:{RESET} {tip}")
 
 
+def get_datalake_path():
+    if os.path.exists(".env"):
+        with open(".env", "r") as f:
+            for line in f:
+                if line.startswith("DATALAKE_STORAGE_PATH="):
+                    return line.strip().split("=")[1]
+    # Fallback caso o .env não exista
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(current_dir, "datalake_data")
+
+
 def check_resources():
     print("\n--- 1. Recursos do Servidor ---")
-    datalake_path = "/mnt/datalake/prod"
+    datalake_path = get_datalake_path() # <-- Usa o caminho dinâmico do .env
     if os.path.exists(datalake_path):
         total, used, free = shutil.disk_usage(datalake_path)
         free_gb = free / (2**30)
