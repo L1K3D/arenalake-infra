@@ -35,3 +35,7 @@ s3fs
 pydantic
 
 typing
+
+sqlalchemy
+
+passlib
