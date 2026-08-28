@@ -6,17 +6,17 @@ import shutil
 import time
 import json
 import socket
+import secrets
 
 # Códigos de cor para o terminal
 YELLOW = "\033[93m"
 CYAN = "\033[96m"
 RESET = "\033[0m"
 
-
 def check_root():
     if os.geteuid() != 0:
-        print("[Erro] Este script precisa de privilégios de administrador.")
-        print("Rode novamente usando: sudo python3 install.py")
+        print(f"{YELLOW}[Erro]{RESET} Este script precisa de privilégios de administrador.")
+        print(f"{CYAN}Rode novamente usando: sudo python3 install.py{RESET}")
         sys.exit(1)
 
 
@@ -73,6 +73,8 @@ def check_compose_file():
 
 def install_dependencies():
     print("\n[*] Verificando dependências do sistema (Ubuntu)...")
+
+    # --- DOCKER --- #
     if shutil.which("docker") is None:
         print("\n[*] Docker não encontrado. Instalando... (Pode levar alguns minutos)")
         try:
@@ -96,6 +98,7 @@ def install_dependencies():
         ).stdout.strip()
         print(f"[+] Docker OK! | {docker_v}")
 
+    # --- TAILSCALE --- #
     if shutil.which("tailscale") is None:
         print("\n[*] Tailscale não encontrado. Instalando...")
         try:
@@ -172,6 +175,7 @@ def main():
     check_existing_install()
     install_dependencies()
     check_ports_available()
+    jwt_secret = secrets.token_hex(32)
 
     print("\n============================================================")
     print(" PASSO 1: CONFIGURAÇÕES BÁSICAS")
@@ -181,14 +185,11 @@ def main():
     while not raw_company:
         raw_company = input("Nome da Empresa ou Projeto (Obrigatório): ").strip()
     safe_company_name = format_company_name(raw_company)
-    workspace_network = f"arenalake-prod_{safe_company_name}_arenalake-net"
+    workspace_network = "arenalake-prod_arenalake-net"
 
     print("\n--- Credenciais do DataLake ---")
-    default_minio_user = f"{safe_company_name}_minio_admin"
-    minio_user = (
-        input(f"Login do Administrador [Padrão: {default_minio_user}]: ").strip()
-        or default_minio_user
-    )
+    minio_user = f"arenalake_{safe_company_name}_minio_admin"
+    print(f"\n[*] Login do MinIO definido como: {minio_user}")
 
     minio_pass = ""
     while not is_valid_password(minio_pass):
@@ -196,6 +197,18 @@ def main():
             f"Senha (Mín. 10 chars, Maiúsculas, Minúsculas e Números): "
         ).strip()
         if not is_valid_password(minio_pass):
+            print("[Erro] Senha muito fraca. Tente novamente.\n")
+
+    print("\n--- Credenciais do Database ---")
+    dba_user = f"arenalake_{safe_company_name}_dba_admin"
+    print(f"\n[*] Login do Database definido como: {dba_user}")
+
+    dba_pass = ""
+    while not is_valid_password(dba_pass):
+        dba_pass = input(
+            f"Senha (Mín. 10 chars, Maiúsculas, Minúsculas e Números): "
+        ).strip()
+        if not is_valid_password(dba_pass):
             print("[Erro] Senha muito fraca. Tente novamente.\n")
 
     print("\n--- Políticas de Atualização ---")
@@ -268,6 +281,12 @@ MINIO_ACCESS_KEY={minio_user}
 MINIO_SECRET_KEY={minio_pass}
 DATALAKE_STORAGE_PATH={datalake_path}
 
+# --- Core Security & Database ---
+DATABASE_URL=sqlite:///./arenalake_{safe_company_name}_core.db
+JWT_SECRET_KEY={jwt_secret}
+DBA_USERNAME={dba_user}
+DBA_PASSWORD={dba_pass}
+
 # --- Spark Cluster ---
 SPARK_MASTER_URL=spark://spark-master:7077
 
@@ -299,7 +318,6 @@ AUTO_UPDATE_CORE={auto_update_core}
         subprocess.run(
             ["docker", "swarm", "init"], check=False, stdout=subprocess.DEVNULL
         )
-
     # -------------------------------------------------------------
     # COMPILAÇÃO LOCAL DAS IMAGENS (Evita erro de 'access denied' no Swarm)
     # -------------------------------------------------------------
