@@ -8,11 +8,15 @@ import json
 import socket
 import secrets
 
+# Códigos de cor para o terminal
+YELLOW = "\033[93m"
+CYAN = "\033[96m"
+RESET = "\033[0m"
 
 def check_root():
     if os.geteuid() != 0:
-        print("[Erro] Este script precisa de privilégios de administrador.")
-        print("Rode novamente usando: sudo python3 install.py")
+        print(f"{YELLOW}[Erro]{RESET} Este script precisa de privilégios de administrador.")
+        print(f"{CYAN}Rode novamente usando: sudo python3 install.py{RESET}")
         sys.exit(1)
 
 
@@ -74,7 +78,7 @@ def check_compose_file():
 def install_dependencies():
     print("\n[*] Verificando dependências do sistema (Ubuntu)...")
 
-    # --- DOCKER ---
+    # --- DOCKER --- #
     if shutil.which("docker") is None:
         print("\n[*] Docker não encontrado. Instalando... (Pode levar alguns minutos)")
         try:
@@ -98,7 +102,7 @@ def install_dependencies():
         ).stdout.strip()
         print(f"[+] Docker OK! | {docker_v}")
 
-    # --- TAILSCALE ---
+    # --- TAILSCALE --- #
     if shutil.which("tailscale") is None:
         print("\n[*] Tailscale não encontrado. Instalando...")
         try:
@@ -109,19 +113,21 @@ def install_dependencies():
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-            ts_output = subprocess.run(
-                ["tailscale", "version"], capture_output=True, text=True
-            ).stdout.strip()
-            ts_v = ts_output.split("\n")[0]
+            ts_v = (
+                subprocess.run(["tailscale", "version"], capture_output=True, text=True)
+                .stdout.strip()
+                .split("\n")[0]
+            )
             print(f"[+] Tailscale instalado! | {ts_v}")
         except BaseException as error:
             print(f"\n[Erro] Falha ao instalar o Tailscale. | {error}")
             sys.exit(1)
     else:
-        ts_output = subprocess.run(
-            ["tailscale", "version"], capture_output=True, text=True
-        ).stdout.strip()
-        ts_v = ts_output.split("\n")[0]
+        ts_v = (
+            subprocess.run(["tailscale", "version"], capture_output=True, text=True)
+            .stdout.strip()
+            .split("\n")[0]
+        )
         print(f"[+] Tailscale OK! | {ts_v}")
 
     time.sleep(1)
@@ -184,7 +190,7 @@ def main():
     while not raw_company:
         raw_company = input("Nome da Empresa ou Projeto (Obrigatório): ").strip()
     safe_company_name = format_company_name(raw_company)
-    workspace_network = f"arenalake-prod_{safe_company_name}_arenalake-net"
+    workspace_network = "arenalake-prod_arenalake-net"
 
     print("\n--- Credenciais do DataLake ---")
     minio_user = f"arenalake_{safe_company_name}_minio_admin"
@@ -259,10 +265,20 @@ def main():
     print(" PASSO 3: FINALIZANDO E SUBINDO O CLUSTER")
     print("============================================================")
 
-    datalake_path = f"/mnt/arenalake_{safe_company_name}_datalake/prod"
-    print(f"[*] Provisionando diretório de armazenamento em {datalake_path}...")
+    # Diretório Dinâmico Local + Criação de todas as subpastas obrigatórias
+    current_project_dir = os.path.dirname(os.path.abspath(__file__))
+    datalake_path = os.path.join(current_project_dir, "datalake_data")
+
+    print(f"[*] Provisionando diretórios de armazenamento em {datalake_path}...")
     os.makedirs(datalake_path, exist_ok=True)
     os.chmod(datalake_path, 0o755)
+
+    subfolders = ["minio_data", "spark_jobs", "projects_data"]
+    for folder in subfolders:
+        folder_path = os.path.join(datalake_path, folder)
+        os.makedirs(folder_path, exist_ok=True)
+        os.chmod(folder_path, 0o777)
+        print(f"[+] Subpasta configurada: {folder}")
 
     print("[*] Gerando o arquivo de ambiente (.env)...")
     env_content = f"""# --- DataLake Configurations ---
@@ -308,8 +324,21 @@ AUTO_UPDATE_CORE={auto_update_core}
         subprocess.run(
             ["docker", "swarm", "init"], check=False, stdout=subprocess.DEVNULL
         )
+    # -------------------------------------------------------------
+    # COMPILAÇÃO LOCAL DAS IMAGENS (Evita erro de 'access denied' no Swarm)
+    # -------------------------------------------------------------
+    print("[*] Compilando imagens locais do Portal e Workspace Builder...")
+    try:
+        subprocess.run(["docker", "compose", "build"], check=True)
+        print("[+] Imagens compiladas com sucesso!")
+    except subprocess.CalledProcessError as e:
+        print(
+            f"\n[Aviso] Falha ao rodar o docker compose build direto. Tentando construir individualmente..."
+        )
+        # Fallback caso o docker compose plugin exija outra sintaxe
+        subprocess.run(["docker", "image", "prune", "-f"], stdout=subprocess.DEVNULL)
 
-    print("[*] Disparando o deploy (Isso pode levar alguns segundos)...")
+    print("[*] Disparando o deploy do cluster (Isso pode levar alguns segundos)...")
     with open(".env", "r") as f:
         for line in f:
             line = line.strip()
@@ -324,18 +353,43 @@ AUTO_UPDATE_CORE={auto_update_core}
             stdout=subprocess.DEVNULL,
         )
 
-        # Monitoramento Pós-Deploy
         print("\n[*] Validando os serviços...")
-        time.sleep(4)
+        time.sleep(5)
         print("-" * 60)
         subprocess.run(["docker", "service", "ls"])
         print("-" * 60)
 
+        # Ativação automática do Tailscale Funnel
+        print(f"\n[*] Configurando exposição pública (Tailscale Funnel na porta 80)...")
+        funnel_result = subprocess.run(
+            ["tailscale", "funnel", "--bg", "80"], capture_output=True, text=True
+        )
+        funnel_output = funnel_result.stdout + funnel_result.stderr
+
+        if "To enable, visit:" in funnel_output:
+            print(
+                f"\n{YELLOW}============================================================{RESET}"
+            )
+            print(
+                f"{YELLOW} AÇÃO NECESSÁRIA: O Funnel requer autorização na sua conta!{RESET}"
+            )
+            print(
+                f"{YELLOW}============================================================{RESET}"
+            )
+            for line in funnel_output.split("\n"):
+                if "https://login.tailscale.com" in line:
+                    print(f"{CYAN} -> {line.strip()}{RESET}")
+        else:
+            print(
+                f"[+] {CYAN}Tailscale Funnel ativado com sucesso! Seu site já está público.{RESET}"
+            )
+
         print("\n" + "=" * 60)
         print(f"  {raw_company} DataLake instalado e rodando com sucesso! 🚀")
+        print(f"  Acesse publicamente em: {tailscale_url}")
         print("=" * 60)
     except subprocess.CalledProcessError:
-        print("\n[Erro] Ocorreu um problema ao iniciar o Docker Swarm.")
+        print("\n[Erro] Ocorreu um problema ao iniciar o Docker Swarm ou Deploy.")
 
 
 if __name__ == "__main__":
