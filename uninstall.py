@@ -146,6 +146,10 @@ def main():
     clean_configs()
     handle_data_volume()
     handle_tailscale()
+    #sudo rm -rf datalake_data
+    subprocess.run(
+            ["rm", "-rf", "datalake_data"], capture_output=True, text=True
+    )
 
     print("\n" + "=" * 60)
     print(" 🧹 Desinstalação concluída com sucesso!")

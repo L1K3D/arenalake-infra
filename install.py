@@ -268,7 +268,7 @@ def main():
     os.makedirs(datalake_path, exist_ok=True)
     os.chmod(datalake_path, 0o755)
 
-    subfolders = ["minio_data", "spark_jobs", "projects_data"]
+    subfolders = ["minio_data", "spark_jobs", "projects_data", "database"]
     for folder in subfolders:
         folder_path = os.path.join(datalake_path, folder)
         os.makedirs(folder_path, exist_ok=True)
@@ -282,7 +282,7 @@ MINIO_SECRET_KEY={minio_pass}
 DATALAKE_STORAGE_PATH={datalake_path}
 
 # --- Core Security & Database ---
-DATABASE_URL=sqlite:///./arenalake_{safe_company_name}_core.db
+DATABASE_URL=sqlite:////mnt/datalake/prod/database/arenalake_{safe_company_name}_core.db
 JWT_SECRET_KEY={jwt_secret}
 DBA_USERNAME={dba_user}
 DBA_PASSWORD={dba_pass}
