@@ -30,7 +30,6 @@ def confirm_destruction():
 def remove_docker_stack(stack_name="arenalake-prod"):
     print(f"\n[*] Passo 1: Derrubando a stack '{stack_name}'...")
     try:
-        # Tenta remover a stack
         subprocess.run(
             ["docker", "stack", "rm", stack_name],
             check=True,
@@ -41,7 +40,6 @@ def remove_docker_stack(stack_name="arenalake-prod"):
         print(
             "[*] Aguardando os containers serem finalizados (pode levar uns segundos)..."
         )
-        # Loop de verificação para não prosseguir enquanto a stack ainda estiver morrendo
         while True:
             result = subprocess.run(
                 ["docker", "stack", "ls"], capture_output=True, text=True
@@ -81,11 +79,14 @@ def handle_data_volume():
     print("\n============================================================")
     print(" PASSO 4: DADOS DO DATALAKE (ATENÇÃO MÁXIMA)")
     print("============================================================")
-    datalake_path = "/mnt/datalake/prod"
+    
+    # Atualizado para refletir o caminho dinâmico usado na nova arquitetura
+    current_project_dir = os.path.dirname(os.path.abspath(__file__))
+    datalake_path = os.path.join(current_project_dir, "datalake_data")
 
     if os.path.exists(datalake_path):
         print(f"Detectamos a pasta de armazenamento físico em: {datalake_path}")
-        print("Lá estão salvos os arquivos do MinIO, workspaces e jobs do Spark.")
+        print("Lá estão salvos os arquivos do banco de dados, MinIO, workspaces e jobs.")
         print(
             "\n⚠️  Se você apagar isso, TODOS OS DADOS DA EMPRESA SERÃO PERDIDOS PARA SEMPRE."
         )
@@ -146,10 +147,6 @@ def main():
     clean_configs()
     handle_data_volume()
     handle_tailscale()
-    #sudo rm -rf datalake_data
-    subprocess.run(
-            ["rm", "-rf", "datalake_data"], capture_output=True, text=True
-    )
 
     print("\n" + "=" * 60)
     print(" 🧹 Desinstalação concluída com sucesso!")

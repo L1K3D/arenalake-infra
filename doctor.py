@@ -26,7 +26,11 @@ def print_status(component, status, message, tip=None):
 
 def check_resources():
     print("\n--- 1. Recursos do Servidor ---")
-    datalake_path = "/mnt/datalake/prod"
+    
+    # Caminho dinâmico corrigido para a nova arquitetura
+    current_project_dir = os.path.dirname(os.path.abspath(__file__))
+    datalake_path = os.path.join(current_project_dir, "datalake_data")
+    
     if os.path.exists(datalake_path):
         total, used, free = shutil.disk_usage(datalake_path)
         free_gb = free / (2**30)
@@ -195,7 +199,7 @@ def check_docker_swarm():
 
 def main():
     print("=" * 60)
-    print("      ArenaLake - System Doctor (Diagnóstico)")
+    print("       ArenaLake - System Doctor (Diagnóstico)")
     print("=" * 60)
     print("Analisando a saúde do seu cluster... \n")
 
