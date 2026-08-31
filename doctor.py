@@ -24,6 +24,17 @@ def print_status(component, status, message, tip=None):
             print(f"         {CYAN}🔧 Solução:{RESET} {tip}")
 
 
+def get_datalake_path():
+    if os.path.exists(".env"):
+        with open(".env", "r") as f:
+            for line in f:
+                if line.startswith("DATALAKE_STORAGE_PATH="):
+                    return line.strip().split("=")[1]
+    # Fallback caso o .env não exista
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(current_dir, "datalake_data")
+
+
 def check_resources():
     print("\n--- 1. Recursos do Servidor ---")
     

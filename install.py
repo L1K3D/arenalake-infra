@@ -21,7 +21,6 @@ def check_root():
 
 
 def check_existing_install():
-    """Evita que um usuário desatento destrua a configuração de produção"""
     if os.path.exists(".env"):
         print("\n" + "!" * 60)
         print(" ALERTA CRÍTICO: UMA INSTALAÇÃO JÁ FOI DETECTADA!")
@@ -43,16 +42,13 @@ def check_existing_install():
 
 
 def check_ports_available():
-    """Verifica se as portas vitais estão livres no servidor"""
     print("\n[*] Checando portas vitais do servidor...")
     vital_ports = [80, 443, 8000, 8080, 9000, 9001, 7077]
     ports_in_use = []
-
     for port in vital_ports:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             if s.connect_ex(("localhost", port)) == 0:
                 ports_in_use.append(port)
-
     if ports_in_use:
         print(
             "\n[Erro Crítico] As seguintes portas já estão em uso por outro programa:"
@@ -129,7 +125,6 @@ def install_dependencies():
             .split("\n")[0]
         )
         print(f"[+] Tailscale OK! | {ts_v}")
-
     time.sleep(1)
 
 
@@ -311,7 +306,6 @@ AUTO_UPDATE_CORE={auto_update_core}
 """
     with open(".env", "w") as env_file:
         env_file.write(env_content)
-
     os.chmod(".env", 0o600)
 
     print("[*] Preparando o Docker Swarm...")
@@ -347,7 +341,6 @@ AUTO_UPDATE_CORE={auto_update_core}
         subprocess.run(
             ["docker", "stack", "deploy", "-c", "docker-compose.yml", "arenalake-prod"],
             check=True,
-            stdout=subprocess.DEVNULL,
         )
 
         print("\n[*] Validando os serviços...")
@@ -420,6 +413,7 @@ AUTO_UPDATE_CORE={auto_update_core}
         print(f"  {raw_company} DataLake instalado e rodando com sucesso! 🚀")
         print(f"  Acesse publicamente em: {tailscale_url}")
         print("=" * 60)
+
     except subprocess.CalledProcessError:
         print("\n[Erro] Ocorreu um problema ao iniciar o Docker Swarm ou Deploy.")
 
