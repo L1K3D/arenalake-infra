@@ -23,8 +23,11 @@ def main():
     print("dados físicos (DataLake). Isso pode demorar dependendo do")
     print("volume de dados armazenado.\n")
 
+    # Caminho dinâmico alinhado com a nova arquitetura do projeto
+    current_project_dir = os.path.dirname(os.path.abspath(__file__))
+    datalake_path = os.path.join(current_project_dir, "datalake_data")
+
     # Verifica se os dados vitais existem
-    datalake_path = "/mnt/datalake/prod"
     if not os.path.exists(datalake_path):
         print(
             f"[Erro] O diretório {datalake_path} não existe. Não há dados para backup."
@@ -55,7 +58,7 @@ def main():
     print(f"[*] Iniciando compactação... Destino: {backup_filepath}")
 
     # Montando o comando do TAR
-    # Ele vai "zipar" o /mnt/datalake/prod, o .env e o docker-compose.yml
+    # Ele vai compactar a pasta datalake_data (incluindo o banco, minio, etc.), o .env e o compose
     tar_cmd = ["tar", "-czf", backup_filepath, datalake_path]
 
     if os.path.exists(".env"):
