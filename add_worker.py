@@ -108,11 +108,20 @@ def test_connection(ip):
 
 
 def provision_storage():
-    """Espelha as pastas vitais do Master para o Worker receber os containers"""
-    datalake_path = "/mnt/datalake/prod"
+    """Espelha as pastas vitais no Worker para o Worker receber os containers"""
+    current_project_dir = os.path.dirname(os.path.abspath(__file__))
+    datalake_path = os.path.join(current_project_dir, "datalake_data")
+    
     print(f"[*] Espelhando diretórios vitais no Worker ({datalake_path})...")
     os.makedirs(datalake_path, exist_ok=True)
     os.chmod(datalake_path, 0o755)
+
+    subfolders = ["minio_data", "spark_jobs", "projects_data", "database"]
+    for folder in subfolders:
+        folder_path = os.path.join(datalake_path, folder)
+        os.makedirs(folder_path, exist_ok=True)
+        os.chmod(folder_path, 0o777)
+        print(f"[+] Subpasta espelhada: {folder}")
 
 
 def main():

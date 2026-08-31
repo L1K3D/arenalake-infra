@@ -318,9 +318,7 @@ AUTO_UPDATE_CORE={auto_update_core}
         subprocess.run(
             ["docker", "swarm", "init"], check=False, stdout=subprocess.DEVNULL
         )
-    # -------------------------------------------------------------
-    # COMPILAÇÃO LOCAL DAS IMAGENS (Evita erro de 'access denied' no Swarm)
-    # -------------------------------------------------------------
+
     print("[*] Compilando imagens locais do Portal e Workspace Builder...")
     try:
         subprocess.run(["docker", "compose", "build"], check=True)
@@ -329,7 +327,6 @@ AUTO_UPDATE_CORE={auto_update_core}
         print(
             f"\n[Aviso] Falha ao rodar o docker compose build direto. Tentando construir individualmente..."
         )
-        # Fallback caso o docker compose plugin exija outra sintaxe
         subprocess.run(["docker", "image", "prune", "-f"], stdout=subprocess.DEVNULL)
 
     print("[*] Disparando o deploy do cluster (Isso pode levar alguns segundos)...")
@@ -347,10 +344,45 @@ AUTO_UPDATE_CORE={auto_update_core}
         )
 
         print("\n[*] Validando os serviços...")
-        time.sleep(5)
+        # Aumentamos o tempo de espera para garantir que os containers liguem
+        time.sleep(10) 
         print("-" * 60)
         subprocess.run(["docker", "service", "ls"])
         print("-" * 60)
+
+        # -------------------------------------------------------------
+        # INICIALIZAÇÃO AUTOMÁTICA DO BANCO DE DADOS
+        # -------------------------------------------------------------
+        print(f"\n[*] Configurando o Banco de Dados e o Super Admin...")
+        
+        # Fazemos um pequeno loop esperando o container nascer e pegar o ID dele
+        portal_id = ""
+        for _ in range(15):  # Tenta procurar o portal por até 30 segundos
+            result = subprocess.run(
+                "docker ps -q -f name=portal | head -n 1",
+                shell=True,
+                capture_output=True,
+                text=True
+            )
+            if result.stdout.strip():
+                portal_id = result.stdout.strip()
+                break
+            time.sleep(2)
+
+        if portal_id:
+            try:
+                # Executa o script python sem -it porque não estamos num terminal interativo
+                subprocess.run(
+                    f"docker exec {portal_id} python -m core.init_db",
+                    shell=True,
+                    check=True
+                )
+                print(f"[+] {CYAN}Banco de dados e credenciais gerados com sucesso!{RESET}")
+            except subprocess.CalledProcessError:
+                print(f"[{YELLOW}Aviso{RESET}] Falha ao executar a inicialização dentro do container.")
+        else:
+            print(f"[{YELLOW}Aviso{RESET}] O container do Portal demorou a responder. O banco não foi gerado automaticamente.")
+        # -------------------------------------------------------------
 
         # Ativação automática do Tailscale Funnel
         print(f"\n[*] Configurando exposição pública (Tailscale Funnel na porta 80)...")
