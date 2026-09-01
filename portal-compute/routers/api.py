@@ -5,12 +5,14 @@ import pandas as pd
 import os
 import io
 
-from fastapi import APIRouter, UploadFile, File, Form, Request
+from fastapi import APIRouter, UploadFile, File, Form, Request, Depends
 from fastapi.responses import JSONResponse
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from pydantic import BaseModel
 from core.s3_mgr import get_s3_client
+from core.security import get_current_user
+from core.models import User
 
 
 class BiColumnsRequest(BaseModel):
@@ -60,7 +62,7 @@ scheduler.start()
 
 
 @router.get("/catalog")
-async def get_catalog():
+async def get_catalog(current_user: User = Depends(get_current_user)): # <--- Protegido!
     try:
         return JSONResponse(content={"status": "success", "data": fetch_catalog_data()})
     except Exception as e:
@@ -70,15 +72,13 @@ async def get_catalog():
 
 
 @router.get("/metrics/{usuario}")
-async def get_metrics(usuario: str):
+async def get_metrics(usuario: str, current_user: User = Depends(get_current_user)):
     try:
         metrics = get_workspace_metrics(usuario)
         if metrics.get("status") == "offline":
             return JSONResponse(content=metrics, status_code=404)
 
-        # O workspace está online e o usuário está com a aba aberta! Atualiza o timer.
         update_workspace_activity(usuario)
-
         return JSONResponse(content=metrics)
     except Exception as e:
         return JSONResponse(
@@ -88,7 +88,10 @@ async def get_metrics(usuario: str):
 
 @router.post("/upload")
 async def upload_file(
-    bucket: str = Form(...), usuario: str = Form(...), file: UploadFile = File(...)
+    bucket: str = Form(...), 
+    usuario: str = Form(...), 
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
 ):
     try:
         upload_file_to_datalake(bucket, file.file, file.filename, usuario)
@@ -102,7 +105,7 @@ async def upload_file(
 
 
 @router.get("/preview/{bucket}/{filename:path}")
-async def preview_file(bucket: str, filename: str):
+async def preview_file(bucket: str, filename: str, current_user: User = Depends(get_current_user)):
     try:
         details = get_file_details(bucket, filename)
         return JSONResponse(content={"status": "success", "data": details})
@@ -118,7 +121,7 @@ async def preview_file(bucket: str, filename: str):
 
 
 @router.get("/jobs")
-async def get_all_jobs():
+async def get_all_jobs(current_user: User = Depends(get_current_user)): # <--- Protegido!
     """Lista os scripts .py disponíveis e os agendamentos ativos na memória"""
     scripts = list_spark_jobs()
 
@@ -142,7 +145,7 @@ async def get_all_jobs():
 
 
 @router.post("/jobs/run/{job_name}")
-async def execute_job_now(job_name: str):
+async def execute_job_now(job_name: str, current_user: User = Depends(get_current_user)):
     """Executa o script imediatamente"""
     success = run_spark_job(job_name, origin="UI Manual")
     if success:
@@ -158,9 +161,8 @@ async def execute_job_now(job_name: str):
 
 
 @router.post("/bi/colunas")
-async def get_bi_columns(req: BiColumnsRequest):
+async def get_bi_columns(req: BiColumnsRequest, current_user: User = Depends(get_current_user)):
     try:
-        # Usa o cliente Boto3 nativo do seu sistema (Zero timeouts na rede)
         s3_client = get_s3_client()
         obj = s3_client.get_object(Bucket=req.bucket, Key=req.filename)
 
@@ -179,7 +181,7 @@ async def get_bi_columns(req: BiColumnsRequest):
 
 
 @router.post("/bi/valores_coluna")
-async def valores_coluna_bi(req: FilterRequest):
+async def valores_coluna_bi(req: FilterRequest, current_user: User = Depends(get_current_user)):
     try:
         s3_client = get_s3_client()
         obj = s3_client.get_object(Bucket=req.bucket, Key=req.filename)
@@ -199,7 +201,7 @@ async def valores_coluna_bi(req: FilterRequest):
 
 
 @router.post("/bi/gerar_dados")
-async def gerar_dados_bi(req: VisualRequest):
+async def gerar_dados_bi(req: VisualRequest, current_user: User = Depends(get_current_user)):
     try:
         s3_client = get_s3_client()
         obj = s3_client.get_object(Bucket=req.bucket, Key=req.filename)
@@ -413,7 +415,7 @@ async def gerar_dados_bi(req: VisualRequest):
 
 
 @router.get("/system/resources")
-async def get_system_resources():
+async def get_system_resources(current_user: User = Depends(get_current_user)):
     data = get_allocatable_resources()
     if "error" in data:
         return JSONResponse(
@@ -423,14 +425,14 @@ async def get_system_resources():
 
 
 @router.post("/jobs/schedule")
-async def schedule_job_cron(job_name: str = Form(...), cron_expr: str = Form(...)):
-    """Agenda um script usando padrão Cron"""
+async def schedule_job_cron(
+    job_name: str = Form(...), 
+    cron_expr: str = Form(...),
+    current_user: User = Depends(get_current_user)
+):
     try:
-        # Valida e cria a regra de agendamento (Ex: "0 2 * * *")
         trigger = CronTrigger.from_crontab(cron_expr)
         job_id = f"job_{job_name.replace('.py', '')}"
-
-        # Se já existir um agendamento pra esse script, remove o antigo
         if scheduler.get_job(job_id):
             scheduler.remove_job(job_id)
 
@@ -449,10 +451,7 @@ async def schedule_job_cron(job_name: str = Form(...), cron_expr: str = Form(...
         )
     except ValueError:
         return JSONResponse(
-            content={
-                "status": "error",
-                "message": "Formato Cron inválido. Use algo como '0 2 * * *'.",
-            },
+            content={"status": "error", "message": "Formato Cron inválido."},
             status_code=400,
         )
     except Exception as e:
@@ -462,15 +461,11 @@ async def schedule_job_cron(job_name: str = Form(...), cron_expr: str = Form(...
 
 
 @router.delete("/jobs/schedule/{job_id}")
-async def remove_scheduled_job(job_id: str):
-    """Cancela um agendamento"""
+async def remove_scheduled_job(job_id: str, current_user: User = Depends(get_current_user)):
     if scheduler.get_job(job_id):
         scheduler.remove_job(job_id)
         return JSONResponse(
-            content={
-                "status": "success",
-                "message": "Agendamento cancelado com sucesso.",
-            }
+            content={"status": "success", "message": "Agendamento cancelado com sucesso."}
         )
     return JSONResponse(
         content={"status": "error", "message": "Agendamento não encontrado."},
@@ -484,12 +479,11 @@ async def remove_scheduled_job(job_id: str):
 
 
 @router.get("/spark/status")
-async def get_spark_status():
+async def get_spark_status(current_user: User = Depends(get_current_user)):
     try:
         url = "http://spark-master:8080/json/"
         with urllib.request.urlopen(url) as response:
             data = json.loads(response.read().decode("utf-8"))
-
             payload = {
                 "status": "success",
                 "workers": data.get("workers", []),

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>ArenaLake - Segurança 2FA</title>
+    <link rel="stylesheet" href="/static/css/login.css">
+    <style>
+        .qr-container {
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            display: inline-block;
+            margin: 15px 0;
+        }
+
+        #qr-code-img {
+            width: 200px;
+            height: 200px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card" style="width: 400px;">
+        <h2>🔐 Configuração de Segurança</h2>
+        <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">
+            Este é o seu primeiro acesso. É obrigatório trocar a senha e configurar o Google/Microsoft Authenticator.
+        </p>
+
+        <!-- Aqui o JS vai injetar o QR Code -->
+        <div class="qr-container">
+            <img id="qr-code-img" src="" alt="Carregando QR Code...">
+        </div>
+        <p style="color: #8b949e; font-size: 0.8em; margin-top: 0;">Escaneie com seu app de autenticação</p>
+
+        <form id="first-access-form">
+            <input type="password" id="new_password" placeholder="Digite uma nova senha forte" required minlength="8">
+            <input type="text" id="otp_code" placeholder="Código de 6 dígitos do App (OTP)" required maxlength="6"
+                pattern="\d{6}">
+
+            <button type="submit">Validar e Acessar</button>
+        </form>
+    </div>
+
+    <script src="/static/js/first-access.js"></script>
+</body>
+
+</html>
