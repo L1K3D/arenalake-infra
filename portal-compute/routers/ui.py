@@ -15,6 +15,10 @@ from fastapi.templating import Jinja2Templates
 from core.docker_mgr import provision_workspace, shutdown_workspace
 import os
 
+from core.database import SessionLocal
+from core.models import User
+from core.security import verify_password
+
 # Initialize router and Jinja2 template engine
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -28,15 +32,29 @@ async def login_page(request: Request):
 
 @router.post("/login")
 async def login(request: Request, usuario: str = Form(...), senha: str = Form(...)):
-    # Normalize username: lowercase, strip whitespace, replace spaces with hyphens
+    # Normaliza o username
     usr_formatado = usuario.lower().strip().replace(" ", "-")
-    # Redirect to setup page instead of directly to dashboard
-    # Allows user to choose hardware profile (Standard or Extreme)
-    return templates.TemplateResponse(
-        request=request,
-        name="setup.html",
-        context={"usuario": usr_formatado},
-    )
+    
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.username == usr_formatado).first()
+        
+        # Se o usuário não existe ou a senha está errada, joga de volta pro login
+        if not user or not verify_password(senha, user.hashed_password):
+            return RedirectResponse(url="/", status_code=303)
+            
+        # Se ele ainda precisa trocar senha ou configurar o 2FA, manda para o first-access!
+        if user.must_change_password or not user.is_2fa_verified:
+            return RedirectResponse(url="/first-access", status_code=303)
+            
+        # Se já passou por tudo, libera o acesso para a escolha de hardware no setup
+        return templates.TemplateResponse(
+            request=request,
+            name="setup.html",
+            context={"usuario": usr_formatado},
+        )
+    finally:
+        db.close()
 
 
 @router.post("/shutdown")
