@@ -75,3 +75,7 @@ async def dashboard(request: Request, usuario: str):
         name="dashboard.html",
         context={"request": request, "usuario": usuario, "domain": domain},
     )
+    
+@router.get("/first-access")
+async def first_access_page(request: Request):
+    return templates.TemplateResponse("first-access.html", {"request": request})

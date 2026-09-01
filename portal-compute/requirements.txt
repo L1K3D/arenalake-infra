@@ -3,7 +3,9 @@
 # ============================================================================
 # FastAPI and server framework
 fastapi
+
 uvicorn
+
 python-multipart
 
 # Docker container management
@@ -39,3 +41,9 @@ typing
 sqlalchemy
 
 passlib
+
+jose
+
+pyotp==2.9.0
+
+qrcode[pil]==7.4.2

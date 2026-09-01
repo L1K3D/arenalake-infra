@@ -11,10 +11,13 @@
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from routers import api, ui
+from routers import api, ui, auth
 
 # Initialize the FastAPI application
-app = FastAPI(title="ArenaLake Portal")
+app = FastAPI(
+    title="ArenaLake Enterprise Portal",
+    version="1.0.0"
+)
 
 # Mount static file directory
 # Serves CSS, JavaScript, and other static assets from /static path
@@ -25,6 +28,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # - api.router: handles REST API endpoints (/api/catalog, /api/metrics, etc.)
 app.include_router(ui.router)
 app.include_router(api.router)
+app.include_router(auth.router)
 
 # Entry point for development server
 # Starts Uvicorn ASGI server on 0.0.0.0:8000
