@@ -82,8 +82,6 @@ services:
     environment:
       - HOST_PROJECT_PATH=${PWD}
       - WORKSPACE_NETWORK=${WORKSPACE_NETWORK}
-    ports:
-      - "${PORTAL_PORT:-8000}:8000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${DATALAKE_STORAGE_PATH}/projects_data:/app/projects_data
