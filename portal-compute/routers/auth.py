@@ -86,7 +86,6 @@ def generate_2fa_qr(current_user: User = Depends(get_current_user), db: Session 
 
 @router.post("/api/auth/first-access")
 def complete_first_access(data: FirstAccessSetup, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Valida o código de 6 dígitos e salva a nova senha"""
     if current_user.is_2fa_verified:
         raise HTTPException(status_code=400, detail="Setup já foi realizado.")
 
@@ -95,20 +94,16 @@ def complete_first_access(data: FirstAccessSetup, current_user: User = Depends(g
     if not user.otp_secret:
         raise HTTPException(status_code=400, detail="Segredo 2FA não inicializado. Recarregue a página.")
 
-    # 🚀 ENGENHARIA DE VERDADE: Validação puramente matemática via UNIX Epoch
-    # Ignoramos o timezone do container e operamos no timestamp absoluto.
     totp = pyotp.TOTP(user.otp_secret)
-    current_interval = int(time.time()) // 30
     
-    is_valid = False
-    # Tolerância atômica exata: ciclo atual, um anterior (-30s) e um seguinte (+30s)
-    for offset in [-1, 0, 1]:
-        if totp.generate_otp(current_interval + offset) == data.otp_code.strip():
-            is_valid = True
-            break
-
-    if not is_valid:
-        raise HTTPException(status_code=400, detail="Código de autenticação (2FA) inválido.")
+    # Valida o código com janela estendida
+    if not totp.verify(data.otp_code, valid_window=2):
+        expected = totp.now()
+        import time
+        server_epoch = int(time.time())
+        # 🚀 TELEMETRIA DIRETO NA TELA DO NAVEGADOR:
+        error_msg = f"DEBUG: App enviou '{data.otp_code}' | Servidor calculou '{expected}'. Secret: {user.otp_secret} | Epoch: {server_epoch}"
+        raise HTTPException(status_code=400, detail=error_msg)
 
     if len(data.new_password) < 8:
         raise HTTPException(status_code=400, detail="A senha deve ter pelo menos 8 caracteres.")
