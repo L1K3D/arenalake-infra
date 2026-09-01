@@ -20,14 +20,9 @@ router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
 
-@router.get("/", response_class=HTMLResponse)
-async def home(request: Request):
-    """Render the login page.
-    Displays username and password inputs for user authentication.
-    """
-    return templates.TemplateResponse(
-        request=request, name="login.html", context={"request": request}
-    )
+@router.get("/")
+async def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
 
 
 @router.post("/login")
@@ -79,3 +74,7 @@ async def dashboard(request: Request, usuario: str):
 @router.get("/first-access")
 async def first_access_page(request: Request):
     return templates.TemplateResponse("first-access.html", {"request": request})
+
+@router.get("/setup")
+async def setup_page(request: Request):
+    return templates.TemplateResponse("setup.html", {"request": request})
