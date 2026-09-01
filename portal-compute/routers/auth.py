@@ -102,7 +102,7 @@ def complete_first_access(data: FirstAccessSetup, current_user: User = Depends(g
 
     # 1. Valida o código 2FA (TOTP)
     totp = pyotp.TOTP(current_user.otp_secret)
-    if not totp.verify(data.otp_code, valid_window=2):
+    if not totp.verify(data.otp_code, valid_window=60):
         raise HTTPException(status_code=400, detail="Código de autenticação (2FA) inválido.")
 
     # 2. Valida regras básicas da nova senha
