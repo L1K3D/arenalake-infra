@@ -77,7 +77,30 @@
     <script>
         async function fetchSystemResources() {
             try {
-                const response = await fetch('/api/system/resources');
+                // 1. Busca o token JWT armazenado pelo login.js
+                const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+
+                if (!token) {
+                    console.warn("Token não encontrado, redirecionando para o login...");
+                    window.location.href = '/';
+                    return;
+                }
+
+                // 2. Injeta o token no cabeçalho Authorization
+                const response = await fetch('/api/system/resources', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                // Se a sessão expirou ou for inválida, desloga graciosamente
+                if (response.status === 401) {
+                    window.location.href = '/';
+                    return;
+                }
+
                 const result = await response.json();
 
                 if (result.status === 'success') {
@@ -124,7 +147,7 @@
                     radioStandard.checked = false;
                     btnLaunch.disabled = true;
                     btnLaunch.innerText = 'Selecione um Perfil Acima';
-                    cardStandard.classList.remove('selected'); // Ajuste conforme seu setup.js
+                    cardStandard.classList.remove('selected');
                 }
             } else {
                 cardStandard.style.opacity = '1';
@@ -145,7 +168,7 @@
                     radioExtreme.checked = false;
                     btnLaunch.disabled = true;
                     btnLaunch.innerText = 'Selecione um Perfil Acima';
-                    cardExtreme.classList.remove('selected'); // Ajuste conforme seu setup.js
+                    cardExtreme.classList.remove('selected');
                 }
             } else {
                 cardExtreme.style.opacity = '1';
