@@ -30,3 +30,5 @@ class User(Base):
     is_2fa_verified = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    otp_secret = Column(String, nullable=True)
