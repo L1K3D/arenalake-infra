@@ -291,11 +291,12 @@ DBA_PASSWORD={dba_pass}
 SPARK_MASTER_URL=spark://spark-master:7077
 
 # --- Network & Ports ---
-PORTAL_PORT=8000
+PORTAL_PORT=8088
 TRAEFIK_WEB_PORT=80
 MINIO_API_PORT=9000
 MINIO_CONSOLE_PORT=9001
 SPARK_UI_PORT=8080
+TRAEFIK_DASH_PORT=8089
 
 WORKSPACE_NETWORK={workspace_network}
 TAILSCALE_BASE_URL={tailscale_url}
@@ -385,7 +386,7 @@ AUTO_UPDATE_CORE={auto_update_core}
         # -------------------------------------------------------------
 
         # Ativação automática do Tailscale Funnel
-        print(f"\n[*] Configurando exposição pública (Tailscale Funnel para o Traefik na porta 8088)...")
+        print(f"\n[*] Configurando exposição pública (Tailscale Funnel para a porta 8088)...")
         funnel_result = subprocess.run(
             ["tailscale", "funnel", "--bg", "http://127.0.0.1:8088"], capture_output=True, text=True
         )
