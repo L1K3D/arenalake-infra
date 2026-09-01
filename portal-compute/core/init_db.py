@@ -29,8 +29,8 @@ def init_db():
             username=dba_username,
             hashed_password=hashed_pw,
             role="admin",
-            must_change_password=False,  # O DBA Master já nasce configurado
-            is_2fa_verified=True,
+            must_change_password=True,
+            is_2fa_verified=False,
             full_name="System Master Administrator",
             email="admin@arenalake.internal",
             department="Infrastructure",
