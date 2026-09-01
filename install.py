@@ -385,9 +385,9 @@ AUTO_UPDATE_CORE={auto_update_core}
         # -------------------------------------------------------------
 
         # Ativação automática do Tailscale Funnel
-        print(f"\n[*] Configurando exposição pública (Tailscale Funnel na porta 80)...")
+        print(f"\n[*] Configurando exposição pública (Tailscale Funnel para o Traefik na porta 8088)...")
         funnel_result = subprocess.run(
-            ["tailscale", "funnel", "--bg", "80"], capture_output=True, text=True
+            ["tailscale", "funnel", "--bg", "http://127.0.0.1:8088"], capture_output=True, text=True
         )
         funnel_output = funnel_result.stdout + funnel_result.stderr
 
