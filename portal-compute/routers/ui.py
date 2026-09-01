@@ -22,7 +22,8 @@ templates = Jinja2Templates(directory="templates")
 
 @router.get("/")
 async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    # Consertado: Passando nome e request explicitamente
+    return templates.TemplateResponse(request=request, name="login.html")
 
 
 @router.post("/login")
@@ -34,7 +35,7 @@ async def login(request: Request, usuario: str = Form(...), senha: str = Form(..
     return templates.TemplateResponse(
         request=request,
         name="setup.html",
-        context={"request": request, "usuario": usr_formatado},
+        context={"usuario": usr_formatado},
     )
 
 
@@ -68,13 +69,15 @@ async def dashboard(request: Request, usuario: str):
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
-        context={"request": request, "usuario": usuario, "domain": domain},
+        context={"usuario": usuario, "domain": domain},
     )
     
 @router.get("/first-access")
 async def first_access_page(request: Request):
-    return templates.TemplateResponse("first-access.html", {"request": request})
+    # Consertado: Passando nome e request explicitamente
+    return templates.TemplateResponse(request=request, name="first-access.html")
 
 @router.get("/setup")
 async def setup_page(request: Request):
-    return templates.TemplateResponse("setup.html", {"request": request})
+    # Consertado: Passando nome e request explicitamente
+    return templates.TemplateResponse(request=request, name="setup.html")
