@@ -71,8 +71,8 @@ def generate_2fa_qr(current_user: User = Depends(get_current_user), db: Session 
     # Gera um segredo aleatório do Google Authenticator
     secret = pyotp.random_base32()
     
-    # Salva provisoriamente no banco
-    current_user.otp_code = secret
+    # Salva usando o nome correto da coluna (otp_secret)
+    current_user.otp_secret = secret
     db.commit()
 
     # Monta a URI que o app entende
@@ -95,8 +95,13 @@ def complete_first_access(data: FirstAccessSetup, current_user: User = Depends(g
     if current_user.is_2fa_verified:
         raise HTTPException(status_code=400, detail="Setup já foi realizado.")
 
+    # Blindagem: se o otp_secret estiver nulo no banco, gera um novo na hora para evitar crash
+    if not current_user.otp_secret:
+        current_user.otp_secret = pyotp.random_base32()
+        db.commit()
+
     # 1. Valida o código 2FA (TOTP)
-    totp = pyotp.TOTP(current_user.otp_code)
+    totp = pyotp.TOTP(current_user.otp_secret)
     if not totp.verify(data.otp_code):
         raise HTTPException(status_code=400, detail="Código de autenticação (2FA) inválido.")
 
