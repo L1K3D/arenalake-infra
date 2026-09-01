@@ -30,10 +30,8 @@ def login_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(), 
     db: Session = Depends(get_db)
 ):
-    # 1. Consulta o usuário no banco SQLite pelo username
     user = db.query(User).filter(User.username == form_data.username).first()
     
-    # 2. Valida se o usuário existe e se a senha confere via bcrypt
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -41,14 +39,12 @@ def login_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # 3. Valida se o usuário está ativo na infraestrutura
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
             detail="Usuário desativado pelo Administrador."
         )
 
-    # 4. Cria o Token JWT contendo as claims de segurança (usuário e role)
     access_token = create_access_token(
         data={"sub": user.username, "role": user.role}
     )
@@ -68,19 +64,21 @@ def generate_2fa_qr(current_user: User = Depends(get_current_user), db: Session 
     if current_user.is_2fa_verified:
         raise HTTPException(status_code=400, detail="2FA já está configurado para este usuário.")
 
-    # IMPORTANTE: Se o usuário já tiver um segredo pendente, REUTILIZA ele! 
-    # Isso evita que um reload ou requisição dupla mude a chave no meio do caminho.
-    if not current_user.otp_secret:
-        current_user.otp_secret = pyotp.random_base32()
-        db.commit()
+    # Re-consulta o usuário usando a sessão ativa atual do banco para garantir persistência real
+    user = db.query(User).filter(User.username == current_user.username).first()
 
-    # Monta a URI que o app entende usando a chave fixa do usuário
-    uri = pyotp.totp.TOTP(current_user.otp_secret).provisioning_uri(
-        name=current_user.email or current_user.username, 
+    if not user.otp_secret:
+        user.otp_secret = pyotp.random_base32()
+        db.commit()
+        db.refresh(user)
+
+    # Monta a URI que o app entende
+    uri = pyotp.totp.TOTP(user.otp_secret).provisioning_uri(
+        name=user.email or user.username, 
         issuer_name="ArenaLake Enterprise"
     )
 
-    # Gera a imagem do QR Code em Base64 para o Front-end ler sem precisar baixar arquivo
+    # Gera a imagem do QR Code em Base64
     qr = qrcode.make(uri)
     buffered = BytesIO()
     qr.save(buffered, format="PNG")
@@ -94,25 +92,25 @@ def complete_first_access(data: FirstAccessSetup, current_user: User = Depends(g
     if current_user.is_2fa_verified:
         raise HTTPException(status_code=400, detail="Setup já foi realizado.")
 
-    if not current_user.otp_secret:
-        current_user.otp_secret = pyotp.random_base32()
-        db.commit()
+    # Re-consulta o usuário usando a sessão ativa atual do banco
+    user = db.query(User).filter(User.username == current_user.username).first()
 
-    # --- DIAGNÓSTICO MATEMÁTICO ---
-    totp = pyotp.TOTP(current_user.otp_secret)
-    print(f"\n[DEBUG 2FA] Secret no Banco: {current_user.otp_secret}")
-    print(f"[DEBUG 2FA] Código digitado por você: {data.otp_code}")
-    print(f"[DEBUG 2FA] Código que o Servidor espera AGORA: {totp.now()}")
-    print(f"[DEBUG 2FA] Validação com janela 60: {totp.verify(data.otp_code, valid_window=60)}")
-    print(f"----------------------------------------\n")
-    # -----------------------------
+    if not user.otp_secret:
+        raise HTTPException(status_code=400, detail="Segredo 2FA não inicializado. Recarregue a página.")
 
+    # Valida o código 2FA (TOTP) usando o segredo real salvo no banco
+    totp = pyotp.TOTP(user.otp_secret)
     if not totp.verify(data.otp_code, valid_window=60):
         raise HTTPException(status_code=400, detail="Código de autenticação (2FA) inválido.")
 
-    current_user.hashed_password = pwd_context.hash(data.new_password)
-    current_user.must_change_password = False
-    current_user.is_2fa_verified = True
+    # Valida regras básicas da nova senha
+    if len(data.new_password) < 8:
+        raise HTTPException(status_code=400, detail="A senha deve ter pelo menos 8 caracteres.")
+
+    # Salva a nova senha com Hash e libera o usuário
+    user.hashed_password = pwd_context.hash(data.new_password)
+    user.must_change_password = False
+    user.is_2fa_verified = True
     
     db.commit()
 
