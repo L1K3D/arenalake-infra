@@ -68,15 +68,14 @@ def generate_2fa_qr(current_user: User = Depends(get_current_user), db: Session 
     if current_user.is_2fa_verified:
         raise HTTPException(status_code=400, detail="2FA já está configurado para este usuário.")
 
-    # Gera um segredo aleatório do Google Authenticator
-    secret = pyotp.random_base32()
-    
-    # Salva usando o nome correto da coluna (otp_secret)
-    current_user.otp_secret = secret
-    db.commit()
+    # IMPORTANTE: Se o usuário já tiver um segredo pendente, REUTILIZA ele! 
+    # Isso evita que um reload ou requisição dupla mude a chave no meio do caminho.
+    if not current_user.otp_secret:
+        current_user.otp_secret = pyotp.random_base32()
+        db.commit()
 
-    # Monta a URI que o app entende
-    uri = pyotp.totp.TOTP(secret).provisioning_uri(
+    # Monta a URI que o app entende usando a chave fixa do usuário
+    uri = pyotp.totp.TOTP(current_user.otp_secret).provisioning_uri(
         name=current_user.email or current_user.username, 
         issuer_name="ArenaLake Enterprise"
     )
