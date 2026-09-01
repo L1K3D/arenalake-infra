@@ -28,13 +28,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (response.ok) {
                     const data = await response.json();
 
-                    // SUCESSO! Salva o Token JWT no cofre do navegador
+                    // Salva o Token JWT no cofre do navegador
                     localStorage.setItem('access_token', data.access_token);
                     localStorage.setItem('username', data.username);
                     localStorage.setItem('role', data.role);
 
-                    // Redireciona para a tela de escolha de hardware (Setup)
-                    window.location.href = '/setup';
+                    // A MÁGICA ACONTECE AQUI: 
+                    // Se o backend avisar que não tem 2FA, manda pro first-access
+                    if (data.must_change_password || !data.is_2fa_verified) {
+                        window.location.href = '/first-access';
+                    } else {
+                        window.location.href = '/setup';
+                    }
 
                 } else {
                     const errorData = await response.json();
