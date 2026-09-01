@@ -1,6 +1,7 @@
 import pyotp
 import qrcode
 import base64
+import time
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -64,7 +65,6 @@ def generate_2fa_qr(current_user: User = Depends(get_current_user), db: Session 
     if current_user.is_2fa_verified:
         raise HTTPException(status_code=400, detail="2FA já está configurado para este usuário.")
 
-    # Re-consulta o usuário usando a sessão ativa atual do banco para garantir persistência real
     user = db.query(User).filter(User.username == current_user.username).first()
 
     if not user.otp_secret:
@@ -72,13 +72,11 @@ def generate_2fa_qr(current_user: User = Depends(get_current_user), db: Session 
         db.commit()
         db.refresh(user)
 
-    # Monta a URI que o app entende
     uri = pyotp.totp.TOTP(user.otp_secret).provisioning_uri(
         name=user.email or user.username, 
         issuer_name="ArenaLake Enterprise"
     )
 
-    # Gera a imagem do QR Code em Base64
     qr = qrcode.make(uri)
     buffered = BytesIO()
     qr.save(buffered, format="PNG")
@@ -92,22 +90,29 @@ def complete_first_access(data: FirstAccessSetup, current_user: User = Depends(g
     if current_user.is_2fa_verified:
         raise HTTPException(status_code=400, detail="Setup já foi realizado.")
 
-    # Re-consulta o usuário usando a sessão ativa atual do banco
     user = db.query(User).filter(User.username == current_user.username).first()
 
     if not user.otp_secret:
         raise HTTPException(status_code=400, detail="Segredo 2FA não inicializado. Recarregue a página.")
 
-    # Valida o código 2FA (TOTP) usando o segredo real salvo no banco
+    # 🚀 ENGENHARIA DE VERDADE: Validação puramente matemática via UNIX Epoch
+    # Ignoramos o timezone do container e operamos no timestamp absoluto.
     totp = pyotp.TOTP(user.otp_secret)
-    if not totp.verify(data.otp_code, valid_window=60):
+    current_interval = int(time.time()) // 30
+    
+    is_valid = False
+    # Tolerância atômica exata: ciclo atual, um anterior (-30s) e um seguinte (+30s)
+    for offset in [-1, 0, 1]:
+        if totp.generate_otp(current_interval + offset) == data.otp_code.strip():
+            is_valid = True
+            break
+
+    if not is_valid:
         raise HTTPException(status_code=400, detail="Código de autenticação (2FA) inválido.")
 
-    # Valida regras básicas da nova senha
     if len(data.new_password) < 8:
         raise HTTPException(status_code=400, detail="A senha deve ter pelo menos 8 caracteres.")
 
-    # Salva a nova senha com Hash e libera o usuário
     user.hashed_password = pwd_context.hash(data.new_password)
     user.must_change_password = False
     user.is_2fa_verified = True
