@@ -99,9 +99,23 @@ def complete_first_access(data: FirstAccessSetup, current_user: User = Depends(g
         current_user.otp_secret = pyotp.random_base32()
         db.commit()
 
-    # 1. Valida o código 2FA (TOTP)
+    # --- LOGS DE DIAGNÓSTICO ---
+    print(f"\n[DEBUG 2FA] ----------------------------------------")
+    print(f"[DEBUG 2FA] Usuário: {current_user.username}")
+    print(f"[DEBUG 2FA] Secret salvo no Banco: {current_user.otp_secret}")
+    print(f"[DEBUG 2FA] Código recebido do Front: {data.otp_code}")
+    
     totp = pyotp.TOTP(current_user.otp_secret)
-    if not totp.verify(data.otp_code, valid_window=60):
+    expected_code = totp.now()
+    print(f"[DEBUG 2FA] Código que o Servidor espera AGORA: {expected_code}")
+    
+    is_valid = totp.verify(data.otp_code, valid_window=60)
+    print(f"[DEBUG 2FA] Resultado da validação (verify): {is_valid}")
+    print(f"[DEBUG 2FA] ----------------------------------------\n")
+    # ---------------------------
+
+    # 1. Valida o código 2FA (TOTP)
+    if not is_valid:
         raise HTTPException(status_code=400, detail="Código de autenticação (2FA) inválido.")
 
     # 2. Valida regras básicas da nova senha
