@@ -94,35 +94,22 @@ def complete_first_access(data: FirstAccessSetup, current_user: User = Depends(g
     if current_user.is_2fa_verified:
         raise HTTPException(status_code=400, detail="Setup já foi realizado.")
 
-    # Blindagem: se o otp_secret estiver nulo no banco, gera um novo na hora para evitar crash
     if not current_user.otp_secret:
         current_user.otp_secret = pyotp.random_base32()
         db.commit()
 
-    # --- LOGS DE DIAGNÓSTICO ---
-    print(f"\n[DEBUG 2FA] ----------------------------------------")
-    print(f"[DEBUG 2FA] Usuário: {current_user.username}")
-    print(f"[DEBUG 2FA] Secret salvo no Banco: {current_user.otp_secret}")
-    print(f"[DEBUG 2FA] Código recebido do Front: {data.otp_code}")
-    
+    # --- DIAGNÓSTICO MATEMÁTICO ---
     totp = pyotp.TOTP(current_user.otp_secret)
-    expected_code = totp.now()
-    print(f"[DEBUG 2FA] Código que o Servidor espera AGORA: {expected_code}")
-    
-    is_valid = totp.verify(data.otp_code, valid_window=60)
-    print(f"[DEBUG 2FA] Resultado da validação (verify): {is_valid}")
-    print(f"[DEBUG 2FA] ----------------------------------------\n")
-    # ---------------------------
+    print(f"\n[DEBUG 2FA] Secret no Banco: {current_user.otp_secret}")
+    print(f"[DEBUG 2FA] Código digitado por você: {data.otp_code}")
+    print(f"[DEBUG 2FA] Código que o Servidor espera AGORA: {totp.now()}")
+    print(f"[DEBUG 2FA] Validação com janela 60: {totp.verify(data.otp_code, valid_window=60)}")
+    print(f"----------------------------------------\n")
+    # -----------------------------
 
-    # 1. Valida o código 2FA (TOTP)
-    if not is_valid:
+    if not totp.verify(data.otp_code, valid_window=60):
         raise HTTPException(status_code=400, detail="Código de autenticação (2FA) inválido.")
 
-    # 2. Valida regras básicas da nova senha
-    if len(data.new_password) < 8:
-        raise HTTPException(status_code=400, detail="A senha deve ter pelo menos 8 caracteres.")
-
-    # 3. Salva a nova senha com Hash e libera o usuário
     current_user.hashed_password = pwd_context.hash(data.new_password)
     current_user.must_change_password = False
     current_user.is_2fa_verified = True
