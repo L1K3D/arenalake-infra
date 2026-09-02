@@ -17,7 +17,7 @@ async function fetchSystemResources() {
     const resourcesContainer = document.getElementById('resources-status') || document.querySelector('.resources-info');
 
     if (!token) {
-        console.warn('Token JWT não encontrado. Redirecionando para o login...');
+        console.warn('JWT token not found. Redirecting to login...');
         window.location.href = '/';
         return;
     }
@@ -32,13 +32,13 @@ async function fetchSystemResources() {
         });
 
         if (response.status === 401) {
-            console.error('Sessão expirada ou não autorizada.');
+            console.error('Session expired or unauthorized.');
             window.location.href = '/';
             return;
         }
 
         if (!response.ok) {
-            throw new Error(`Erro ${response.status}: Falha ao buscar recursos do cluster.`);
+            throw new Error(`Error ${response.status}: Failed to fetch cluster resources.`);
         }
 
         const result = await response.json();
@@ -47,9 +47,9 @@ async function fetchSystemResources() {
             updateResourcesUI(result.data);
         }
     } catch (error) {
-        console.error('Erro ao carregar recursos do sistema:', error);
+        console.error('Error loading system resources:', error);
         if (resourcesContainer) {
-            resourcesContainer.innerHTML = `<span style="color: #ff7b72;">⚠️ Erro ao carregar recursos do servidor.</span>`;
+            resourcesContainer.innerHTML = `<span style="color: #ff7b72;">⚠️ Error loading server resources.</span>`;
         }
     }
 }
@@ -62,7 +62,7 @@ function updateResourcesUI(data) {
     const resourcesContainer = document.getElementById('resources-status') || document.querySelector('.resources-info');
     if (resourcesContainer) {
         resourcesContainer.innerHTML = `
-            <span>💡 <strong>Recursos Disponíveis no Cluster:</strong> ${data.available_cpus} Cores CPU | ${data.available_mem_gb} GB RAM livres</span>
+            <span>💡 <strong>Resources available in the cluster:</strong> ${data.available_cpus} CPU cores | ${data.available_mem_gb} GB RAM free</span>
         `;
     }
 }
@@ -72,27 +72,23 @@ function updateResourcesUI(data) {
  * @param {string} perfil - Selected profile ('standard' or 'extreme')
  */
 function selectCard(perfil) {
-    // Remove selected class from all cards
     document.getElementById('card-standard').classList.remove('selected');
     document.getElementById('card-extreme').classList.remove('selected');
 
-    // Add selected class to clicked card
     document.getElementById('card-' + perfil).classList.add('selected');
 
-    // Store selected profile in hidden input or data attribute if present
     const profileInput = document.getElementById('perfilInput');
     if (profileInput) {
         profileInput.value = perfil;
     }
 
-    // Enable launch button and update button text based on profile
     const btn = document.getElementById('btnLaunch');
     if (btn) {
         btn.disabled = false;
         if (perfil === 'standard') {
-            btn.innerText = "🚀 Iniciar Ambiente Standard";
+            btn.innerText = "🚀 Start Standard Environment";
         } else {
-            btn.innerText = "🚀 Iniciar Ambiente Extreme";
+            btn.innerText = "🚀 Start Extreme Environment";
         }
     }
 }

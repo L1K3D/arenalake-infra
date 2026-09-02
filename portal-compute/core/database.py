@@ -3,7 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 
-# Banco SQLite leve e embutido
+# Lightweight embedded SQLite database used by the application.
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
 engine = create_engine(
@@ -15,7 +15,7 @@ Base = declarative_base()
 
 
 def get_db():
-    """Dependency para injetar a sessão do banco nas rotas do FastAPI"""
+    """FastAPI dependency that injects a database session into routes."""
     db = SessionLocal()
     try:
         yield db

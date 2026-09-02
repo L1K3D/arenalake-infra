@@ -2,91 +2,70 @@
 <html>
 
 <head>
-    <!-- Page Title -->
-    <title>ArenaLake - Setup de Ambiente</title>
-    <!-- Link to external stylesheet for the setup page styling -->
+    <title>ArenaLake - Environment Setup</title>
     <link rel="stylesheet" href="/static/css/setup.css">
 </head>
 
 <body>
-    <!-- Main container for the hardware setup UI -->
     <div class="container">
-        <!-- Platform Header and Welcome Message using Jinja2 templating -->
-        <h2>⚙️ Configuração do Workspace</h2>
-        <p class="subtitle">Bem-vindo(a), <b>{{ usuario }}</b>. Selecione o poder computacional para a sua sessão.</p>
+        <h2>⚙️ Workspace Setup</h2>
+        <p class="subtitle">Welcome, <b>{{ usuario }}</b>. Select the compute power for your session.</p>
 
-        <!-- Painel de Recursos em Tempo Real -->
         <div id="resource-banner"
             style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; margin-bottom: 25px; text-align: center; color: #c9d1d9;">
-            📊 <b>Buscando recursos disponíveis no servidor...</b>
+            📊 <b>Fetching available server resources...</b>
         </div>
 
-        <!-- Provisioning Form: Submits the user and selected hardware profile to the backend (/provisionar) -->
         <form action="/provisionar" method="post" id="setupForm">
-            <!-- Hidden input field to pass the logged-in username to the backend securely -->
             <input type="hidden" name="usuario" value="{{ usuario }}">
 
-            <!-- Grid container for the hardware profile cards -->
             <div class="card-grid">
-                <!-- STANDARD PROFILE CARD -->
-                <!-- Selects the baseline configuration for everyday data exploration tasks -->
                 <label class="machine-card" id="card-standard" onclick="selectCard('standard')">
-                    <!-- Hidden radio button required for form submission -->
                     <input type="radio" name="perfil" value="standard" required>
                     <div class="machine-title title-standard">🌱 Standard</div>
                     <div class="machine-specs">
                         <b>CPU:</b> 2 Cores<br>
                         <b>RAM:</b> 4 GB
                     </div>
-                    <div class="machine-desc">Ideal para tarefas do dia a dia, desenvolvimento de scripts básicos e
-                        análise exploratória de dados.</div>
+                    <div class="machine-desc">Ideal for everyday tasks, basic scripting, and exploratory data analysis.</div>
                     <div class="insufficient-resource" id="warn-standard"
                         style="display: none; color: #f85149; font-size: 0.8em; margin-top: 10px; font-weight: bold;">
-                        Recursos Insuficientes
+                        Insufficient resources
                     </div>
                 </label>
 
-                <!-- EXTREME PROFILE CARD -->
-                <!-- Selects the high-performance configuration for heavy Spark/ML workloads -->
                 <label class="machine-card" id="card-extreme" onclick="selectCard('extreme')">
-                    <!-- Hidden radio button for form submission -->
                     <input type="radio" name="perfil" value="extreme">
                     <div class="machine-title title-extreme">🚀 Extreme</div>
                     <div class="machine-specs">
                         <b>CPU:</b> 6 Cores<br>
                         <b>RAM:</b> 8 GB
                     </div>
-                    <div class="machine-desc">Alta performance. Recomendado para uso intenso no Apache Spark e
-                        algoritmos de Machine Learning.</div>
+                    <div class="machine-desc">High performance. Recommended for heavy Apache Spark and Machine Learning workloads.</div>
                     <div class="insufficient-resource" id="warn-extreme"
                         style="display: none; color: #f85149; font-size: 0.8em; margin-top: 10px; font-weight: bold;">
-                        Recursos Insuficientes
+                        Insufficient resources
                     </div>
                 </label>
             </div>
 
-            <!-- Launch Button: Initially disabled, enabled dynamically via JS once a profile is selected -->
-            <button type="submit" class="btn-launch" id="btnLaunch" disabled>Selecione um Perfil Acima</button>
+            <button type="submit" class="btn-launch" id="btnLaunch" disabled>Select a profile above</button>
         </form>
     </div>
 
-    <!-- External script handling card selection logic and button activation -->
     <script src="/static/js/setup.js"></script>
 
-    <!-- Monitoramento em Tempo Real e Lógica de Bloqueio -->
     <script>
         async function fetchSystemResources() {
             try {
-                // 1. Busca o token JWT armazenado pelo login.js
                 const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
 
                 if (!token) {
-                    console.warn("Token não encontrado, redirecionando para o login...");
+                    console.warn("Token not found, redirecting to login...");
                     window.location.href = '/';
                     return;
                 }
 
-                // 2. Injeta o token no cabeçalho Authorization
                 const response = await fetch('/api/system/resources', {
                     method: 'GET',
                     headers: {
@@ -95,7 +74,6 @@
                     }
                 });
 
-                // Se a sessão expirou ou for inválida, desloga graciosamente
                 if (response.status === 401) {
                     window.location.href = '/';
                     return;
@@ -107,20 +85,18 @@
                     const data = result.data;
                     const banner = document.getElementById('resource-banner');
 
-                    // Atualiza o painel visual com os recursos livres
                     banner.innerHTML = `
-                        <div style="font-size: 0.9em; color: #8b949e; margin-bottom: 5px;">Recursos Livres para Alocação no Host:</div>
+                        <div style="font-size: 0.9em; color: #8b949e; margin-bottom: 5px;">Free resources available on the host:</div>
                         <div style="font-size: 1.2em;">
-                            CPU: <span style="color: #58a6ff; font-weight: bold;">${data.available_cpus.toFixed(1)} Cores</span> &nbsp;|&nbsp; 
+                            CPU: <span style="color: #58a6ff; font-weight: bold;">${data.available_cpus.toFixed(1)} cores</span> &nbsp;|&nbsp; 
                             RAM: <span style="color: #3fb950; font-weight: bold;">${data.available_mem_gb.toFixed(1)} GB</span>
                         </div>
                     `;
 
-                    // Valida os recursos contra os limites dos perfis
                     verificarDisponibilidade(data.available_cpus, data.available_mem_gb);
                 }
             } catch (error) {
-                console.error('Erro ao buscar recursos do host:', error);
+                console.error('Error fetching host resources:', error);
             }
         }
 
@@ -135,18 +111,16 @@
 
             const btnLaunch = document.getElementById('btnLaunch');
 
-            // Regra do Perfil Standard (Exige: 2 CPU e 4 GB RAM)
             if (cpusLivres < 2 || ramLivre < 4) {
                 cardStandard.style.opacity = '0.4';
                 cardStandard.style.pointerEvents = 'none';
                 radioStandard.disabled = true;
                 warnStandard.style.display = 'block';
 
-                // Se o usuário já tinha selecionado e os recursos acabaram, desmarca
                 if (radioStandard.checked) {
                     radioStandard.checked = false;
                     btnLaunch.disabled = true;
-                    btnLaunch.innerText = 'Selecione um Perfil Acima';
+                    btnLaunch.innerText = 'Select a profile above';
                     cardStandard.classList.remove('selected');
                 }
             } else {
@@ -156,18 +130,16 @@
                 warnStandard.style.display = 'none';
             }
 
-            // Regra do Perfil Extreme (Exige: 6 CPU e 8 GB RAM)
             if (cpusLivres < 6 || ramLivre < 8) {
                 cardExtreme.style.opacity = '0.4';
                 cardExtreme.style.pointerEvents = 'none';
                 radioExtreme.disabled = true;
                 warnExtreme.style.display = 'block';
 
-                // Se o usuário já tinha selecionado e os recursos acabaram, desmarca
                 if (radioExtreme.checked) {
                     radioExtreme.checked = false;
                     btnLaunch.disabled = true;
-                    btnLaunch.innerText = 'Selecione um Perfil Acima';
+                    btnLaunch.innerText = 'Select a profile above';
                     cardExtreme.classList.remove('selected');
                 }
             } else {
@@ -178,7 +150,6 @@
             }
         }
 
-        // Dispara a primeira busca na hora e repete a cada 5 segundos
         fetchSystemResources();
         setInterval(fetchSystemResources, 5000);
     </script>

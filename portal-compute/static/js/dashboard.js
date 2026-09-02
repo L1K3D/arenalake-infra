@@ -144,7 +144,7 @@ async function loadCatalog() {
         }
     } catch (e) {
         // Show error message in table if catalog fetch fails
-        document.querySelector('#catalogTable tbody').innerHTML = '<tr><td colspan="3" style="text-align:center; color:red;">Erro ao conectar no MinIO.</td></tr>';
+        document.querySelector('#catalogTable tbody').innerHTML = '<tr><td colspan="3" style="text-align:center; color:red;">Error connecting to MinIO.</td></tr>';
     }
 }
 
@@ -250,7 +250,7 @@ function renderCatalogTable() {
 async function uploadFile() {
     const fileInput = document.getElementById('fileInput');
     const bucket = document.getElementById('bucketSelect').value;
-    if (fileInput.files.length === 0) return alert('Selecione um arquivo primeiro!');
+    if (fileInput.files.length === 0) return alert('Select a file first!');
 
     const formData = new FormData();
     formData.append('file', fileInput.files[0]);
@@ -261,13 +261,13 @@ async function uploadFile() {
         const res = await fetch('/api/upload', { method: 'POST', body: formData });
         const result = await res.json();
         if (result.status === 'success') {
-            fileInput.value = '';  // Clear input
-            loadCatalog();  // Refresh catalog display
+            fileInput.value = '';
+            loadCatalog();
         } else {
-            alert('Erro: ' + result.message);
+            alert('Error: ' + result.message);
         }
     } catch (e) {
-        alert('Erro ao enviar arquivo.');
+        alert('Error uploading the file.');
     }
 }
 
@@ -284,8 +284,7 @@ async function openPreview(bucket, filename) {
     // Show side panel and set filename
     document.getElementById('sidePanel').classList.add('open');
     document.getElementById('spFilename').innerText = filename;
-    document.getElementById('spContent').innerHTML = "<div style='color:#8b949e'>Gerando visualização e extraindo metadados...</div>";
-
+    document.getElementById('spContent').innerHTML = "<div style='color:#8b949e'>Generating preview and extracting metadata...</div>";
     try {
         // Fetch preview data from backend
         const res = await fetch(`/api/preview/${bucket}/${filename}`);
@@ -314,7 +313,7 @@ async function openPreview(bucket, filename) {
             document.getElementById('spContent').innerHTML = contentHtml;
         }
     } catch (e) {
-        document.getElementById('spContent').innerHTML = "<div style='color:red'>Erro ao carregar preview.</div>";
+        document.getElementById('spContent').innerHTML = "<div style='color:red'>Error loading preview.</div>";
     }
 }
 
@@ -349,9 +348,8 @@ async function loadMetrics() {
         const wsRamBar = document.getElementById('wsRamBar');
 
         if (data.status === 'online') {
-            // Workspace is running - update all metric displays
             if (ramValEl) ramValEl.innerText = `${data.memory_usage_mb} MB`;
-            if (ramPctEl) ramPctEl.innerText = `${data.memory_percent}% de ${data.memory_limit_mb}MB`;
+            if (ramPctEl) ramPctEl.innerText = `${data.memory_percent}% of ${data.memory_limit_mb}MB`;
             if (cpuValEl) cpuValEl.innerText = `${data.cpu_percent} %`;
 
             // Update workspace top bar metrics
@@ -427,7 +425,7 @@ async function updateSparkDashboard() {
 
         let workersHtml = '';
         if (data.workers && data.workers.length === 0) {
-            workersHtml = '<span style="color: #8b949e;">Nenhum worker alocado/ativo no momento.</span>';
+            workersHtml = '<span style="color: #8b949e;">No worker allocated/active at the moment.</span>';
         } else {
             data.workers.forEach(w => {
                 workersHtml += `
@@ -443,7 +441,7 @@ async function updateSparkDashboard() {
 
         let activeHtml = '';
         if (data.active_apps && data.active_apps.length === 0) {
-            activeHtml = '<span style="color: #8b949e;">Nenhuma aplicação rodando no momento. Inicie um processo no seu Jupyter.</span>';
+            activeHtml = '<span style="color: #8b949e;">No application is running right now. Start a process in your Jupyter session.</span>';
             expandedAppId = null;
         } else {
             activeHtml = `<table style="${tableStyle}">
@@ -482,7 +480,7 @@ async function updateSparkDashboard() {
 
         let completedHtml = '';
         if (data.completed_apps && data.completed_apps.length === 0) {
-            completedHtml = '<span style="color: #8b949e;">Nenhum histórico recente de execuções.</span>';
+            completedHtml = '<span style="color: #8b949e;">No recent execution history.</span>';
         } else {
             completedHtml = `<table style="${tableStyle}">
                     <tr><th style="${thStyle}">Nome do Job</th><th style="${thStyle}">Usuário</th><th style="${thStyle}">Estado</th><th style="${thStyle}">Duração</th></tr>`;
@@ -523,12 +521,12 @@ async function refreshJobProgress(appId) {
         const data = await res.json();
 
         if (data.status !== 'success') {
-            contentDiv.innerHTML = `<span style="color:#f85149">❌ Falha ao buscar métricas: ${data.message}</span>`;
+            contentDiv.innerHTML = `<span style="color:#f85149">❌ Failed to fetch metrics: ${data.message}</span>`;
             return;
         }
 
         if (!data.jobs || data.jobs.length === 0) {
-            contentDiv.innerHTML = '<span style="color:#8b949e">Aguardando início de processamento... Execute uma ação (como .show() ou .write) no Jupyter!</span>';
+            contentDiv.innerHTML = '<span style="color:#8b949e">Waiting for processing to begin... Run an action in Jupyter (such as .show() or .write).</span>';
             return;
         }
 
@@ -552,7 +550,7 @@ async function refreshJobProgress(appId) {
                         <strong style="color: #c9d1d9; font-size: 13px;">Job ID ${job.jobId} 
                             <span style="color: ${statusColor}; font-size: 11px; margin-left: 8px; border: 1px solid ${statusColor}40; padding: 2px 6px; border-radius: 10px;">${job.status}</span>
                         </strong>
-                        <span style="font-size: 12px; color: #8b949e;">${completed}/${total} Tasks Completas</span>
+                        <span style="font-size: 12px; color: #8b949e;">${completed}/${total} Completed Tasks</span>
                     </div>
                     
                     <div style="font-size: 12px; color: #8b949e; margin-bottom: 10px; font-family: monospace;">${job.name}</div>
@@ -601,7 +599,7 @@ async function loadSchedulerData() {
         // 1. Renderiza Scripts Disponíveis
         let scriptsHtml = '';
         if (data.scripts.length === 0) {
-            scriptsHtml = '<p style="color: #8b949e; font-style: italic;">Nenhum script .py encontrado na pasta /jobs do host.</p>';
+            scriptsHtml = '<p style="color: #8b949e; font-style: italic;">No .py scripts found in the host /jobs folder.</p>';
         } else {
             data.scripts.forEach(script => {
                 scriptsHtml += `
@@ -619,16 +617,16 @@ async function loadSchedulerData() {
         // 2. Renderiza Agendamentos Ativos
         let schedHtml = '';
         if (data.scheduled.length === 0) {
-            schedHtml = '<p style="color: #8b949e; font-style: italic;">Nenhum job agendado no momento.</p>';
+            schedHtml = '<p style="color: #8b949e; font-style: italic;">No jobs scheduled at the moment.</p>';
         } else {
             data.scheduled.forEach(job => {
                 schedHtml += `
                 <div style="display: flex; justify-content: space-between; align-items: center; background: #0d1117; padding: 12px; margin-bottom: 8px; border-radius: 6px; border: 1px solid #30363d;">
                     <div>
                         <div style="color: #c9d1d9; font-weight: bold;">${job.name}</div>
-                        <div style="color: #8b949e; font-size: 12px; margin-top: 4px;">Próxima execução: <span style="color: #e6edf3;">${job.next_run}</span></div>
+                        <div style="color: #8b949e; font-size: 12px; margin-top: 4px;">Next run: <span style="color: #e6edf3;">${job.next_run}</span></div>
                     </div>
-                    <button onclick="cancelSchedule('${job.id}')" class="btn" style="background: #da3633; border: none; padding: 6px 12px; font-size: 12px;">❌ Cancelar</button>
+                    <button onclick="cancelSchedule('${job.id}')" class="btn" style="background: #da3633; border: none; padding: 6px 12px; font-size: 12px;">❌ Cancel</button>
                 </div>`;
             });
         }
@@ -640,24 +638,23 @@ async function loadSchedulerData() {
 }
 
 async function runJobNow(scriptName) {
-    if (!confirm(`Deseja enviar o script "${scriptName}" agora para processamento no cluster Spark?`)) return;
+    if (!confirm(`Do you want to send the script "${scriptName}" to the Spark cluster now?`)) return;
 
     try {
         const res = await fetch(`/api/jobs/run/${scriptName}`, { method: 'POST' });
         const data = await res.json();
         alert(data.message);
 
-        // Se disparar com sucesso, manda o usuário pra aba "Spark Process" pra ver as barras carregando!
         if (data.status === 'success') {
             document.querySelectorAll('.menu-item')[4].click();
         }
     } catch (e) {
-        alert("Erro fatal ao tentar executar o script.");
+        alert("Fatal error while trying to execute the script.");
     }
 }
 
 async function promptScheduleJob(scriptName) {
-    const cron = prompt(`⏰ Agendar: ${scriptName}\n\nDigite a expressão Cron.\nExemplo: "0 2 * * *" (Todo dia às 02:00 da manhã)`, "0 2 * * *");
+    const cron = prompt(`⏰ Schedule: ${scriptName}\n\nEnter the Cron expression.\nExample: "0 2 * * *" (Every day at 02:00)`, "0 2 * * *");
     if (!cron) return;
 
     const formData = new FormData();
@@ -670,19 +667,19 @@ async function promptScheduleJob(scriptName) {
         alert(data.message);
         loadSchedulerData();
     } catch (e) {
-        alert("Erro ao tentar agendar o script.");
+        alert("Error while trying to schedule the script.");
     }
 }
 
 async function cancelSchedule(jobId) {
-    if (!confirm("Deseja realmente cancelar este agendamento? Ele não rodará mais automaticamente.")) return;
+    if (!confirm("Do you really want to cancel this schedule? It will no longer run automatically.")) return;
 
     try {
         const res = await fetch(`/api/jobs/schedule/${jobId}`, { method: 'DELETE' });
         const data = await res.json();
         loadSchedulerData();
     } catch (e) {
-        alert("Erro ao tentar cancelar o agendamento.");
+        alert("Error while trying to cancel the schedule.");
     }
 }
 
@@ -729,12 +726,11 @@ async function confirmarNovoVisual() {
     const limiteLinhas = parseInt(document.getElementById('biLimiteLinhas').value) || 100;
     const colunasSelecionadas = Array.from(document.getElementById('biColunasTabela').selectedOptions).map(opt => opt.value);
 
-    if (!selector) return alert("Selecione uma tabela.");
+    if (!selector) return alert("Select a table.");
 
-    // VALIDAÇÃO INTELIGENTE (Ignora Eixo X e Y se for tabela)
-    if (tipo === 'table' && colunasSelecionadas.length === 0) return alert("Selecione pelo menos 1 coluna para a tabela.");
-    if (tipo === 'kpi' && !eixoY) return alert("Selecione a métrica (Eixo Y)."); // Validação do KPI
-    if (tipo !== 'table' && tipo !== 'kpi' && (!eixoX || !eixoY)) return alert("Selecione os eixos X e Y.");
+    if (tipo === 'table' && colunasSelecionadas.length === 0) return alert("Select at least 1 column for the table.");
+    if (tipo === 'kpi' && !eixoY) return alert("Select the metric (Y Axis).");
+    if (tipo !== 'table' && tipo !== 'kpi' && (!eixoX || !eixoY)) return alert("Select the X and Y axes.");
 
     const [bucket, filename] = selector.split('|');
     fecharModalVisual();
@@ -766,10 +762,10 @@ async function confirmarNovoVisual() {
             const config = { bucket, filename, eixo_x: eixoX, eixo_y: eixoY, eixo_z: eixoZ, agregacao, tipo, colunas_tabela: colunasSelecionadas, tema: tema, ordenar_por: ordenarPor, ordem, limite_linhas: limiteLinhas };
             adicionarGraficoGrid(idUnico, titulo, tipo, result.data, config);
         } else {
-            alert("Erro no processamento dos dados: " + result.message);
+            alert("Error processing the data: " + result.message);
         }
     } catch (e) {
-        alert("Erro ao conectar com o motor analítico.");
+        alert("Error connecting to the analytical engine.");
     }
 }
 
@@ -1347,10 +1343,10 @@ async function carregarColunasDataset() {
             ['biEixoX', 'biEixoY', 'biEixoZ', 'biOrdenarPor'].forEach(el => document.getElementById(el).innerHTML = colsHtml);
             document.getElementById('biColunasTabela').innerHTML = colsMultiHtml;
         } else {
-            alert("Erro ao extrair colunas: " + data.message);
+            alert("Error extracting columns: " + data.message);
         }
     } catch (e) {
-        alert("Falha de conexão com o backend.");
+        alert("Connection failure with the backend.");
     }
 }
 
@@ -1362,7 +1358,7 @@ async function exportarDashboard(formato) {
 
     // Verifica se tem algum card no Dashboard
     if (biGrid.engine.nodes.length === 0) {
-        alert("O Dashboard está vazio. Adicione gráficos antes de exportar.");
+        alert("The dashboard is empty. Add charts before exporting.");
         return;
     }
 
@@ -1401,7 +1397,7 @@ async function exportarDashboard(formato) {
             pdf.save(`ArenaLake_Relatorio_${new Date().toISOString().slice(0, 10)}.pdf`);
         }
     } catch (error) {
-        alert("Ocorreu um erro ao gerar o relatório.");
+        alert("An error occurred while generating the report.");
         console.error(error);
     } finally {
         // Restaura a borda da interface
@@ -1452,7 +1448,7 @@ window.globalFiltroValor = "";
 
 async function abrirModalFiltroGlobal() {
     const selector = document.getElementById('biDatasetSelector').value;
-    if (!selector) return alert("Selecione uma fonte de dados na barra superior primeiro.");
+    if (!selector) return alert("Select a data source from the top bar first.");
 
     const [bucket, filename] = selector.split('|');
     const res = await fetch('/api/bi/colunas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bucket, filename }) });

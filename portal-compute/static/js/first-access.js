@@ -1,19 +1,17 @@
 /* ============================================================================
    ArenaLake First-Access JavaScript
    ============================================================================
-   Handles QR code loading, JWT authentication verification, and secure 
+   Handles QR code loading, JWT authentication verification, and secure
    onboarding submission (password change + 2FA token validation).
    ============================================================================ */
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. Pega o token JWT do cofre (se não tiver, expulsa pro login)
     const token = sessionStorage.getItem('sessionStorage' in window ? sessionStorage.getItem('access_token') : localStorage.getItem('access_token')) || sessionStorage.getItem('access_token');
     if (!token) {
         window.location.href = '/';
         return;
     }
 
-    // 2. Busca o QR Code gerado pelo backend
     try {
         const resQr = await fetch('/api/auth/2fa/generate', {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -24,13 +22,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('qr-code-img').src = dataQr.qr_code_base64;
         } else {
             const err = await resQr.json();
-            alert("Erro ao gerar 2FA: " + (err.detail || "Consulte o admin."));
+            alert("Error generating 2FA: " + (err.detail || "Contact the admin."));
         }
     } catch (e) {
-        alert("Erro de conexão com o servidor.");
+        alert("Server connection error.");
     }
 
-    // 3. Intercepta o formulário para validar a senha e o código
     const form = document.getElementById('first-access-form');
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -51,19 +48,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             const result = await resSetup.json();
 
             if (resSetup.ok) {
-                alert("Segurança configurada com sucesso! Bem-vindo ao ArenaLake.");
+                alert("Security configured successfully! Welcome to ArenaLake.");
 
-                // 4. Roteamento Inteligente baseado no nível de privilégio (RBAC)
                 if (result.role === 'admin') {
-                    window.location.href = '/admin'; // Redireciona o DBA para o Painel de Controle
+                    window.location.href = '/admin';
                 } else {
-                    window.location.href = '/setup'; // Redireciona o usuário comum para o Workspace
+                    window.location.href = '/setup';
                 }
             } else {
-                alert(result.detail || "Código inválido ou senha fraca.");
+                alert(result.detail || "Invalid code or weak password.");
             }
         } catch (error) {
-            alert("Erro ao validar dados.");
+            alert("Error while validating the data.");
         }
     });
 });

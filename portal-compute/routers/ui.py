@@ -26,32 +26,32 @@ templates = Jinja2Templates(directory="templates")
 
 @router.get("/")
 async def login_page(request: Request):
-    # Consertado: Passando nome e request explicitamente
+    # Fixed: explicitly passing the request and template name.
     return templates.TemplateResponse(request=request, name="login.html")
 
 
 @router.post("/login")
 async def login(request: Request, usuario: str = Form(...), senha: str = Form(...)):
-    # Normaliza o username
+    # Normalize the username to the expected internal format.
     usr_formatado = usuario.lower().strip().replace(" ", "-")
-    
+
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.username == usr_formatado).first()
-        
-        # Se o usuário não existe ou a senha está errada, joga de volta pro login
+
+        # If the user does not exist or the password is wrong, send them back to login.
         if not user or not verify_password(senha, user.hashed_password):
             return RedirectResponse(url="/", status_code=303)
-            
-        # Se ele ainda precisa trocar senha ou configurar o 2FA, manda para o first-access!
+
+        # If the user must change password or has not completed 2FA, redirect to first-access.
         if user.must_change_password or not user.is_2fa_verified:
             return RedirectResponse(url="/first-access", status_code=303)
-            
-        # 👑 SE FOR ADMIN, VAI DIRETO PARA O PAINEL DE CONTROLE DBA!
+
+        # Admin users jump directly to the DBA control panel.
         if user.role == "admin":
             return RedirectResponse(url="/admin", status_code=303)
-            
-        # Se for usuário comum, libera o acesso para a escolha de hardware no setup
+
+        # Standard users proceed to the hardware selection setup page.
         return templates.TemplateResponse(
             request=request,
             name="setup.html",
@@ -63,9 +63,9 @@ async def login(request: Request, usuario: str = Form(...), senha: str = Form(..
 
 @router.post("/shutdown")
 async def shutdown_ambiente(usuario: str = Form(...)):
-    # Desliga os containers imediatamente
+    # Stop the user workspace containers immediately.
     shutdown_workspace(usuario)
-    # Joga o usuário de volta para a tela inicial de login
+    # Redirect the user back to the initial login screen.
     return RedirectResponse(url="/", status_code=303)
 
 
