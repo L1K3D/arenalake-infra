@@ -6,29 +6,32 @@ import time
 
 
 def check_root():
+    """Ensure the script runs with administrator privileges."""
     if os.geteuid() != 0:
-        print("[Erro] Este script precisa de privilégios de administrador.")
-        print("Rode novamente usando: sudo python3 uninstall.py")
+        print("[ERROR] This script requires administrator privileges.")
+        print("Run it again with: sudo python3 uninstall.py")
         sys.exit(1)
 
 
 def confirm_destruction():
+    """Double-check that the operator really wants to remove the platform."""
     print("\n" + "!" * 60)
-    print(" ⚠️  ALERTA DE DESTRUIÇÃO CRÍTICA (BOTÃO VERMELHO) ⚠️")
+    print(" ⚠️  CRITICAL DESTRUCTION ALERT (RED BUTTON) ⚠️")
     print("!" * 60)
-    print(" Você está prestes a desinstalar o ArenaLake deste servidor.")
-    print(" Isso irá derrubar todos os serviços, desconectar do cluster")
-    print(" e apagar as configurações locais.")
-    print("\n Para prosseguir, digite a palavra: DESTRUIR")
+    print(" You are about to uninstall ArenaLake from this server.")
+    print(" This will stop all services, disconnect the node from the cluster,")
+    print(" and delete the local configuration.")
+    print("\n To continue, type the word: DESTROY")
 
     resp = input("> ").strip()
-    if resp != "DESTRUIR":
-        print("\n[*] Desinstalação abortada. Ufa! Seus dados e serviços estão a salvo.")
+    if resp != "DESTROY":
+        print("\n[*] Uninstall aborted. Your data and services are still safe.")
         sys.exit(0)
 
 
 def remove_docker_stack(stack_name="arenalake-prod"):
-    print(f"\n[*] Passo 1: Derrubando a stack '{stack_name}'...")
+    """Remove the deployed stack from the Docker Swarm cluster."""
+    print(f"\n[*] Step 1: Removing stack '{stack_name}'...")
     try:
         subprocess.run(
             ["docker", "stack", "rm", stack_name],
@@ -38,7 +41,7 @@ def remove_docker_stack(stack_name="arenalake-prod"):
         )
 
         print(
-            "[*] Aguardando os containers serem finalizados (pode levar uns segundos)..."
+            "[*] Waiting for the containers to finish shutting down (this may take a few seconds)..."
         )
         while True:
             result = subprocess.run(
@@ -47,13 +50,14 @@ def remove_docker_stack(stack_name="arenalake-prod"):
             if stack_name not in result.stdout:
                 break
             time.sleep(2)
-        print("[+] Serviços do ArenaLake encerrados com sucesso.")
+        print("[+] ArenaLake services shut down successfully.")
     except Exception:
-        print("[-] Nenhuma stack do ArenaLake rodando (ou já foi removida).")
+        print("[-] No ArenaLake stack is running (or it has already been removed).")
 
 
 def leave_swarm():
-    print("\n[*] Passo 2: Desconectando do cluster Docker Swarm...")
+    """Disconnect the machine from the Docker Swarm network."""
+    print("\n[*] Step 2: Disconnecting from the Docker Swarm cluster...")
     try:
         subprocess.run(
             ["docker", "swarm", "leave", "--force"],
@@ -61,83 +65,86 @@ def leave_swarm():
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        print("[+] Servidor removido do cluster Swarm.")
+        print("[+] Server removed from the Swarm cluster.")
     except Exception:
-        print("[-] Este servidor já não faz parte de um cluster Swarm.")
+        print("[-] This server is not part of a Swarm cluster.")
 
 
 def clean_configs():
-    print("\n[*] Passo 3: Limpando arquivos de configuração...")
+    """Delete local configuration files that contain environment secrets."""
+    print("\n[*] Step 3: Cleaning configuration files...")
     if os.path.exists(".env"):
         os.remove(".env")
-        print("[+] Arquivo .env (credenciais e variáveis) removido.")
+        print("[+] .env file (credentials and variables) removed.")
     else:
-        print("[-] Arquivo .env não encontrado. Pulando.")
+        print("[-] .env file not found. Skipping.")
 
 
 def handle_data_volume():
+    """Optionally remove the physical DataLake storage directory."""
     print("\n============================================================")
-    print(" PASSO 4: DADOS DO DATALAKE (ATENÇÃO MÁXIMA)")
+    print(" STEP 4: DATALAKE DATA (MAXIMUM ATTENTION)")
     print("============================================================")
-    
-    # Atualizado para refletir o caminho dinâmico usado na nova arquitetura
+
+    # This path matches the dynamic storage layout used by the current architecture.
     current_project_dir = os.path.dirname(os.path.abspath(__file__))
     datalake_path = os.path.join(current_project_dir, "datalake_data")
 
     if os.path.exists(datalake_path):
-        print(f"Detectamos a pasta de armazenamento físico em: {datalake_path}")
-        print("Lá estão salvos os arquivos do banco de dados, MinIO, workspaces e jobs.")
+        print(f"We detected the physical storage folder at: {datalake_path}")
+        print("This folder contains database files, MinIO data, workspace content, and jobs.")
         print(
-            "\n⚠️  Se você apagar isso, TODOS OS DADOS DA EMPRESA SERÃO PERDIDOS PARA SEMPRE."
+            "\n⚠️  If you delete it, ALL COMPANY DATA WILL BE LOST FOREVER."
         )
 
         resp = (
             input(
-                "Deseja DELETAR DEFINITIVAMENTE os dados físicos do DataLake? (S/N) [Padrão: N]: "
+                "Do you want to permanently DELETE the physical DataLake data? (Y/N) [Default: N]: "
             )
             .strip()
             .lower()
         )
-        if resp == "s":
-            print(f"[*] Excluindo {datalake_path}...")
+        if resp == "y":
+            print(f"[*] Deleting {datalake_path}...")
             shutil.rmtree(datalake_path)
-            print("[+] Dados apagados com sucesso. Não há mais volta.")
+            print("[+] Data deleted successfully. There is no undo.")
         else:
             print(
-                "[*] Dados físicos MANTIDOS. O sistema foi removido, mas os dados estão salvos no HD."
+                "[*] Physical data kept. The system was removed, but the data remains on disk."
             )
     else:
-        print(f"[-] Diretório {datalake_path} não encontrado. Pulando.")
+        print(f"[-] Directory {datalake_path} not found. Skipping.")
 
 
 def handle_tailscale():
+    """Optionally disconnect the server from the Tailscale VPN network."""
     print("\n============================================================")
-    print(" PASSO 5: ACESSO REMOTO (TAILSCALE)")
+    print(" STEP 5: REMOTE ACCESS (TAILSCALE)")
     print("============================================================")
-    print("O Tailscale ainda está conectando este servidor à sua conta VPN.")
+    print("Tailscale is still connecting this server to your VPN account.")
     resp = (
         input(
-            "Deseja fazer LOGOUT e desconectar esta máquina da rede Tailscale? (S/N) [Padrão: N]: "
+            "Do you want to LOG OUT and disconnect this machine from the Tailscale network? (Y/N) [Default: N]: "
         )
         .strip()
         .lower()
     )
 
-    if resp == "s":
+    if resp == "y":
         try:
             subprocess.run(["tailscale", "logout"], check=True)
-            print("[+] Máquina desconectada da VPN Tailscale.")
+            print("[+] Machine disconnected from the Tailscale VPN.")
         except Exception:
-            print("[-] Falha ao desconectar (talvez o Tailscale não esteja rodando).")
+            print("[-] Failed to disconnect (maybe Tailscale is not running).")
     else:
-        print("[*] Conexão Tailscale mantida.")
+        print("[*] Tailscale connection kept active.")
 
 
 def main():
     check_root()
 
     print("=" * 60)
-    print("      ArenaLake - Uninstaller (Modo de Limpeza)")
+    print("      ArenaLake - Uninstaller (Cleanup Mode)")
     print("=" * 60)
 
     confirm_destruction()
@@ -149,8 +156,8 @@ def main():
     handle_tailscale()
 
     print("\n" + "=" * 60)
-    print(" 🧹 Desinstalação concluída com sucesso!")
-    print(" O ArenaLake foi removido deste servidor.")
+    print(" 🧹 Uninstallation completed successfully!")
+    print(" ArenaLake was removed from this server.")
     print("=" * 60 + "\n")
 
 

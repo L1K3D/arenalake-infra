@@ -1,8 +1,12 @@
 # -----------------------------------------------------------------------------
 # ArenaLake MVP Configuration - Core Infrastructure (Swarm Ready)
 # -----------------------------------------------------------------------------
+# This stack wires together the platform gateway, Spark engine, object storage,
+# the base workspace image, and the main portal application used by users.
 services:
 
+  # Traefik is the public edge router that exposes services through the host and
+  # routes incoming requests to the proper internal container.
   traefik:
     image: traefik:v2.11
     environment:
@@ -27,6 +31,8 @@ services:
         constraints:
           - node.role == manager
 
+  # Spark master node for distributed data processing jobs, analytics workloads,
+  # and notebook-style execution pipelines handled by the platform.
   spark-master:
     image: bitnamilegacy/spark:3.5
     environment:
@@ -43,6 +49,8 @@ services:
         constraints:
           - node.role == manager
 
+  # MinIO provides the S3-compatible data lake used to store datasets,
+  # uploaded files, and bucketized artifacts managed by the portal.
   minio:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
@@ -61,20 +69,24 @@ services:
         constraints:
           - node.role == manager
 
+  # Builds the reusable workspace base image used for per-user development
+  # containers and project runtime isolation inside the platform.
   workspace-builder:
     build:
       context: .
       dockerfile: docker/Dockerfile.workspace
     image: arenalake-workspace:latest
-    command: echo "Imagem arenalake-workspace construída com sucesso!"
+    command: echo "ArenaLake workspace image built successfully!"
     deploy:
       placement:
         constraints:
           - node.role == manager
 
+  # Builds and runs the main portal service: FastAPI app, login flow,
+  # dashboard, admin control panel, and the user-facing orchestration layer.
   portal:
     image: arenalake-prod-portal:latest
-    build: 
+    build:
       context: ./portal-compute
       dockerfile: Dockerfile
     env_file:

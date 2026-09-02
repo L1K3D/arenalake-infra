@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>ArenaLake - Segurança 2FA</title>
+    <title>ArenaLake - 2FA Security Setup</title>
     <link rel="stylesheet" href="/static/css/login.css">
     <style>
         .qr-container {
@@ -22,23 +22,22 @@
 
 <body>
     <div class="card" style="width: 400px;">
-        <h2>🔐 Configuração de Segurança</h2>
+        <h2>🔐 Security Setup</h2>
         <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">
-            Este é o seu primeiro acesso. É obrigatório trocar a senha e configurar o Google/Microsoft Authenticator.
+            This is your first sign-in. You must change your password and configure Google/Microsoft Authenticator.
         </p>
 
-        <!-- Aqui o JS vai injetar o QR Code -->
         <div class="qr-container">
-            <img id="qr-code-img" src="" alt="Carregando QR Code...">
+            <img id="qr-code-img" src="" alt="Loading QR Code...">
         </div>
-        <p style="color: #8b949e; font-size: 0.8em; margin-top: 0;">Escaneie com seu app de autenticação</p>
+        <p style="color: #8b949e; font-size: 0.8em; margin-top: 0;">Scan it with your authenticator app</p>
 
         <form id="first-access-form">
-            <input type="password" id="new_password" placeholder="Digite uma nova senha forte" required minlength="8">
-            <input type="text" id="otp_code" placeholder="Código de 6 dígitos do App (OTP)" required maxlength="6"
+            <input type="password" id="new_password" placeholder="Enter a strong new password" required minlength="8">
+            <input type="text" id="otp_code" placeholder="6-digit app code (OTP)" required maxlength="6"
                 pattern="\d{6}">
 
-            <button type="submit">Validar e Acessar</button>
+            <button type="submit">Validate and Enter</button>
         </form>
     </div>
 

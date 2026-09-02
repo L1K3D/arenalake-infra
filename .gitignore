@@ -5,3 +5,4 @@ MANUAL_DEV.md
 docs/
 minio_data/
 configs_scripts/
+__pycache__/

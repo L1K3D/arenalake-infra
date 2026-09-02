@@ -9,21 +9,16 @@
 <body>
     <div class="card">
         <h2>🚀 ArenaLake</h2>
-        <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 25px;">Plataforma Acadêmica de Big Data</p>
+        <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 25px;">Academic Big Data Platform</p>
 
-        <!-- Formulário interceptado pelo JavaScript -->
         <form id="login-form">
-            <!-- Adicionado id="usuario" -->
-            <input type="text" id="usuario" name="usuario" placeholder="Nome de usuário (ex: heitor)" required>
+            <input type="text" id="usuario" name="usuario" placeholder="Username (e.g. heitor)" required>
+            <input type="password" id="senha" name="senha" placeholder="Password" required>
 
-            <!-- Adicionado id="senha" -->
-            <input type="password" id="senha" name="senha" placeholder="Senha" required>
-
-            <button type="submit">Entrar no Workspace</button>
+            <button type="submit">Enter Workspace</button>
         </form>
     </div>
 
-    <!-- Importa o script que acabamos de criar -->
     <script src="/static/js/login.js"></script>
 </body>
 

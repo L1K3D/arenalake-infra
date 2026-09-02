@@ -9,7 +9,7 @@ from docker.types import Mount, Resources
 try:
     client = docker.from_env()
 except Exception as e:
-    print(f"Erro ao conectar no Docker: {e}")
+    print(f"Error connecting to Docker: {e}")
     client = None
 
 network_name = os.getenv("WORKSPACE_NETWORK")
@@ -17,17 +17,19 @@ tailscale_url = os.getenv("TAILSCALE_BASE_URL")
 vscode_port = os.getenv("VSCODE_EXTERNAL_PORT")
 WORKSPACE_LAST_SEEN = {}
 
+
 def parse_memory(mem_str: str):
-    """Converte string de memória (ex: '2g', '512m') para bytes"""
+    """Convert a memory string like '2g' or '512m' into bytes."""
     if mem_str.lower().endswith('g'):
         return int(mem_str[:-1]) * 1024**3
     elif mem_str.lower().endswith('m'):
         return int(mem_str[:-1]) * 1024**2
     return int(mem_str)
 
+
 def provision_workspace(usuario: str, perfil: str = "standard"):
     if not client:
-        raise Exception("Cliente Docker não inicializado.")
+        raise Exception("Docker client is not initialized.")
 
     container_name_vscode = f"vscode-{usuario}"
     container_name_worker = f"spark-worker-{usuario}"

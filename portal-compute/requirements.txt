@@ -1,51 +1,36 @@
-# ============================================================================
-# ArenaLake Portal Compute - Python Dependencies
-# ============================================================================
-# FastAPI and server framework
+# ArenaLake portal dependencies
+
 fastapi
-
 uvicorn
-
 python-multipart
 
-# Docker container management
+# Container management
+
 docker
 
-# AWS S3 / MinIO object storage
+# Object storage / S3-compatible APIs
 boto3
-
-# Jinja2 template rendering (for HTML templates)
-jinja2
-
-# Data processing and analysis
-pandas
-
-# Apache Spark distributed computing
-pyspark
-
-# Apache Arrow for Parquet file support
-pyarrow
-
-apscheduler
-
-pydantic
-
 fsspec
-
 s3fs
 
-pydantic
+# Templates and web rendering
+jinja2
 
-typing
+# Data processing
+pandas
+pyarrow
+pyspark
+apscheduler
 
-sqlalchemy
-
+# Auth / security
 passlib
-
-jose
-
+python-jose[cryptography]==3.3.0
 pyotp==2.9.0
-
 qrcode[pil]==7.4.2
 
-python-jose[cryptography]==3.3.0
+# ORM / validation
+pydantic
+sqlalchemy
+
+typing
+jose
