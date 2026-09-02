@@ -178,3 +178,9 @@ def get_file_details(bucket: str, filename: str):
         details["preview_content"] = f"Erro ao gerar sample: {str(e)}"
 
     return details
+
+def delete_file_from_datalake(bucket: str, filename: str):
+    """Exclui um arquivo ou objeto do bucket do MinIO (Apenas Admin)"""
+    s3_client = get_s3_client()
+    s3_client.delete_object(Bucket=bucket, Key=filename)
+    return True

@@ -150,6 +150,31 @@
                     Executar Autodestruição</button>
             </div>
         </div>
+
+        <!-- Seção: Governança do Data Catalog (MinIO) -->
+        <div
+            style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-top: 30px;">
+            <h3>🗄️ Governança do Data Catalog (MinIO)</h3>
+            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">Visualize, adicione ou remova datasets e
+                arquivos Parquet/CSV dos buckets corporativos.</p>
+
+            <!-- Formulário de Upload para o MinIO -->
+            <form id="uploadCatalogForm" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <input type="text" id="uploadBucket" placeholder="Nome do Bucket (ex: analise-dados)" required
+                    style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                <input type="file" id="uploadFile" required
+                    style="flex: 1; padding: 8px; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; border-radius: 4px;">
+                <button type="submit"
+                    style="padding: 10px 20px; background: #238636; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">📤
+                    Enviar Arquivo</button>
+            </form>
+
+            <!-- Tabela de Listagem do Catálogo -->
+            <div id="catalogContainer" style="color: #c9d1d9; font-size: 0.9em;">
+                <p style="color: #8b949e;">Carregando estrutura dos buckets...</p>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -344,6 +369,122 @@
                 alert("Erro de comunicação com o servidor.");
             }
         }
+
+        async function carregarDataCatalog() {
+            try {
+                const res = await fetch('/api/admin/catalog', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    const container = document.getElementById('catalogContainer');
+                    container.innerHTML = '';
+
+                    const catalog = data.data;
+                    const buckets = Object.keys(catalog);
+
+                    if (buckets.length === 0) {
+                        container.innerHTML = `<p style="color: #8b949e;">Nenhum bucket encontrado no MinIO.</p>`;
+                        return;
+                    }
+
+                    buckets.forEach(bucket => {
+                        let filesHtml = '';
+                        const files = catalog[bucket];
+
+                        if (files.length === 0) {
+                            filesHtml = `<tr><td colspan="2" style="padding: 8px; color: #8b949e; font-style: italic;">Bucket vazio.</td></tr>`;
+                        } else {
+                            files.forEach(file => {
+                                filesHtml += `
+                                    <tr style="border-bottom: 1px solid #21262d;">
+                                        <td style="padding: 8px; font-family: monospace; color: #58a6ff;">${file}</td>
+                                        <td style="padding: 8px; text-align: right;">
+                                            <button onclick="deletarArquivoCatalog('${bucket}', '${file}')" style="background: #da3633; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">🗑️ Excluir</button>
+                                        </td>
+                                    </tr>
+                                `;
+                            });
+                        }
+
+                        container.innerHTML += `
+                            <div style="background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 15px; margin-bottom: 15px;">
+                                <h4 style="margin: 0 0 10px 0; color: #79c0ff;">📦 Bucket: ${bucket}</h4>
+                                <table style="width: 100%; border-collapse: collapse;">
+                                    <tbody>${filesHtml}</tbody>
+                                </table>
+                            </div>
+                        `;
+                    });
+                }
+            } catch (e) {
+                console.error("Erro ao carregar Data Catalog", e);
+            }
+        }
+
+        async function deletarArquivoCatalog(bucket, filename) {
+            if (!confirm(`Tem certeza que deseja excluir o arquivo '${filename}' do bucket '${bucket}'?`)) return;
+
+            const formData = new URLSearchParams();
+            formData.append('bucket', bucket);
+            formData.append('filename', filename);
+
+            try {
+                const res = await fetch('/api/admin/catalog/file', {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: formData
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    alert(result.message);
+                    carregarDataCatalog();
+                } else {
+                    alert("Erro: " + result.detail);
+                }
+            } catch (e) {
+                alert("Erro de comunicação ao tentar excluir o arquivo.");
+            }
+        }
+
+        document.getElementById('uploadCatalogForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const bucket = document.getElementById('uploadBucket').value.trim();
+            const fileInput = document.getElementById('uploadFile').files[0];
+
+            if (!bucket || !fileInput) {
+                alert("Informe o bucket e selecione um arquivo.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('bucket', bucket);
+            formData.append('file', fileInput);
+
+            try {
+                const res = await fetch('/api/admin/catalog/upload', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    alert(result.message);
+                    document.getElementById('uploadCatalogForm').reset();
+                    carregarDataCatalog();
+                } else {
+                    alert("Erro: " + result.detail);
+                }
+            } catch (e) {
+                alert("Erro ao enviar arquivo para o Data Lake.");
+            }
+        });
+
+        // Chamada de inicialização do Catálogo
+        carregarDataCatalog();
 
         // Chamadas de inicialização
         carregarClusterNodes();

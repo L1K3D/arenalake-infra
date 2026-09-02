@@ -17,7 +17,7 @@ from core.security import get_current_user
 from core.models import User
 from passlib.context import CryptContext
 
-from core.s3_mgr import fetch_catalog_data, upload_file_to_datalake, get_file_details
+from core.s3_mgr import fetch_catalog_data, upload_file_to_datalake, get_file_details, delete_file_from_datalake
 from core.docker_mgr import (
     get_workspace_metrics,
     list_spark_jobs,
@@ -760,6 +760,43 @@ async def admin_self_destruct(req: DangerDestroyRequest, current_user: User = De
         raise HTTPException(status_code=500, detail=f"Erro na execução da autodestruição: {str(e)}")
         
     return JSONResponse(content={"status": "success", "message": "Protocolo de Autodestruição executado com sucesso. Todos os workspaces ativos foram purgados."})
+
+@router.get("/admin/catalog")
+async def admin_get_catalog(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Retorna o catálogo completo de buckets e arquivos do MinIO para auditoria do Admin (Apenas Admin)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
+    try:
+        return JSONResponse(content={"status": "success", "data": fetch_catalog_data()})
+    except Exception as e:
+        return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
+
+@router.delete("/admin/catalog/file")
+async def admin_delete_catalog_file(bucket: str = Form(...), filename: str = Form(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Exclui um arquivo/parquet do Data Catalog (Apenas Admin)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
+    try:
+        delete_file_from_datalake(bucket, filename)
+        return JSONResponse(content={"status": "success", "message": f"Arquivo '{filename}' removido do bucket '{bucket}' com sucesso!"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao excluir arquivo: {str(e)}")
+
+@router.post("/admin/catalog/upload")
+async def admin_upload_catalog_file(
+    bucket: str = Form(...),
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Faz upload de novos datasets ou scripts diretamente para o Data Lake (Apenas Admin)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
+    try:
+        upload_file_to_datalake(bucket, file.file, file.filename, current_user.username)
+        return JSONResponse(content={"status": "success", "message": f"Arquivo '{file.filename}' enviado para o bucket '{bucket}' com sucesso!"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao enviar arquivo: {str(e)}")
 
 scheduler.add_job(
     verify_idle_workspaces,
