@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>ArenaLake - Verificação em Duas Etapas</title>
+    <link rel="stylesheet" href="/static/css/login.css">
+</head>
+
+<body
+    style="background: #0d1117; color: #c9d1d9; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;">
+    <div
+        style="background: #161b22; padding: 40px; border-radius: 12px; border: 1px solid #30363d; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
+        <h2 style="margin-top: 0; color: #fff;">🔒 Verificação 2FA</h2>
+        <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 25px;">Abra o seu Google ou Microsoft Authenticator e
+            digite o código de 6 dígitos.</p>
+
+        <form id="verify-otp-form">
+            <input type="text" id="otp_code" placeholder="000000" maxlength="6" required autofocus
+                style="text-align: center; font-size: 28px; letter-spacing: 8px; padding: 12px; background: #0d1117; border: 1px solid #30363d; color: #58a6ff; border-radius: 6px; width: 85%; margin-bottom: 20px; font-weight: bold;">
+            <button type="submit"
+                style="width: 100%; padding: 12px; background: #238636; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1em;">Validar
+                e Entrar</button>
+        </form>
+    </div>
+
+    <script>
+        const token = sessionStorage.getItem('access_token');
+        if (!token) {
+            window.location.href = '/';
+        }
+
+        document.getElementById('verify-otp-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const otp_code = document.getElementById('otp_code').value.trim();
+
+            try {
+                const res = await fetch('/api/auth/verify-otp', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ otp_code })
+                });
+
+                const result = await res.json();
+
+                if (res.ok) {
+                    // Substitui pelo token final liberado
+                    sessionStorage.setItem('access_token', result.access_token);
+                    window.location.href = '/setup';
+                } else {
+                    alert(result.detail || "Código OTP inválido.");
+                }
+            } catch (err) {
+                alert("Erro de conexão ao validar o código.");
+            }
+        });
+    </script>
+</body>
+
+</html>

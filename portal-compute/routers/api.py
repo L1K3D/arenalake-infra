@@ -71,6 +71,9 @@ class UserCreateRequest(BaseModel):
     
 class DangerDestroyRequest(BaseModel):
     confirm_username: str
+    
+class UserPasswordResetRequest(BaseModel):
+    new_password: str
 
 router = APIRouter(prefix="/api")
 
@@ -837,6 +840,32 @@ async def admin_self_delete(req: SelfDeleteRequest, current_user: User = Depends
     db.commit()
 
     return JSONResponse(content={"status": "success", "message": "Sua conta de administrador foi permanentemente excluída."})
+
+@router.post("/admin/users/{user_id}/reset-password")
+async def admin_reset_user_password(user_id: int, req: UserPasswordResetRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Reseta a senha de um usuário comum e força o fluxo de primeiro acesso/2FA (Apenas Admin)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    
+    if user.role == "admin" and user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Para gerenciar sua conta admin, utilize as opções de perfil ou auto-exclusão.")
+
+    if len(req.new_password) < 8:
+        raise HTTPException(status_code=400, detail="A senha temporária deve ter pelo menos 8 caracteres.")
+
+    # Reseta a senha, força a troca no próximo login e limpa o 2FA antigo para exigir novo pareamento
+    user.hashed_password = pwd_context.hash(req.new_password)
+    user.must_change_password = True
+    user.is_2fa_verified = False
+    user.otp_secret = None  
+    
+    db.commit()
+
+    return JSONResponse(content={"status": "success", "message": f"Senha do usuário '{user.username}' resetada com sucesso! Ele fará o onboarding completo no próximo login."})
 
 scheduler.add_job(
     verify_idle_workspaces,

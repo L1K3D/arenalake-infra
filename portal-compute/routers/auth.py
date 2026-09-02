@@ -17,6 +17,9 @@ class FirstAccessSetup(BaseModel):
     new_password: str
     otp_code: str
 
+class VerifyOtpRequest(BaseModel):
+    otp_code: str
+
 router = APIRouter()
 
 def get_db():
@@ -46,17 +49,30 @@ def login_access_token(
             detail="Usuário desativado pelo Administrador."
         )
 
-    access_token = create_access_token(
-        data={"sub": user.username, "role": user.role}
-    )
+    # 1. Se for primeiro acesso (trocar senha ou 2FA nunca verificado)
+    if user.must_change_password or not user.is_2fa_verified:
+        temp_token = create_access_token(data={"sub": user.username, "role": user.role})
+        return {
+            "access_token": temp_token,
+            "token_type": "bearer",
+            "next_step": "first_access"
+        }
     
+    # 2. Se for Administrador (2FA já verificado antes, entra direto só com senha)
+    if user.role == "admin":
+        access_token = create_access_token(data={"sub": user.username, "role": user.role})
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "next_step": "admin"
+        }
+
+    # 3. Se for Usuário Comum (2FA verificado, mas EXIGE OTP a cada login)
+    temp_token = create_access_token(data={"sub": user.username, "role": user.role, "scope": "otp_pending"})
     return {
-        "access_token": access_token,
+        "access_token": temp_token,
         "token_type": "bearer",
-        "username": user.username,
-        "role": user.role,
-        "must_change_password": user.must_change_password,
-        "is_2fa_verified": user.is_2fa_verified
+        "next_step": "verify_otp"
     }
     
 @router.get("/api/auth/2fa/generate")
@@ -113,6 +129,25 @@ def complete_first_access(data: FirstAccessSetup, current_user: User = Depends(g
     user.is_2fa_verified = True
     
     db.commit()
+    
+@router.post("/api/auth/verify-otp")
+def verify_login_otp(data: VerifyOtpRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Valida o código do Authenticator a cada novo login do usuário comum"""
+    if not current_user.otp_secret:
+        raise HTTPException(status_code=400, detail="2FA não configurado para este usuário.")
+
+    totp = pyotp.TOTP(current_user.otp_secret)
+    if not totp.verify(data.otp_code, valid_window=2):
+        raise HTTPException(status_code=400, detail="Código de verificação (2FA) inválido ou expirado.")
+
+    # Emite o token final de acesso liberado para o Workspace
+    final_token = create_access_token(data={"sub": current_user.username, "role": current_user.role})
+    
+    return {
+        "status": "success",
+        "access_token": final_token,
+        "token_type": "bearer"
+    }
 
     return {
         "status": "success", 

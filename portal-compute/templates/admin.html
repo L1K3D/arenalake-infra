@@ -240,7 +240,10 @@
                         // Tenta identificar o usuário logado atual verificando se bate com a listagem ou guardando dinamicamente
                         let actionBtn = '';
                         if (u.role !== 'admin') {
-                            actionBtn = `<button onclick="deletarUsuario(${u.id}, '${u.username}')" style="background: #da3633; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">🗑️ Excluir</button>`;
+                            actionBtn = `
+        <button onclick="resetarSenha(${u.id}, '${u.username}')" style="background: #1f6feb; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer; margin-right: 5px;">🔑 Resetar</button>
+        <button onclick="deletarUsuario(${u.id}, '${u.username}')" style="background: #da3633; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">🗑️ Excluir</button>
+    `;
                         } else {
                             actionBtn = `<span style="color: #8b949e; font-size: 0.8em; font-style: italic;">Protegido</span>`;
                         }
@@ -591,6 +594,36 @@
                 }
             } catch (e) {
                 alert("Erro de comunicação com o servidor.");
+            }
+        }
+
+        async function resetarSenha(userId, username) {
+            const novaSenha = prompt(`Digite a nova senha temporária para o usuário '${username}' (Mín. 8 caracteres):`);
+            if (!novaSenha) return;
+
+            if (novaSenha.length < 8) {
+                alert("A senha temporária deve ter pelo menos 8 caracteres.");
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/admin/users/${userId}/reset-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ new_password: novaSenha })
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    alert(result.message);
+                    carregarUsuarios();
+                } else {
+                    alert("Erro: " + result.detail);
+                }
+            } catch (e) {
+                alert("Erro de comunicação com o servidor ao resetar a senha.");
             }
         }
 

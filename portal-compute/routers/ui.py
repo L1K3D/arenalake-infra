@@ -108,3 +108,7 @@ async def setup_page(request: Request):
 async def admin_dashboard_page(request: Request):
     # Retorna a interface do painel do DBA
     return templates.TemplateResponse(request=request, name="admin.html")
+
+@router.get("/verify-otp", response_class=HTMLResponse)
+async def verify_otp_page(request: Request):
+    return templates.TemplateResponse(request=request, name="verify-otp.html")
