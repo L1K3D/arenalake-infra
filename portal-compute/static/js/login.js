@@ -32,25 +32,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
 
             if (response.ok) {
-                // Salva o token isolado na aba usando sessionStorage
                 sessionStorage.setItem('access_token', data.access_token);
 
-                // Roteamento inteligente baseado no status e perfil
                 if (data.next_step === 'first_access') {
                     window.location.href = '/first-access';
                 } else if (data.next_step === 'verify_otp') {
-                    window.location.href = '/verify-otp'; // Desafio 2FA a cada login para usuário comum
+                    window.location.href = '/verify-otp';
                 } else if (data.next_step === 'admin') {
-                    window.location.href = '/admin'; // Admin loga só com senha após o 1º acesso
+                    window.location.href = '/admin';
                 } else {
                     window.location.href = '/setup';
                 }
             } else {
-                alert(data.detail || "Credenciais inválidas.");
+                alert(data.detail || "Invalid credentials.");
             }
         } catch (error) {
-            console.error("Erro no login:", error);
-            alert("Erro de conexão com o servidor.");
+            console.error("Login error:", error);
+            alert("Server connection error.");
         }
     });
 });

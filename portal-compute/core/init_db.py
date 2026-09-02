@@ -4,25 +4,26 @@ from passlib.context import CryptContext
 from .database import SessionLocal, engine, Base
 from .models import User
 
-# Contexto de criptografia segura com bcrypt
+# Secure password hashing context using bcrypt.
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def init_db():
-    # Cria as tabelas caso não existam
+    """Create the schema and ensure the master DBA administrator exists."""
+    # Ensure all tables exist before accessing users or creating records.
     Base.metadata.create_all(bind=engine)
 
     db: Session = SessionLocal()
 
-    # Pega as credenciais DBA do ambiente (geradas pelo install.py)
+    # Retrieve the DBA credentials injected by the installation process.
     dba_username = os.getenv("DBA_USERNAME")
     dba_password = os.getenv("DBA_PASSWORD")
 
-    # Verifica se o Master DBA já existe
+    # Verify whether the master DBA user already exists.
     existing_dba = db.query(User).filter(User.username == dba_username).first()
 
     if not existing_dba:
-        print(f"[*] Criando o Super Administrador Master: {dba_username}...")
+        print(f"[*] Creating the Master Super Administrator: {dba_username}...")
         hashed_pw = pwd_context.hash(dba_password)
 
         master_dba = User(
@@ -37,9 +38,9 @@ def init_db():
         )
         db.add(master_dba)
         db.commit()
-        print("[+] Super Administrador criado com sucesso no banco SQLite!")
+        print("[+] Master Super Administrator created successfully in the SQLite database!")
     else:
-        print("[*] Super Administrador já existe no banco. Pulando criação.")
+        print("[*] The master super administrator already exists. Skipping creation.")
 
     db.close()
 

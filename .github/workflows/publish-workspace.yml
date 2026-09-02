@@ -1,5 +1,7 @@
 name: Build and Publish Workspace Image
 
+# Publishes the reusable ArenaLake workspace image to GitHub Container Registry
+# whenever the workspace Dockerfile changes or the workflow is triggered manually.
 on:
   push:
     branches:
@@ -17,9 +19,11 @@ jobs:
       packages: write
 
     steps:
+      # Pulls the repo code so the Dockerfile and build context are available.
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # Authenticates the workflow against GHCR so the image can be pushed.
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -27,13 +31,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Normalizes the repository owner/name to lowercase so GHCR image tags are valid.
       - name: Lowercase Repository Owner Name
         id: string_case
         run: |
-          # Transforma o nome do repo (ex: L1K3D/arenalake-infra) em minúsculas
           LOWERCASE_REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           echo "lowercase=$LOWERCASE_REPO" >> $GITHUB_OUTPUT
 
+      # Builds the workspace image from the Dockerfile and pushes it to GHCR as the latest tag.
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:

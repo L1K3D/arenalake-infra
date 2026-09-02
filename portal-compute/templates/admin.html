@@ -1,12 +1,11 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
-    <title>ArenaLake - Painel do Administrador (DBA)</title>
+    <title>ArenaLake - DBA Control Panel</title>
     <link rel="stylesheet" href="/static/css/dashboard.css">
     <style>
-        /* 🚀 FORÇA O SCROLL VERTICAL LIVRE E CORRIGE O BLOQUEIO DA UI */
         html,
         body {
             height: 100%;
@@ -27,65 +26,60 @@
 
 <body>
     <div style="max-width: 1000px; margin: auto; padding-bottom: 50px;">
-        <!-- Cabeçalho com Título e Botão de Logout Isolado -->
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
-                <h1>👑 ArenaLake - Painel de Controle DBA</h1>
-                <p style="color: #8b949e; margin: 5px 0 0 0;">Gerenciamento de infraestrutura, sessões e usuários
-                    corporativos.</p>
+                <h1>👑 ArenaLake - DBA Control Panel</h1>
+                <p style="color: #8b949e; margin: 5px 0 0 0;">Infrastructure, session, and corporate user management.
+                </p>
             </div>
             <button onclick="logoutAdmin()"
                 style="padding: 10px 18px; background: #da3633; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s;">🔌
-                Desligar / Sair</button>
+                Shut Down / Sign Out</button>
         </div>
         <hr style="border: 1px solid #30363d; margin: 20px 0;">
 
-        <!-- Seção de Cadastro de Usuário (Com seletor de perfil Admin/Common) -->
         <div
             style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-bottom: 30px;">
-            <h3>➕ Cadastrar Novo Colaborador</h3>
+            <h3>➕ Register New Collaborator</h3>
             <form id="createUserForm"
                 style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
-                <input type="text" id="username" placeholder="Username (ex: carlos.silva)" required
+                <input type="text" id="username" placeholder="Username (e.g. carlos.silva)" required
                     style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                <input type="password" id="password" placeholder="Senha Temporária (Mín. 8 chars)" required
+                <input type="password" id="password" placeholder="Temporary Password (Min. 8 chars)" required
                     style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                <input type="text" id="full_name" placeholder="Nome Completo" required
+                <input type="text" id="full_name" placeholder="Full Name" required
                     style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                <input type="email" id="email" placeholder="E-mail Corporativo" required
+                <input type="email" id="email" placeholder="Corporate Email" required
                     style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
 
-                <!-- Seletor de Perfil (Admin vs Common) -->
                 <select id="roleSelect" required
                     style="grid-column: span 2; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                    <option value="common">👤 Perfil Comum (Acesso a Workspace e Data Catalog)</option>
-                    <option value="admin">👑 Perfil Administrador / DBA (Controle Total da Infraestrutura)</option>
+                    <option value="common">👤 Standard Profile (Workspace and Data Catalog Access)</option>
+                    <option value="admin">👑 Administrator / DBA Profile (Full Infrastructure Control)</option>
                 </select>
 
                 <button type="submit"
-                    style="grid-column: span 2; padding: 12px; background: #238636; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Criar
-                    Acesso Corporativo</button>
+                    style="grid-column: span 2; padding: 12px; background: #238636; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Create
+                    Corporate Access</button>
             </form>
         </div>
 
-        <!-- Lista de Usuários (Com botão de exclusão para contas comuns) -->
         <div style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d;">
-            <h3>👥 Usuários Cadastrados no Ecossistema</h3>
+            <h3>👥 Users Registered in the Ecosystem</h3>
             <table style="width: 100%; margin-top: 15px; border-collapse: collapse; text-align: left;">
                 <thead>
                     <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
                         <th style="padding: 10px;">ID</th>
                         <th style="padding: 10px;">Username</th>
-                        <th style="padding: 10px;">Nome</th>
-                        <th style="padding: 10px;">Cargo / Perfil</th>
-                        <th style="padding: 10px;">Status 2FA</th>
-                        <th style="padding: 10px; text-align: right;">Ações</th>
+                        <th style="padding: 10px;">Name</th>
+                        <th style="padding: 10px;">Role / Profile</th>
+                        <th style="padding: 10px;">2FA Status</th>
+                        <th style="padding: 10px; text-align: right;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="userTableBody">
                     <tr>
-                        <td colspan="6" style="padding: 15px; text-align: center; color: #8b949e;">Carregando
-                            usuários...</td>
+                        <td colspan="6" style="padding: 15px; text-align: center; color: #8b949e;">Loading users...</td>
                     </tr>
                 </tbody>
             </table>
@@ -93,22 +87,22 @@
 
         <div
             style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-top: 30px;">
-            <h3>⚡ Workspaces Ativos no Cluster (Kill Switch)</h3>
-            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">Monitore o consumo das sessões ativas e
-                encerre containers isolados se necessário.</p>
+            <h3>⚡ Active Workspaces in the Cluster (Kill Switch)</h3>
+            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">Monitor active session consumption and
+                terminate isolated containers if needed.</p>
             <table style="width: 100%; border-collapse: collapse; text-align: left;">
                 <thead>
                     <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
-                        <th style="padding: 10px;">Usuário</th>
-                        <th style="padding: 10px;">Serviço Swarm</th>
-                        <th style="padding: 10px;">Cotas (CPU / RAM)</th>
-                        <th style="padding: 10px; text-align: right;">Ações de Sessão</th>
+                        <th style="padding: 10px;">User</th>
+                        <th style="padding: 10px;">Swarm Service</th>
+                        <th style="padding: 10px;">Quota (CPU / RAM)</th>
+                        <th style="padding: 10px; text-align: right;">Session Actions</th>
                     </tr>
                 </thead>
                 <tbody id="workspaceTableBody">
                     <tr>
-                        <td colspan="4" style="padding: 15px; text-align: center; color: #8b949e;">Buscando sessões
-                            ativas no Docker...</td>
+                        <td colspan="4" style="padding: 15px; text-align: center; color: #8b949e;">Looking up active
+                            Docker sessions...</td>
                     </tr>
                 </tbody>
             </table>
@@ -116,104 +110,97 @@
 
         <div
             style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-top: 30px;">
-            <h3>🖥️ Infraestrutura do Cluster (Swarm Nodes)</h3>
-            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">Monitoramento em tempo real dos nós ativos
-                na arquitetura distribuída.</p>
+            <h3>🖥️ Cluster Infrastructure (Swarm Nodes)</h3>
+            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">Real-time monitoring of active nodes in
+                the distributed architecture.</p>
             <table style="width: 100%; border-collapse: collapse; text-align: left;">
                 <thead>
                     <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
                         <th style="padding: 10px;">Hostname</th>
-                        <th style="padding: 10px;">Papel (Role)</th>
+                        <th style="padding: 10px;">Role</th>
                         <th style="padding: 10px;">Status</th>
-                        <th style="padding: 10px;">Capacidade (CPU / RAM)</th>
+                        <th style="padding: 10px;">Capacity (CPU / RAM)</th>
                     </tr>
                 </thead>
                 <tbody id="nodesTableBody">
                     <tr>
-                        <td colspan="4" style="padding: 15px; text-align: center; color: #8b949e;">Analisando nós do
-                            cluster...</td>
+                        <td colspan="4" style="padding: 15px; text-align: center; color: #8b949e;">Analyzing cluster
+                            nodes...</td>
                     </tr>
                 </tbody>
             </table>
         </div>
 
-        <!-- Seção 2: Espionagem de Arquivos (Auditoria de Workspace) -->
         <div
             style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-top: 30px;">
-            <h3>🕵️‍♂️ Espionagem de Arquivos (Auditoria de Volume)</h3>
-            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">Inspecione os arquivos temporários do
-                volume de um usuário específico.</p>
+            <h3>🕵️‍♂️ File Spy (Volume Audit)</h3>
+            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">Inspect temporary files in a specific user
+                volume.</p>
             <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                <input type="text" id="auditUsername" placeholder="Digite o username (ex: carlos.silva)"
+                <input type="text" id="auditUsername" placeholder="Enter username (e.g. carlos.silva)"
                     style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
                 <button onclick="auditarArquivos()"
-                    style="padding: 10px 20px; background: #1f6feb; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Inspecionar
+                    style="padding: 10px 20px; background: #1f6feb; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Inspect
                     Volume</button>
             </div>
             <pre id="auditOutput"
                 style="background: #0d1117; padding: 15px; border-radius: 6px; border: 1px solid #30363d; color: #58a6ff; max-height: 200px; overflow-y: auto; font-size: 0.85em; display: none;"></pre>
         </div>
 
-        <!-- Seção 3: Zona de Perigo (Autodestruição Crítica) -->
         <div
             style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #da3633; margin-top: 30px;">
-            <h3 style="color: #f85149;">⚠️ Zona de Perigo: Autodestruição Crítica</h3>
-            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">Ações destrutivas globais. Esta operação
-                derrubará imediatamente todos os workspaces ativos no cluster.</p>
+            <h3 style="color: #f85149;">⚠️ Danger Zone: Critical Self-Destruction</h3>
+            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">Global destructive actions. This operation
+                immediately shuts down every active workspace in the cluster.</p>
             <div style="display: flex; gap: 10px; align-items: center;">
-                <input type="text" id="confirmDestroyUser" placeholder="Digite seu username para confirmar"
+                <input type="text" id="confirmDestroyUser" placeholder="Type your username to confirm"
                     style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
                 <button onclick="executarAutodestruicao()"
                     style="padding: 10px 20px; background: #da3633; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">🚨
-                    Executar Autodestruição</button>
+                    Run Self-Destruction</button>
             </div>
         </div>
 
-        <!-- Seção: Governança do Data Catalog (MinIO) -->
         <div
             style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-top: 30px;">
-            <h3>🗄️ Governança do Data Catalog (MinIO)</h3>
-            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">Visualize, adicione ou remova datasets e
-                arquivos Parquet/CSV dos buckets corporativos.</p>
+            <h3>🗄️ Data Catalog Governance (MinIO)</h3>
+            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">View, add, or remove datasets and
+                Parquet/CSV files from corporate buckets.</p>
 
-            <!-- Formulário de Upload para o MinIO -->
             <form id="uploadCatalogForm" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                <input type="text" id="uploadBucket" placeholder="Nome do Bucket (ex: analise-dados)" required
+                <input type="text" id="uploadBucket" placeholder="Bucket Name (e.g. analise-dados)" required
                     style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
                 <input type="file" id="uploadFile" required
                     style="flex: 1; padding: 8px; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; border-radius: 4px;">
                 <button type="submit"
                     style="padding: 10px 20px; background: #238636; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">📤
-                    Enviar Arquivo</button>
+                    Upload File</button>
             </form>
 
-            <!-- Tabela de Listagem do Catálogo -->
             <div id="catalogContainer" style="color: #c9d1d9; font-size: 0.9em;">
-                <p style="color: #8b949e;">Carregando estrutura dos buckets...</p>
+                <p style="color: #8b949e;">Loading bucket structure...</p>
             </div>
         </div>
 
-        <!-- Seção: Auto-exclusão da Própria Conta Admin -->
         <div
             style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #da3633; margin-top: 30px;">
-            <h3 style="color: #f85149;">🗑️ Excluir Minha Conta de Administrador</h3>
+            <h3 style="color: #f85149;">🗑️ Delete My Administrator Account</h3>
             <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">
-                Para deletar a sua própria conta, digite exatamente a frase: <code id="expectedPhraseLabel"
-                    style="color: #58a6ff; background: #0d1117; padding: 2px 6px; border-radius: 4px;">DELETAR CONTA [seu-usuario]</code>
+                To delete your own account, type the exact phrase: <code id="expectedPhraseLabel"
+                    style="color: #58a6ff; background: #0d1117; padding: 2px 6px; border-radius: 4px;">DELETE ACCOUNT [your-username]</code>
             </p>
             <div style="display: flex; gap: 10px; align-items: center;">
-                <input type="text" id="selfDeleteInput" placeholder="Digite a frase de confirmação exata"
+                <input type="text" id="selfDeleteInput" placeholder="Enter the exact confirmation phrase"
                     style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
                 <button onclick="executarAutodelecao()"
-                    style="padding: 10px 20px; background: #da3633; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Deletar
-                    Minha Conta</button>
+                    style="padding: 10px 20px; background: #da3633; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Delete
+                    My Account</button>
             </div>
         </div>
 
     </div>
 
     <script>
-        // Isolação de sessão por aba usando sessionStorage
         const token = sessionStorage.getItem('access_token');
         if (!token) {
             window.location.href = '/';
@@ -232,18 +219,18 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
+
                 if (data.status === 'success') {
                     const tbody = document.getElementById('userTableBody');
                     tbody.innerHTML = '';
 
                     data.users.forEach(u => {
-                        // Tenta identificar o usuário logado atual verificando se bate com a listagem ou guardando dinamicamente
                         let actionBtn = '';
                         if (u.role !== 'admin') {
                             actionBtn = `
-        <button onclick="resetarSenha(${u.id}, '${u.username}')" style="background: #1f6feb; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer; margin-right: 5px;">🔑 Resetar</button>
-        <button onclick="deletarUsuario(${u.id}, '${u.username}')" style="background: #da3633; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">🗑️ Excluir</button>
-    `;
+                                <button onclick="resetarSenha(${u.id}, '${u.username}')" style="background: #1f6feb; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer; margin-right: 5px;">🔑 Resetar</button>
+                                <button onclick="deletarUsuario(${u.id}, '${u.username}')" style="background: #da3633; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">🗑️ Excluir</button>
+                            `;
                         } else {
                             actionBtn = `<span style="color: #8b949e; font-size: 0.8em; font-style: italic;">Protegido</span>`;
                         }
@@ -254,26 +241,25 @@
                                 <td style="padding: 10px; color: #58a6ff; font-weight: bold;">${u.username}</td>
                                 <td style="padding: 10px;">${u.full_name}</td>
                                 <td style="padding: 10px;"><span style="background: ${u.role === 'admin' ? '#da3633' : '#1f6feb'}; padding: 3px 8px; border-radius: 4px; font-size: 0.8em;">${u.role.toUpperCase()}</span></td>
-                                <td style="padding: 10px;">${u.is_2fa_verified ? '✅ Verificado' : '⏳ Pendente'}</td>
+                                <td style="padding: 10px;">${u.is_2fa_verified ? '✅ Verified' : '⏳ Pending'}</td>
                                 <td style="padding: 10px; text-align: right;">${actionBtn}</td>
                             </tr>
                         `;
                     });
 
-                    // Pega o primeiro admin da lista ou tenta inferir para montar a frase de auto-deleção
                     const currentAdmin = data.users.find(u => u.role === 'admin');
                     if (currentAdmin) {
                         loggedAdminUsername = currentAdmin.username;
-                        document.getElementById('expectedPhraseLabel').innerText = `DELETAR CONTA ${loggedAdminUsername}`;
+                        document.getElementById('expectedPhraseLabel').innerText = `DELETE ACCOUNT ${loggedAdminUsername}`;
                     }
                 }
             } catch (e) {
-                console.error("Erro ao carregar usuários", e);
+                console.error('Erro ao carregar usuários', e);
             }
         }
 
         async function deletarUsuario(userId, username) {
-            if (!confirm(`Tem certeza que deseja excluir o usuário comum '${username}'?`)) return;
+            if (!confirm(`Are you sure you want to delete the regular user '${username}'?`)) return;
 
             try {
                 const res = await fetch(`/api/admin/users/${userId}`, {
@@ -281,14 +267,15 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const result = await res.json();
+
                 if (res.ok) {
                     alert(result.message);
                     carregarUsuarios();
                 } else {
-                    alert("Erro: " + result.detail);
+                    alert('Error: ' + result.detail);
                 }
             } catch (e) {
-                alert("Erro de comunicação ao tentar excluir o usuário.");
+                alert('Communication error while trying to delete the user.');
             }
         }
 
@@ -300,7 +287,7 @@
                 full_name: document.getElementById('full_name').value,
                 email: document.getElementById('email').value,
                 role: document.getElementById('roleSelect').value,
-                department: "Infrastructure"
+                department: 'Infrastructure'
             };
 
             const res = await fetch('/api/admin/users', {
@@ -318,7 +305,7 @@
                 document.getElementById('createUserForm').reset();
                 carregarUsuarios();
             } else {
-                alert("Erro: " + result.detail);
+                alert('Erro: ' + result.detail);
             }
         });
 
@@ -328,12 +315,13 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
+
                 if (data.status === 'success') {
                     const tbody = document.getElementById('workspaceTableBody');
                     tbody.innerHTML = '';
 
                     if (data.workspaces.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #8b949e;">Nenhum workspace ativo no momento.</td></tr>`;
+                        tbody.innerHTML = '<tr><td colspan="4" style="padding: 15px; text-align: center; color: #8b949e;">No active workspace at the moment.</td></tr>';
                         return;
                     }
 
@@ -351,12 +339,12 @@
                     });
                 }
             } catch (e) {
-                console.error("Erro ao carregar workspaces", e);
+                console.error('Erro ao carregar workspaces', e);
             }
         }
 
         async function killWorkspace(username) {
-            if (!confirm(`Tem certeza que deseja encerrar (Kill Switch) a sessão do usuário '${username}'?`)) return;
+            if (!confirm(`Are you sure you want to terminate the session for '${username}' with the kill switch?`)) return;
 
             try {
                 const res = await fetch(`/api/admin/workspaces/kill/${username}`, {
@@ -364,14 +352,15 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const result = await res.json();
+
                 if (res.ok) {
                     alert(result.message);
                     carregarWorkspaces();
                 } else {
-                    alert("Erro: " + result.detail);
+                    alert('Error: ' + result.detail);
                 }
             } catch (e) {
-                alert("Erro de comunicação ao tentar derrubar a sessão.");
+                alert('Communication error while trying to terminate the session.');
             }
         }
 
@@ -381,6 +370,7 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
+
                 if (data.status === 'success') {
                     const tbody = document.getElementById('nodesTableBody');
                     tbody.innerHTML = '';
@@ -396,7 +386,7 @@
                     });
                 }
             } catch (e) {
-                console.error("Erro ao carregar nós do cluster", e);
+                console.error('Erro ao carregar nós do cluster', e);
             }
         }
 
@@ -404,36 +394,37 @@
             const username = document.getElementById('auditUsername').value.trim();
             const outputBox = document.getElementById('auditOutput');
             if (!username) {
-                alert("Digite um username válido para auditoria.");
+                alert('Enter a valid username for auditing.');
                 return;
             }
 
             outputBox.style.display = 'block';
-            outputBox.innerText = "Buscando arquivos no volume do usuário...";
+            outputBox.innerText = 'Looking up files in the user\'s volume...';
 
             try {
                 const res = await fetch(`/api/admin/files/${username}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
+
                 if (res.ok) {
                     outputBox.innerText = data.files.join('\n');
                 } else {
-                    outputBox.innerText = "Erro: " + data.detail;
+                    outputBox.innerText = 'Error: ' + data.detail;
                 }
             } catch (e) {
-                outputBox.innerText = "Erro de conexão ao inspecionar volume.";
+                outputBox.innerText = 'Connection error while inspecting the volume.';
             }
         }
 
         async function executarAutodestruicao() {
             const confirmUser = document.getElementById('confirmDestroyUser').value.trim();
             if (!confirmUser) {
-                alert("Você precisa digitar o seu nome de usuário para confirmar a autodestruição.");
+                alert('You need to type your username to confirm self-destruction.');
                 return;
             }
 
-            if (!confirm("ATENÇÃO: Deseja realmente purgar todas as sessões e workspaces ativos do cluster? Essa ação é irreversível!")) return;
+            if (!confirm('WARNING: Do you really want to purge all active sessions and workspaces in the cluster? This action is irreversible!')) return;
 
             try {
                 const res = await fetch('/api/admin/danger/destroy', {
@@ -445,15 +436,16 @@
                     body: JSON.stringify({ confirm_username: confirmUser })
                 });
                 const result = await res.json();
+
                 if (res.ok) {
                     alert(result.message);
                     document.getElementById('confirmDestroyUser').value = '';
                     carregarWorkspaces();
                 } else {
-                    alert("Erro crítico: " + result.detail);
+                    alert('Critical error: ' + result.detail);
                 }
             } catch (e) {
-                alert("Erro de comunicação com o servidor.");
+                alert('Communication error with the server.');
             }
         }
 
@@ -463,6 +455,7 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
+
                 if (data.status === 'success') {
                     const container = document.getElementById('catalogContainer');
                     container.innerHTML = '';
@@ -471,7 +464,7 @@
                     const buckets = Object.keys(catalog);
 
                     if (buckets.length === 0) {
-                        container.innerHTML = `<p style="color: #8b949e;">Nenhum bucket encontrado no MinIO.</p>`;
+                        container.innerHTML = '<p style="color: #8b949e;">No buckets found in MinIO.</p>';
                         return;
                     }
 
@@ -480,7 +473,7 @@
                         const files = catalog[bucket];
 
                         if (files.length === 0) {
-                            filesHtml = `<tr><td colspan="2" style="padding: 8px; color: #8b949e; font-style: italic;">Bucket vazio.</td></tr>`;
+                            filesHtml = '<tr><td colspan="2" style="padding: 8px; color: #8b949e; font-style: italic;">Bucket vazio.</td></tr>';
                         } else {
                             files.forEach(file => {
                                 filesHtml += `
@@ -505,12 +498,12 @@
                     });
                 }
             } catch (e) {
-                console.error("Erro ao carregar Data Catalog", e);
+                console.error('Erro ao carregar Data Catalog', e);
             }
         }
 
         async function deletarArquivoCatalog(bucket, filename) {
-            if (!confirm(`Tem certeza que deseja excluir o arquivo '${filename}' do bucket '${bucket}'?`)) return;
+            if (!confirm(`Are you sure you want to delete the file '${filename}' from bucket '${bucket}'?`)) return;
 
             const formData = new URLSearchParams();
             formData.append('bucket', bucket);
@@ -526,14 +519,15 @@
                     body: formData
                 });
                 const result = await res.json();
+
                 if (res.ok) {
                     alert(result.message);
                     carregarDataCatalog();
                 } else {
-                    alert("Erro: " + result.detail);
+                    alert('Error: ' + result.detail);
                 }
             } catch (e) {
-                alert("Erro de comunicação ao tentar excluir o arquivo.");
+                alert('Communication error while trying to delete the file.');
             }
         }
 
@@ -543,7 +537,7 @@
             const fileInput = document.getElementById('uploadFile').files[0];
 
             if (!bucket || !fileInput) {
-                alert("Informe o bucket e selecione um arquivo.");
+                alert('Enter the bucket and select a file.');
                 return;
             }
 
@@ -558,22 +552,23 @@
                     body: formData
                 });
                 const result = await res.json();
+
                 if (res.ok) {
                     alert(result.message);
                     document.getElementById('uploadCatalogForm').reset();
                     carregarDataCatalog();
                 } else {
-                    alert("Erro: " + result.detail);
+                    alert('Error: ' + result.detail);
                 }
             } catch (e) {
-                alert("Erro ao enviar arquivo para o Data Lake.");
+                alert('Error while uploading the file to the Data Lake.');
             }
         });
 
         async function executarAutodelecao() {
             const inputVal = document.getElementById('selfDeleteInput').value.trim();
 
-            if (!confirm("ATENÇÃO: Deseja realmente excluir a sua própria conta de administrador? Esta ação é irreversível!")) return;
+            if (!confirm('WARNING: Do you really want to delete your own administrator account? This action is irreversible!')) return;
 
             try {
                 const res = await fetch('/api/admin/account/self', {
@@ -585,24 +580,25 @@
                     body: JSON.stringify({ confirmation_phrase: inputVal })
                 });
                 const result = await res.json();
+
                 if (res.ok) {
                     alert(result.message);
                     sessionStorage.removeItem('access_token');
                     window.location.href = '/';
                 } else {
-                    alert("Erro: " + result.detail);
+                    alert('Error: ' + result.detail);
                 }
             } catch (e) {
-                alert("Erro de comunicação com o servidor.");
+                alert('Communication error with the server.');
             }
         }
 
         async function resetarSenha(userId, username) {
-            const novaSenha = prompt(`Digite a nova senha temporária para o usuário '${username}' (Mín. 8 caracteres):`);
+            const novaSenha = prompt(`Enter the temporary new password for '${username}' (Min. 8 characters):`);
             if (!novaSenha) return;
 
             if (novaSenha.length < 8) {
-                alert("A senha temporária deve ter pelo menos 8 caracteres.");
+                alert('The temporary password must be at least 8 characters long.');
                 return;
             }
 
@@ -616,18 +612,18 @@
                     body: JSON.stringify({ new_password: novaSenha })
                 });
                 const result = await res.json();
+
                 if (res.ok) {
                     alert(result.message);
                     carregarUsuarios();
                 } else {
-                    alert("Erro: " + result.detail);
+                    alert('Error: ' + result.detail);
                 }
             } catch (e) {
-                alert("Erro de comunicação com o servidor ao resetar a senha.");
+                alert('Communication error while resetting the password.');
             }
         }
 
-        // Inicializações da página
         carregarDataCatalog();
         carregarClusterNodes();
         carregarUsuarios();

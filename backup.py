@@ -6,9 +6,10 @@ from datetime import datetime
 
 
 def check_root():
+    """Ensure the backup process has root privileges to read protected files."""
     if os.geteuid() != 0:
         print(
-            "[Erro] O backup precisa ler arquivos protegidos. Rode: sudo python3 backup.py"
+            "[ERROR] The backup process needs to read protected files. Run: sudo python3 backup.py"
         )
         sys.exit(1)
 
@@ -19,46 +20,45 @@ def main():
     print("=" * 60)
     print("      ArenaLake - Enterprise Backup Tool")
     print("=" * 60)
-    print("Este processo fará um backup completo das configurações e dos")
-    print("dados físicos (DataLake). Isso pode demorar dependendo do")
-    print("volume de dados armazenado.\n")
+    print("This process will create a complete backup of the configuration and physical")
+    print("data (DataLake). This may take a while depending on the stored data volume.")
+    print("\n")
 
-    # Caminho dinâmico alinhado com a nova arquitetura do projeto
+    # Use a dynamic project path so the tool still works with the new architecture.
     current_project_dir = os.path.dirname(os.path.abspath(__file__))
     datalake_path = os.path.join(current_project_dir, "datalake_data")
 
-    # Verifica se os dados vitais existem
+    # Verify that the required data volume exists before starting the archive.
     if not os.path.exists(datalake_path):
         print(
-            f"[Erro] O diretório {datalake_path} não existe. Não há dados para backup."
+            f"[ERROR] The directory {datalake_path} does not exist. There is no data to back up."
         )
         sys.exit(1)
 
     if not os.path.exists(".env") or not os.path.exists("docker-compose.yml"):
-        print("[Aviso] Arquivo .env ou docker-compose.yml não encontrados nesta pasta.")
+        print("[WARNING] .env or docker-compose.yml was not found in this folder.")
         resp = (
             input(
-                "Deseja fazer o backup apenas dos dados do DataLake? (S/N) [Padrão: N]: "
+                "Do you want to back up only the DataLake data? (Y/N) [Default: N]: "
             )
             .strip()
             .lower()
         )
-        if resp != "s":
+        if resp != "y":
             sys.exit(0)
 
-    # Cria pasta de backups se não existir
+    # Create the backup directory if it does not already exist.
     backup_dir = "/opt/arenalake_backups"
     os.makedirs(backup_dir, exist_ok=True)
 
-    # Gera o nome do arquivo com a data e hora atual
+    # Generate the backup filename with the current timestamp.
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_filename = f"arenalake_backup_{timestamp}.tar.gz"
     backup_filepath = os.path.join(backup_dir, backup_filename)
 
-    print(f"[*] Iniciando compactação... Destino: {backup_filepath}")
+    print(f"[*] Starting compression... Destination: {backup_filepath}")
 
-    # Montando o comando do TAR
-    # Ele vai compactar a pasta datalake_data (incluindo o banco, minio, etc.), o .env e o compose
+    # Build the tar command to include the data lake, .env and compose file.
     tar_cmd = ["tar", "-czf", backup_filepath, datalake_path]
 
     if os.path.exists(".env"):
@@ -67,8 +67,8 @@ def main():
         tar_cmd.append("docker-compose.yml")
 
     try:
-        # Roda o comando e mostra um feedback visual enquanto processa
-        print("[*] Compactando arquivos (Por favor, aguarde)...")
+        # Run the backup and show progress as the archive is being created.
+        print("[*] Compressing files (please wait)...")
         start_time = time.time()
 
         subprocess.run(tar_cmd, check=True)
@@ -77,18 +77,18 @@ def main():
         file_size_mb = os.path.getsize(backup_filepath) / (1024 * 1024)
 
         print("\n" + "=" * 60)
-        print(" ✅ BACKUP CONCLUÍDO COM SUCESSO!")
+        print(" ✅ BACKUP COMPLETED SUCCESSFULLY!")
         print("=" * 60)
-        print(f" Arquivo gerado : {backup_filepath}")
-        print(f" Tamanho final  : {file_size_mb:.2f} MB")
-        print(f" Tempo gasto    : {elapsed:.1f} segundos")
-        print("\n 💡 Dica: Guarde este arquivo em um local seguro (nuvem, HD externo).")
-        print("    Para restaurar no futuro, basta extrair este arquivo.")
+        print(f" Generated file: {backup_filepath}")
+        print(f" Final size: {file_size_mb:.2f} MB")
+        print(f" Time spent: {elapsed:.1f} seconds")
+        print("\n 💡 Tip: Store this file in a secure location (cloud, external disk).")
+        print("    To restore it later, simply extract the archive.")
         print("=" * 60)
 
     except subprocess.CalledProcessError as e:
-        print(f"\n[Erro Crítico] Falha ao gerar o arquivo de backup. {e}")
-        # Limpa o arquivo corrompido caso o tar tenha falhado no meio
+        print(f"\n[CRITICAL ERROR] Failed to generate the backup archive. {e}")
+        # Remove an incomplete archive if the compression process failed mid-way.
         if os.path.exists(backup_filepath):
             os.remove(backup_filepath)
 
