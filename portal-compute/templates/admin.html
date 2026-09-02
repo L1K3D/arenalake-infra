@@ -25,13 +25,22 @@
     </style>
 </head>
 
-<body style="background: #0d1117; color: #c9d1d9; font-family: sans-serif; padding: 30px;">
-    <div style="max-width: 1000px; margin: auto;">
-        <h1>👑 ArenaLake - Painel de Controle DBA</h1>
-        <p style="color: #8b949e;">Gerenciamento de infraestrutura, sessões e usuários corporativos.</p>
+<body>
+    <div style="max-width: 1000px; margin: auto; padding-bottom: 50px;">
+        <!-- Cabeçalho com Título e Botão de Logout Isolado -->
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h1>👑 ArenaLake - Painel de Controle DBA</h1>
+                <p style="color: #8b949e; margin: 5px 0 0 0;">Gerenciamento de infraestrutura, sessões e usuários
+                    corporativos.</p>
+            </div>
+            <button onclick="logoutAdmin()"
+                style="padding: 10px 18px; background: #da3633; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s;">🔌
+                Desligar / Sair</button>
+        </div>
         <hr style="border: 1px solid #30363d; margin: 20px 0;">
 
-        <!-- Seção de Cadastro de Usuário -->
+        <!-- Seção de Cadastro de Usuário (Com seletor de perfil Admin/Common) -->
         <div
             style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-bottom: 30px;">
             <h3>➕ Cadastrar Novo Colaborador</h3>
@@ -45,13 +54,21 @@
                     style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
                 <input type="email" id="email" placeholder="E-mail Corporativo" required
                     style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+
+                <!-- Seletor de Perfil (Admin vs Common) -->
+                <select id="roleSelect" required
+                    style="grid-column: span 2; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                    <option value="common">👤 Perfil Comum (Acesso a Workspace e Data Catalog)</option>
+                    <option value="admin">👑 Perfil Administrador / DBA (Controle Total da Infraestrutura)</option>
+                </select>
+
                 <button type="submit"
                     style="grid-column: span 2; padding: 12px; background: #238636; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Criar
                     Acesso Corporativo</button>
             </form>
         </div>
 
-        <!-- Lista de Usuários -->
+        <!-- Lista de Usuários (Com botão de exclusão para contas comuns) -->
         <div style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d;">
             <h3>👥 Usuários Cadastrados no Ecossistema</h3>
             <table style="width: 100%; margin-top: 15px; border-collapse: collapse; text-align: left;">
@@ -62,11 +79,12 @@
                         <th style="padding: 10px;">Nome</th>
                         <th style="padding: 10px;">Cargo / Perfil</th>
                         <th style="padding: 10px;">Status 2FA</th>
+                        <th style="padding: 10px; text-align: right;">Ações</th>
                     </tr>
                 </thead>
                 <tbody id="userTableBody">
                     <tr>
-                        <td colspan="5" style="padding: 15px; text-align: center; color: #8b949e;">Carregando
+                        <td colspan="6" style="padding: 15px; text-align: center; color: #8b949e;">Carregando
                             usuários...</td>
                     </tr>
                 </tbody>
@@ -138,7 +156,7 @@
 
         <!-- Seção 3: Zona de Perigo (Autodestruição Crítica) -->
         <div
-            style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #da3633; margin-top: 30px; margin-bottom: 50px;">
+            style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #da3633; margin-top: 30px;">
             <h3 style="color: #f85149;">⚠️ Zona de Perigo: Autodestruição Crítica</h3>
             <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">Ações destrutivas globais. Esta operação
                 derrubará imediatamente todos os workspaces ativos no cluster.</p>
@@ -175,10 +193,38 @@
             </div>
         </div>
 
+        <!-- Seção: Auto-exclusão da Própria Conta Admin -->
+        <div
+            style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #da3633; margin-top: 30px;">
+            <h3 style="color: #f85149;">🗑️ Excluir Minha Conta de Administrador</h3>
+            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">
+                Para deletar a sua própria conta, digite exatamente a frase: <code id="expectedPhraseLabel"
+                    style="color: #58a6ff; background: #0d1117; padding: 2px 6px; border-radius: 4px;">DELETAR CONTA [seu-usuario]</code>
+            </p>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="text" id="selfDeleteInput" placeholder="Digite a frase de confirmação exata"
+                    style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                <button onclick="executarAutodelecao()"
+                    style="padding: 10px 20px; background: #da3633; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Deletar
+                    Minha Conta</button>
+            </div>
+        </div>
+
     </div>
 
     <script>
-        const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+        // Isolação de sessão por aba usando sessionStorage
+        const token = sessionStorage.getItem('access_token');
+        if (!token) {
+            window.location.href = '/';
+        }
+
+        let loggedAdminUsername = '';
+
+        function logoutAdmin() {
+            sessionStorage.removeItem('access_token');
+            window.location.href = '/';
+        }
 
         async function carregarUsuarios() {
             try {
@@ -189,7 +235,16 @@
                 if (data.status === 'success') {
                     const tbody = document.getElementById('userTableBody');
                     tbody.innerHTML = '';
+
                     data.users.forEach(u => {
+                        // Tenta identificar o usuário logado atual verificando se bate com a listagem ou guardando dinamicamente
+                        let actionBtn = '';
+                        if (u.role !== 'admin') {
+                            actionBtn = `<button onclick="deletarUsuario(${u.id}, '${u.username}')" style="background: #da3633; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">🗑️ Excluir</button>`;
+                        } else {
+                            actionBtn = `<span style="color: #8b949e; font-size: 0.8em; font-style: italic;">Protegido</span>`;
+                        }
+
                         tbody.innerHTML += `
                             <tr style="border-bottom: 1px solid #21262d;">
                                 <td style="padding: 10px;">#${u.id}</td>
@@ -197,12 +252,40 @@
                                 <td style="padding: 10px;">${u.full_name}</td>
                                 <td style="padding: 10px;"><span style="background: ${u.role === 'admin' ? '#da3633' : '#1f6feb'}; padding: 3px 8px; border-radius: 4px; font-size: 0.8em;">${u.role.toUpperCase()}</span></td>
                                 <td style="padding: 10px;">${u.is_2fa_verified ? '✅ Verificado' : '⏳ Pendente'}</td>
+                                <td style="padding: 10px; text-align: right;">${actionBtn}</td>
                             </tr>
                         `;
                     });
+
+                    // Pega o primeiro admin da lista ou tenta inferir para montar a frase de auto-deleção
+                    const currentAdmin = data.users.find(u => u.role === 'admin');
+                    if (currentAdmin) {
+                        loggedAdminUsername = currentAdmin.username;
+                        document.getElementById('expectedPhraseLabel').innerText = `DELETAR CONTA ${loggedAdminUsername}`;
+                    }
                 }
             } catch (e) {
                 console.error("Erro ao carregar usuários", e);
+            }
+        }
+
+        async function deletarUsuario(userId, username) {
+            if (!confirm(`Tem certeza que deseja excluir o usuário comum '${username}'?`)) return;
+
+            try {
+                const res = await fetch(`/api/admin/users/${userId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    alert(result.message);
+                    carregarUsuarios();
+                } else {
+                    alert("Erro: " + result.detail);
+                }
+            } catch (e) {
+                alert("Erro de comunicação ao tentar excluir o usuário.");
             }
         }
 
@@ -213,6 +296,7 @@
                 password: document.getElementById('password').value,
                 full_name: document.getElementById('full_name').value,
                 email: document.getElementById('email').value,
+                role: document.getElementById('roleSelect').value,
                 department: "Infrastructure"
             };
 
@@ -483,18 +567,39 @@
             }
         });
 
-        // Chamada de inicialização do Catálogo
+        async function executarAutodelecao() {
+            const inputVal = document.getElementById('selfDeleteInput').value.trim();
+
+            if (!confirm("ATENÇÃO: Deseja realmente excluir a sua própria conta de administrador? Esta ação é irreversível!")) return;
+
+            try {
+                const res = await fetch('/api/admin/account/self', {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ confirmation_phrase: inputVal })
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    alert(result.message);
+                    sessionStorage.removeItem('access_token');
+                    window.location.href = '/';
+                } else {
+                    alert("Erro: " + result.detail);
+                }
+            } catch (e) {
+                alert("Erro de comunicação com o servidor.");
+            }
+        }
+
+        // Inicializações da página
         carregarDataCatalog();
-
-        // Chamadas de inicialização
         carregarClusterNodes();
-
-        // Carrega também os workspaces junto com os usuários ao abrir a página
         carregarUsuarios();
         carregarWorkspaces();
-        setInterval(carregarWorkspaces, 10000); // Atualiza a cada 10 segundos
-
-        carregarUsuarios();
+        setInterval(carregarWorkspaces, 10000);
     </script>
 </body>
 

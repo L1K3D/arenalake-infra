@@ -7,7 +7,7 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
     // 1. Pega o token JWT do cofre (se não tiver, expulsa pro login)
-    const token = localStorage.getItem('access_token');
+    const token = sessionStorage.getItem('sessionStorage' in window ? sessionStorage.getItem('access_token') : localStorage.getItem('access_token')) || sessionStorage.getItem('access_token');
     if (!token) {
         window.location.href = '/';
         return;

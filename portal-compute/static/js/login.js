@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.ok) {
                 // Armazena o token JWT corporativo no cofre local
-                localStorage.setItem('access_token', data.access_token);
+                sessionStorage.setItem('access_token', data.access_token);
 
                 // 👑 Roteamento Inteligente baseado no RBAC e status de segurança
                 if (data.must_change_password || !data.is_2fa_verified) {

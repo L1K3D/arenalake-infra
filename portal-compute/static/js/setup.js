@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
  * Fetches allocatable system resources (CPU/RAM) from API using JWT authentication
  */
 async function fetchSystemResources() {
-    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    const token = sessionStorage.getItem('access_token');
     const resourcesContainer = document.getElementById('resources-status') || document.querySelector('.resources-info');
 
     if (!token) {

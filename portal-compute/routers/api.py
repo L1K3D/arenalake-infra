@@ -36,6 +36,8 @@ class BiColumnsRequest(BaseModel):
     bucket: str
     filename: str
 
+class SelfDeleteRequest(BaseModel):
+    confirmation_phrase: str
 
 class VisualRequest(BaseModel):
     bucket: str
@@ -53,7 +55,6 @@ class VisualRequest(BaseModel):
     # NOVOS CAMPOS PARA O SLICER GLOBAL:
     filtro_coluna: str = ""
     filtro_valor: str = ""
-
 
 class FilterRequest(BaseModel):
     bucket: str
@@ -596,13 +597,16 @@ async def admin_list_users(current_user: User = Depends(get_current_user), db: S
 
 @router.post("/admin/users")
 async def admin_create_user(req: UserCreateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Cria um novo usuário comum com senha temporária e obriga troca no 1º acesso (Apenas Admin)"""
+    """Cria um novo usuário com senha temporária e perfil definido (Apenas Admin)"""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
     existing = db.query(User).filter(User.username == req.username).first()
     if existing:
         raise HTTPException(status_code=400, detail="Nome de usuário já existe.")
+
+    if req.role not in ["admin", "common"]:
+        raise HTTPException(status_code=400, detail="Perfil inválido. Escolha entre 'admin' ou 'common'.")
 
     hashed_pw = pwd_context.hash(req.password)
     new_user = User(
@@ -611,14 +615,35 @@ async def admin_create_user(req: UserCreateRequest, current_user: User = Depends
         full_name=req.full_name,
         email=req.email,
         department=req.department,
-        role="common", # Força a criação como comum por segurança
+        role=req.role, # <--- Agora respeita a escolha do Admin!
         must_change_password=True,
         is_2fa_verified=False
     )
     db.add(new_user)
     db.commit()
 
-    return JSONResponse(content={"status": "success", "message": f"Usuário '{new_user.username}' criado com sucesso!"})
+    return JSONResponse(content={"status": "success", "message": f"Usuário '{new_user.username}' ({req.role}) criado com sucesso!"})
+
+@router.delete("/admin/users/{user_id}")
+async def admin_delete_user(user_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Exclui um usuário comum do ecossistema (Apenas Admin)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
+    
+    user_to_delete = db.query(User).filter(User.id == user_id).first()
+    if not user_to_delete:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    
+    if user_to_delete.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Você não pode excluir sua própria conta de administrador.")
+    
+    if user_to_delete.role == "admin":
+        raise HTTPException(status_code=400, detail="Contas de Administrador são protegidas e não podem ser excluídas por esta via.")
+
+    db.delete(user_to_delete)
+    db.commit()
+
+    return JSONResponse(content={"status": "success", "message": f"Usuário '{user_to_delete.username}' excluído com sucesso!"})
 
 @router.get("/admin/workspaces")
 async def admin_list_workspaces(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -797,6 +822,21 @@ async def admin_upload_catalog_file(
         return JSONResponse(content={"status": "success", "message": f"Arquivo '{file.filename}' enviado para o bucket '{bucket}' com sucesso!"})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao enviar arquivo: {str(e)}")
+
+@router.delete("/admin/account/self")
+async def admin_self_delete(req: SelfDeleteRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Permite que o Administrador exclua a própria conta mediante frase de confirmação (Apenas Admin)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
+    
+    expected_phrase = f"DELETAR CONTA {current_user.username}"
+    if req.confirmation_phrase != expected_phrase:
+        raise HTTPException(status_code=400, detail=f"Frase incorreta. Você deve digitar exatamente: '{expected_phrase}'")
+    
+    db.delete(current_user)
+    db.commit()
+
+    return JSONResponse(content={"status": "success", "message": "Sua conta de administrador foi permanentemente excluída."})
 
 scheduler.add_job(
     verify_idle_workspaces,
