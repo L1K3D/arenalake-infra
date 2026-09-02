@@ -28,6 +28,8 @@ from core.docker_mgr import (
 )
 from core.database import get_db, SessionLocal
 
+from core.docker_mgr import client as docker_client, shutdown_workspace
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class BiColumnsRequest(BaseModel):
@@ -615,6 +617,61 @@ async def admin_create_user(req: UserCreateRequest, current_user: User = Depends
 
     return JSONResponse(content={"status": "success", "message": f"Usuário '{new_user.username}' criado com sucesso!"})
 
+@router.get("/admin/workspaces")
+async def admin_list_workspaces(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Lista todos os workspaces (containers de usuários) ativos no Docker Swarm (Apenas Admin)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
+    
+    if not docker_client:
+        return JSONResponse(content={"status": "success", "workspaces": []})
+
+    active_workspaces = []
+    try:
+        # Lista serviços do swarm que começam com vscode-
+        services = docker_client.services.list()
+        for svc in services:
+            if svc.name.startswith("vscode-"):
+                username = svc.name.replace("vscode-", "")
+                tasks = svc.tasks(filters={"desired-state": "running"})
+                
+                is_running = False
+                node_id = "Desconhecido"
+                for task in tasks:
+                    if task["Status"]["State"] == "running":
+                        is_running = True
+                        node_id = task.get("NodeID", "N/A")
+                        break
+                
+                if is_running:
+                    # Pcura limites de recursos definidos no spec do serviço
+                    spec = svc.attrs.get("Spec", {}).get("TaskTemplate", {}).get("Resources", {}).get("Limits", {})
+                    cpu_cores = spec.get("NanoCPUs", 0) / 1e9
+                    ram_mb = spec.get("MemoryBytes", 0) / (1024 * 1024)
+
+                    active_workspaces.append({
+                        "username": username,
+                        "service_name": svc.name,
+                        "cpu": f"{cpu_cores} Cores",
+                        "ram": f"{round(ram_mb, 1)} MB",
+                        "node": node_id
+                    })
+    except Exception as e:
+        print(f"Erro ao inspecionar Docker Swarm: {e}")
+
+    return JSONResponse(content={"status": "success", "workspaces": active_workspaces})
+
+@router.post("/admin/workspaces/kill/{username}")
+async def admin_kill_workspace(username: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Executa o Kill Switch: derruba os containers do workspace do usuário imediatamente (Apenas Admin)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
+    
+    try:
+        shutdown_workspace(username)
+        return JSONResponse(content={"status": "success", "message": f"Sessão do usuário '{username}' encerrada com sucesso pelo Kill Switch."})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao encerrar sessão: {str(e)}")
 
 scheduler.add_job(
     verify_idle_workspaces,
