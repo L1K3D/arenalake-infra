@@ -67,6 +67,9 @@ class UserCreateRequest(BaseModel):
     email: str
     department: str = "General"
     role: str = "common"
+    
+class DangerDestroyRequest(BaseModel):
+    confirm_username: str
 
 router = APIRouter(prefix="/api")
 
@@ -672,6 +675,91 @@ async def admin_kill_workspace(username: str, current_user: User = Depends(get_c
         return JSONResponse(content={"status": "success", "message": f"Sessão do usuário '{username}' encerrada com sucesso pelo Kill Switch."})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao encerrar sessão: {str(e)}")
+
+@router.get("/admin/cluster/nodes")
+async def admin_cluster_nodes(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Inspeciona os nós do Docker Swarm (Master/Worker, Status e Hardware) (Apenas Admin)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
+    
+    if not docker_client:
+        return JSONResponse(content={"status": "success", "nodes": []})
+    
+    nodes_data = []
+    try:
+        nodes = docker_client.nodes.list()
+        for node in nodes:
+            attrs = node.attrs
+            status = attrs.get("Status", {}).get("State", "unknown")
+            role = attrs.get("Spec", {}).get("Role", "worker")
+            labels = attrs.get("Spec", {}).get("Labels", {})
+            papel = labels.get("papel", role)
+            hostname = attrs.get("Description", {}).get("Hostname", "unknown")
+            resources = attrs.get("Description", {}).get("Resources", {})
+            total_cpus = resources.get("NanoCPUs", 0) / 1e9
+            total_mem = resources.get("MemoryBytes", 0) / (1024**3)
+            
+            nodes_data.append({
+                "id": node.id,
+                "hostname": hostname,
+                "role": papel.upper(),
+                "status": status,
+                "cpus": round(total_cpus, 1),
+                "memory_gb": round(total_mem, 1)
+            })
+    except Exception as e:
+        print(f"Erro ao ler nós do Swarm: {e}")
+    
+    return JSONResponse(content={"status": "success", "nodes": nodes_data})
+
+@router.get("/admin/files/{username}")
+async def admin_inspect_user_files(username: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Espionagem de Arquivos: Inspeciona o volume persistente do usuário com segurança (Apenas Admin)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
+    
+    if not docker_client:
+        raise HTTPException(status_code=500, detail="Cliente Docker offline.")
+    
+    vol_name = f"arena-vol-{username}"
+    files_list = []
+    try:
+        # Roda um container Alpine temporário montando o volume do usuário em modo somente leitura (ro)
+        output = docker_client.containers.run(
+            image="alpine:latest",
+            command="find /data -maxdepth 3 -not -path '*/.*'",
+            volumes={vol_name: {"bind": "/data", "mode": "ro"}},
+            remove=True
+        )
+        files_list = output.decode("utf-8").splitlines()
+    except Exception as e:
+        files_list = [f"Volume não encontrado ou vazio para '{username}' ({str(e)})"]
+        
+    return JSONResponse(content={"status": "success", "username": username, "files": files_list})
+
+@router.post("/admin/danger/destroy")
+async def admin_self_destruct(req: DangerDestroyRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Painel de Autodestruição Crítica: Purgar todos os workspaces ativos do cluster (Apenas Admin)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
+    
+    if req.confirm_username != current_user.username:
+        raise HTTPException(status_code=400, detail="O nome de usuário digitado não confere com o seu usuário admin atual.")
+    
+    try:
+        if docker_client:
+            services = docker_client.services.list()
+            for svc in services:
+                if svc.name.startswith("vscode-") or svc.name.startswith("spark-worker-"):
+                    try:
+                        svc.remove()
+                    except:
+                        pass
+        print(f"[CRITICAL SECURITY] PROTOCOLO DE AUTODESTRUIÇÃO EXECUTADO PELO ADMIN: {current_user.username}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro na execução da autodestruição: {str(e)}")
+        
+    return JSONResponse(content={"status": "success", "message": "Protocolo de Autodestruição executado com sucesso. Todos os workspaces ativos foram purgados."})
 
 scheduler.add_job(
     verify_idle_workspaces,

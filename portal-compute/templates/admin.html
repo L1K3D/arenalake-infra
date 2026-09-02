@@ -95,6 +95,61 @@
                 </tbody>
             </table>
         </div>
+
+        <div
+            style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-top: 30px;">
+            <h3>🖥️ Infraestrutura do Cluster (Swarm Nodes)</h3>
+            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">Monitoramento em tempo real dos nós ativos
+                na arquitetura distribuída.</p>
+            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead>
+                    <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
+                        <th style="padding: 10px;">Hostname</th>
+                        <th style="padding: 10px;">Papel (Role)</th>
+                        <th style="padding: 10px;">Status</th>
+                        <th style="padding: 10px;">Capacidade (CPU / RAM)</th>
+                    </tr>
+                </thead>
+                <tbody id="nodesTableBody">
+                    <tr>
+                        <td colspan="4" style="padding: 15px; text-align: center; color: #8b949e;">Analisando nós do
+                            cluster...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Seção 2: Espionagem de Arquivos (Auditoria de Workspace) -->
+        <div
+            style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-top: 30px;">
+            <h3>🕵️‍♂️ Espionagem de Arquivos (Auditoria de Volume)</h3>
+            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">Inspecione os arquivos temporários do
+                volume de um usuário específico.</p>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="text" id="auditUsername" placeholder="Digite o username (ex: carlos.silva)"
+                    style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                <button onclick="auditarArquivos()"
+                    style="padding: 10px 20px; background: #1f6feb; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Inspecionar
+                    Volume</button>
+            </div>
+            <pre id="auditOutput"
+                style="background: #0d1117; padding: 15px; border-radius: 6px; border: 1px solid #30363d; color: #58a6ff; max-height: 200px; overflow-y: auto; font-size: 0.85em; display: none;"></pre>
+        </div>
+
+        <!-- Seção 3: Zona de Perigo (Autodestruição Crítica) -->
+        <div
+            style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #da3633; margin-top: 30px; margin-bottom: 50px;">
+            <h3 style="color: #f85149;">⚠️ Zona de Perigo: Autodestruição Crítica</h3>
+            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">Ações destrutivas globais. Esta operação
+                derrubará imediatamente todos os workspaces ativos no cluster.</p>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="text" id="confirmDestroyUser" placeholder="Digite seu username para confirmar"
+                    style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                <button onclick="executarAutodestruicao()"
+                    style="padding: 10px 20px; background: #da3633; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">🚨
+                    Executar Autodestruição</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -207,6 +262,91 @@
                 alert("Erro de comunicação ao tentar derrubar a sessão.");
             }
         }
+
+        async function carregarClusterNodes() {
+            try {
+                const res = await fetch('/api/admin/cluster/nodes', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    const tbody = document.getElementById('nodesTableBody');
+                    tbody.innerHTML = '';
+                    data.nodes.forEach(n => {
+                        tbody.innerHTML += `
+                            <tr style="border-bottom: 1px solid #21262d;">
+                                <td style="padding: 10px; font-family: monospace; color: #58a6ff;">${n.hostname}</td>
+                                <td style="padding: 10px;"><span style="background: ${n.role === 'MASTER' ? '#8957e5' : '#1f6feb'}; padding: 3px 8px; border-radius: 4px; font-size: 0.8em;">${n.role}</span></td>
+                                <td style="padding: 10px;">${n.status === 'ready' ? '🟢 Pronto' : '🔴 ' + n.status}</td>
+                                <td style="padding: 10px;">${n.cpus} Cores | ${n.memory_gb} GB RAM</td>
+                            </tr>
+                        `;
+                    });
+                }
+            } catch (e) {
+                console.error("Erro ao carregar nós do cluster", e);
+            }
+        }
+
+        async function auditarArquivos() {
+            const username = document.getElementById('auditUsername').value.trim();
+            const outputBox = document.getElementById('auditOutput');
+            if (!username) {
+                alert("Digite um username válido para auditoria.");
+                return;
+            }
+
+            outputBox.style.display = 'block';
+            outputBox.innerText = "Buscando arquivos no volume do usuário...";
+
+            try {
+                const res = await fetch(`/api/admin/files/${username}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    outputBox.innerText = data.files.join('\n');
+                } else {
+                    outputBox.innerText = "Erro: " + data.detail;
+                }
+            } catch (e) {
+                outputBox.innerText = "Erro de conexão ao inspecionar volume.";
+            }
+        }
+
+        async function executarAutodestruicao() {
+            const confirmUser = document.getElementById('confirmDestroyUser').value.trim();
+            if (!confirmUser) {
+                alert("Você precisa digitar o seu nome de usuário para confirmar a autodestruição.");
+                return;
+            }
+
+            if (!confirm("ATENÇÃO: Deseja realmente purgar todas as sessões e workspaces ativos do cluster? Essa ação é irreversível!")) return;
+
+            try {
+                const res = await fetch('/api/admin/danger/destroy', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ confirm_username: confirmUser })
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    alert(result.message);
+                    document.getElementById('confirmDestroyUser').value = '';
+                    carregarWorkspaces();
+                } else {
+                    alert("Erro crítico: " + result.detail);
+                }
+            } catch (e) {
+                alert("Erro de comunicação com o servidor.");
+            }
+        }
+
+        // Chamadas de inicialização
+        carregarClusterNodes();
 
         // Carrega também os workspaces junto com os usuários ao abrir a página
         carregarUsuarios();
