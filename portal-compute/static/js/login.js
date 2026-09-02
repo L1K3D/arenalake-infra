@@ -1,54 +1,57 @@
+/* ============================================================================
+   ArenaLake Login JavaScript
+   ============================================================================
+   Handles user authentication via API and intelligent RBAC redirection.
+   ============================================================================ */
+
 document.addEventListener('DOMContentLoaded', () => {
-    // Pega o formulário pelo ID que vamos colocar no HTML
-    const loginForm = document.getElementById('login-form');
+    // Tenta encontrar o formulário de login por ID ou seletor genérico
+    const form = document.getElementById('login-form') || document.querySelector('form');
+    if (!form) return;
 
-    if (loginForm) {
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault(); // Impede o navegador de recarregar a página
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
 
-            // Captura os valores digitados nos inputs
-            const usernameInput = document.getElementById('usuario').value;
-            const passwordInput = document.getElementById('senha').value;
+        // Identifica os campos de input do form de login
+        const usernameInput = document.getElementById('usuario') || document.getElementById('username');
+        const passwordInput = document.getElementById('senha') || document.getElementById('password');
 
-            // Prepara os dados no formato exato que o FastAPI exige (OAuth2)
-            const formData = new URLSearchParams();
-            formData.append('username', usernameInput);
-            formData.append('password', passwordInput);
+        if (!usernameInput || !passwordInput) return;
 
-            try {
-                // Dispara a requisição para a nossa nova API blindada
-                const response = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: formData
-                });
+        // O FastAPI OAuth2PasswordRequestForm exige application/x-www-form-urlencoded
+        const formData = new URLSearchParams();
+        formData.append('username', usernameInput.value.trim().toLowerCase());
+        formData.append('password', passwordInput.value);
 
-                if (response.ok) {
-                    const data = await response.json();
+        try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: formData
+            });
 
-                    // Salva o Token JWT no cofre do navegador
-                    localStorage.setItem('access_token', data.access_token);
-                    localStorage.setItem('username', data.username);
-                    localStorage.setItem('role', data.role);
+            const data = await response.json();
 
-                    // A MÁGICA ACONTECE AQUI: 
-                    // Se o backend avisar que não tem 2FA, manda pro first-access
-                    if (data.must_change_password || !data.is_2fa_verified) {
-                        window.location.href = '/first-access';
-                    } else {
-                        window.location.href = '/setup';
-                    }
+            if (response.ok) {
+                // Armazena o token JWT corporativo no cofre local
+                localStorage.setItem('access_token', data.access_token);
 
+                // 👑 Roteamento Inteligente baseado no RBAC e status de segurança
+                if (data.must_change_password || !data.is_2fa_verified) {
+                    window.location.href = '/first-access'; // Primeiro acesso / 2FA pendente
+                } else if (data.role === 'admin') {
+                    window.location.href = '/admin'; // Administrador vai direto para o Painel DBA
                 } else {
-                    const errorData = await response.json();
-                    alert(errorData.detail || 'Usuário ou senha incorretos.');
+                    window.location.href = '/setup'; // Usuário comum vai para o Setup do Workspace
                 }
-            } catch (error) {
-                console.error("Erro na comunicação com o servidor:", error);
-                alert("Erro ao tentar fazer login. Verifique se o servidor está rodando.");
+            } else {
+                alert(data.detail || "Credenciais inválidas. Verifique usuário e senha.");
             }
-        });
-    }
+        } catch (error) {
+            console.error("Erro no login:", error);
+            alert("Erro de conexão com o servidor.");
+        }
+    });
 });
