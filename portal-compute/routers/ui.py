@@ -47,7 +47,11 @@ async def login(request: Request, usuario: str = Form(...), senha: str = Form(..
         if user.must_change_password or not user.is_2fa_verified:
             return RedirectResponse(url="/first-access", status_code=303)
             
-        # Se já passou por tudo, libera o acesso para a escolha de hardware no setup
+        # 👑 SE FOR ADMIN, VAI DIRETO PARA O PAINEL DE CONTROLE DBA!
+        if user.role == "admin":
+            return RedirectResponse(url="/admin", status_code=303)
+            
+        # Se for usuário comum, libera o acesso para a escolha de hardware no setup
         return templates.TemplateResponse(
             request=request,
             name="setup.html",

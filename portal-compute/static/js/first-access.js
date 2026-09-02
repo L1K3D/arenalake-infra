@@ -1,3 +1,10 @@
+/* ============================================================================
+   ArenaLake First-Access JavaScript
+   ============================================================================
+   Handles QR code loading, JWT authentication verification, and secure 
+   onboarding submission (password change + 2FA token validation).
+   ============================================================================ */
+
 document.addEventListener('DOMContentLoaded', async () => {
     // 1. Pega o token JWT do cofre (se não tiver, expulsa pro login)
     const token = localStorage.getItem('access_token');
@@ -41,15 +48,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 body: JSON.stringify({ new_password, otp_code })
             });
 
+            const result = await resSetup.json();
+
             if (resSetup.ok) {
                 alert("Segurança configurada com sucesso! Bem-vindo ao ArenaLake.");
-                // Opcional: Atualiza o localStorage para refletir que o usuário não precisa mais trocar a senha
 
-                // Redireciona para a tela de hardware (Setup)
-                window.location.href = '/setup';
+                // 4. Roteamento Inteligente baseado no nível de privilégio (RBAC)
+                if (result.role === 'admin') {
+                    window.location.href = '/admin'; // Redireciona o DBA para o Painel de Controle
+                } else {
+                    window.location.href = '/setup'; // Redireciona o usuário comum para o Workspace
+                }
             } else {
-                const err = await resSetup.json();
-                alert(err.detail || "Código inválido ou senha fraca.");
+                alert(result.detail || "Código inválido ou senha fraca.");
             }
         } catch (error) {
             alert("Erro ao validar dados.");

@@ -114,4 +114,8 @@ def complete_first_access(data: FirstAccessSetup, current_user: User = Depends(g
     
     db.commit()
 
-    return {"status": "success", "message": "Autenticação em duas etapas e senha configuradas com sucesso!"}
+    return {
+        "status": "success", 
+        "message": "Autenticação em duas etapas e senha configuradas com sucesso!",
+        "role": user.role
+    }
