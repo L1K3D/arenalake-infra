@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>ArenaLake - Painel do Administrador (DBA)</title>
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+
+<body style="background: #0d1117; color: #c9d1d9; font-family: sans-serif; padding: 30px;">
+    <div style="max-width: 1000px; margin: auto;">
+        <h1>👑 ArenaLake - Painel de Controle DBA</h1>
+        <p style="color: #8b949e;">Gerenciamento de infraestrutura, sessões e usuários corporativos.</p>
+        <hr style="border: 1px solid #30363d; margin: 20px 0;">
+
+        <!-- Seção de Cadastro de Usuário -->
+        <div
+            style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-bottom: 30px;">
+            <h3>➕ Cadastrar Novo Colaborador</h3>
+            <form id="createUserForm"
+                style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                <input type="text" id="username" placeholder="Username (ex: carlos.silva)" required
+                    style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                <input type="password" id="password" placeholder="Senha Temporária (Mín. 8 chars)" required
+                    style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                <input type="text" id="full_name" placeholder="Nome Completo" required
+                    style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                <input type="email" id="email" placeholder="E-mail Corporativo" required
+                    style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                <button type="submit"
+                    style="grid-column: span 2; padding: 12px; background: #238636; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Criar
+                    Acesso Corporativo</button>
+            </form>
+        </div>
+
+        <!-- Lista de Usuários -->
+        <div style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d;">
+            <h3>👥 Usuários Cadastrados no Ecossistema</h3>
+            <table style="width: 100%; margin-top: 15px; border-collapse: collapse; text-align: left;">
+                <thead>
+                    <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
+                        <th style="padding: 10px;">ID</th>
+                        <th style="padding: 10px;">Username</th>
+                        <th style="padding: 10px;">Nome</th>
+                        <th style="padding: 10px;">Cargo / Perfil</th>
+                        <th style="padding: 10px;">Status 2FA</th>
+                    </tr>
+                </thead>
+                <tbody id="userTableBody">
+                    <tr>
+                        <td colspan="5" style="padding: 15px; text-align: center; color: #8b949e;">Carregando
+                            usuários...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+
+        async function carregarUsuarios() {
+            try {
+                const res = await fetch('/api/admin/users', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    const tbody = document.getElementById('userTableBody');
+                    tbody.innerHTML = '';
+                    data.users.forEach(u => {
+                        tbody.innerHTML += `
+                            <tr style="border-bottom: 1px solid #21262d;">
+                                <td style="padding: 10px;">#${u.id}</td>
+                                <td style="padding: 10px; color: #58a6ff; font-weight: bold;">${u.username}</td>
+                                <td style="padding: 10px;">${u.full_name}</td>
+                                <td style="padding: 10px;"><span style="background: ${u.role === 'admin' ? '#da3633' : '#1f6feb'}; padding: 3px 8px; border-radius: 4px; font-size: 0.8em;">${u.role.toUpperCase()}</span></td>
+                                <td style="padding: 10px;">${u.is_2fa_verified ? '✅ Verificado' : '⏳ Pendente'}</td>
+                            </tr>
+                        `;
+                    });
+                }
+            } catch (e) {
+                console.error("Erro ao carregar usuários", e);
+            }
+        }
+
+        document.getElementById('createUserForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const body = {
+                username: document.getElementById('username').value,
+                password: document.getElementById('password').value,
+                full_name: document.getElementById('full_name').value,
+                email: document.getElementById('email').value,
+                department: "Infrastructure"
+            };
+
+            const res = await fetch('/api/admin/users', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            });
+
+            const result = await res.json();
+            if (res.ok) {
+                alert(result.message);
+                document.getElementById('createUserForm').reset();
+                carregarUsuarios();
+            } else {
+                alert("Erro: " + result.detail);
+            }
+        });
+
+        carregarUsuarios();
+    </script>
+</body>
+
+</html>

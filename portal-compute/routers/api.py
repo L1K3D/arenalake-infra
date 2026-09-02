@@ -5,15 +5,30 @@ import pandas as pd
 import os
 import io
 
-from fastapi import APIRouter, UploadFile, File, Form, Request, Depends
+from fastapi import APIRouter, UploadFile, File, Form, Request, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from passlib.context import CryptContext
 from core.s3_mgr import get_s3_client
 from core.security import get_current_user
 from core.models import User
+from passlib.context import CryptContext
 
+from core.s3_mgr import fetch_catalog_data, upload_file_to_datalake, get_file_details
+from core.docker_mgr import (
+    get_workspace_metrics,
+    list_spark_jobs,
+    run_spark_job,
+    get_allocatable_resources,
+    update_workspace_activity,
+    verify_idle_workspaces,
+)
+from core.database import get_db, SessionLocal
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class BiColumnsRequest(BaseModel):
     bucket: str
@@ -42,17 +57,14 @@ class FilterRequest(BaseModel):
     bucket: str
     filename: str
     coluna: str
-
-
-from core.s3_mgr import fetch_catalog_data, upload_file_to_datalake, get_file_details
-from core.docker_mgr import (
-    get_workspace_metrics,
-    list_spark_jobs,
-    run_spark_job,
-    get_allocatable_resources,
-    update_workspace_activity,
-    verify_idle_workspaces,
-)
+    
+class UserCreateRequest(BaseModel):
+    username: str
+    password: str
+    full_name: str
+    email: str
+    department: str = "General"
+    role: str = "common"
 
 router = APIRouter(prefix="/api")
 
@@ -556,6 +568,52 @@ async def get_spark_app_jobs(app_id: str):
         return JSONResponse(
             content={"status": "error", "message": f"Erro interno: {str(e)}"}
         )
+        
+@router.get("/admin/users")
+async def admin_list_users(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Lista todos os usuários cadastrados no ecossistema (Apenas Admin)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
+    
+    users = db.query(User).all()
+    user_list = []
+    for u in users:
+        user_list.append({
+            "id": u.id,
+            "username": u.username,
+            "full_name": u.full_name,
+            "email": u.email,
+            "role": u.role,
+            "is_active": u.is_active,
+            "is_2fa_verified": u.is_2fa_verified
+        })
+    return JSONResponse(content={"status": "success", "users": user_list})
+
+@router.post("/admin/users")
+async def admin_create_user(req: UserCreateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Cria um novo usuário comum com senha temporária e obriga troca no 1º acesso (Apenas Admin)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
+    
+    existing = db.query(User).filter(User.username == req.username).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Nome de usuário já existe.")
+
+    hashed_pw = pwd_context.hash(req.password)
+    new_user = User(
+        username=req.username.lower().strip().replace(" ", "-"),
+        hashed_password=hashed_pw,
+        full_name=req.full_name,
+        email=req.email,
+        department=req.department,
+        role="common", # Força a criação como comum por segurança
+        must_change_password=True,
+        is_2fa_verified=False
+    )
+    db.add(new_user)
+    db.commit()
+
+    return JSONResponse(content={"status": "success", "message": f"Usuário '{new_user.username}' criado com sucesso!"})
 
 
 scheduler.add_job(

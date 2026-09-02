@@ -99,3 +99,8 @@ async def first_access_page(request: Request):
 async def setup_page(request: Request):
     # Consertado: Passando nome e request explicitamente
     return templates.TemplateResponse(request=request, name="setup.html")
+
+@router.get("/admin", response_class=HTMLResponse)
+async def admin_dashboard_page(request: Request):
+    # Retorna a interface do painel do DBA
+    return templates.TemplateResponse(request=request, name="admin.html")
