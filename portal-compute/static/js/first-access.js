@@ -52,14 +52,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             const result = await resSetup.json();
 
             if (resSetup.ok) {
-                alert("Security configured successfully! Welcome to ArenaLake.");
-
-                // Route administrators and standard users to their next workflow.
-                if (result.role === 'admin') {
-                    window.location.href = '/admin';
-                } else {
-                    window.location.href = '/setup';
-                }
+                alert(result.message || "Security configured successfully. Please sign in again.");
+                sessionStorage.removeItem('access_token');
+                localStorage.removeItem('access_token');
+                window.location.href = '/';
             } else {
                 alert(result.detail || "Invalid code or weak password.");
             }
