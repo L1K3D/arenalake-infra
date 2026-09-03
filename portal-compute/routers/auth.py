@@ -144,6 +144,11 @@ def complete_first_access(data: FirstAccessSetup, current_user: User = Depends(g
 
     db.commit()
 
+    return {
+        "status": "success",
+        "message": "Security setup completed successfully. Please sign in again.",
+    }
+
 
 @router.post("/api/auth/verify-otp")
 def verify_login_otp(data: VerifyOtpRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -162,10 +167,4 @@ def verify_login_otp(data: VerifyOtpRequest, current_user: User = Depends(get_cu
         "status": "success",
         "access_token": final_token,
         "token_type": "bearer"
-    }
-
-    return {
-        "status": "success",
-        "message": "Two-step authentication and the new password were configured successfully!",
-        "role": user.role
     }
