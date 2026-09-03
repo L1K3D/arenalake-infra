@@ -6,6 +6,7 @@
    ============================================================================ */
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Load current cluster capacity when the setup page becomes available.
     fetchSystemResources();
 });
 
@@ -13,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
  * Fetches allocatable system resources (CPU/RAM) from API using JWT authentication
  */
 async function fetchSystemResources() {
+    // Resource information is protected and requires the current JWT.
     const token = sessionStorage.getItem('access_token');
     const resourcesContainer = document.getElementById('resources-status') || document.querySelector('.resources-info');
 
@@ -44,6 +46,7 @@ async function fetchSystemResources() {
         const result = await response.json();
 
         if (result.status === 'success' && result.data) {
+            // Render only a successful, complete resource response.
             updateResourcesUI(result.data);
         }
     } catch (error) {
@@ -59,6 +62,7 @@ async function fetchSystemResources() {
  * @param {Object} data - Resource metrics from backend
  */
 function updateResourcesUI(data) {
+    // Replace the status placeholder with the latest free CPU and RAM values.
     const resourcesContainer = document.getElementById('resources-status') || document.querySelector('.resources-info');
     if (resourcesContainer) {
         resourcesContainer.innerHTML = `
@@ -72,6 +76,7 @@ function updateResourcesUI(data) {
  * @param {string} perfil - Selected profile ('standard' or 'extreme')
  */
 function selectCard(perfil) {
+    // Keep exactly one hardware profile visually selected.
     document.getElementById('card-standard').classList.remove('selected');
     document.getElementById('card-extreme').classList.remove('selected');
 
@@ -79,11 +84,13 @@ function selectCard(perfil) {
 
     const profileInput = document.getElementById('perfilInput');
     if (profileInput) {
+        // Store the selected profile in the provisioning form.
         profileInput.value = perfil;
     }
 
     const btn = document.getElementById('btnLaunch');
     if (btn) {
+        // Enable the launch action after a valid profile is selected.
         btn.disabled = false;
         if (perfil === 'standard') {
             btn.innerText = "🚀 Start Standard Environment";

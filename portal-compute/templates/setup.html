@@ -2,15 +2,18 @@
 <html>
 
 <head>
+    <!-- Workspace profile selection metadata and page-specific styles. -->
     <title>ArenaLake - Environment Setup</title>
     <link rel="stylesheet" href="/static/css/setup.css">
 </head>
 
 <body>
+    <!-- Users select the resource profile used to provision their isolated workspace. -->
     <div class="container">
         <h2>⚙️ Workspace Setup</h2>
         <p class="subtitle">Welcome, <b>{{ usuario }}</b>. Select the compute power for your session.</p>
 
+        <!-- Live CPU and RAM capacity reported by the Docker Swarm. -->
         <div id="resource-banner"
             style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; margin-bottom: 25px; text-align: center; color: #c9d1d9;">
             📊 <b>Fetching available server resources...</b>
@@ -19,6 +22,7 @@
         <form action="/provisionar" method="post" id="setupForm">
             <input type="hidden" name="usuario" value="{{ usuario }}">
 
+            <!-- Each card represents a predefined workspace resource profile. -->
             <div class="card-grid">
                 <label class="machine-card" id="card-standard" onclick="selectCard('standard')">
                     <input type="radio" name="perfil" value="standard" required>
@@ -53,9 +57,11 @@
         </form>
     </div>
 
+    <!-- Shared setup interactions and resource loading logic. -->
     <script src="/static/js/setup.js"></script>
 
     <script>
+        // The inline logic periodically refreshes capacity and disables unavailable profiles.
         async function fetchSystemResources() {
             try {
                 const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
@@ -100,6 +106,7 @@
             }
         }
 
+        // Compare available capacity with each profile's minimum requirements.
         function verificarDisponibilidade(cpusLivres, ramLivre) {
             const cardStandard = document.getElementById('card-standard');
             const radioStandard = document.querySelector('input[value="standard"]');

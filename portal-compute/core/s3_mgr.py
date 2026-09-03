@@ -1,12 +1,10 @@
 # ============================================================================
-# S3/MinIO Data Lake Manager
+# S3/MinIO data lake manager.
+# Centralizes object storage access, catalog discovery, uploads, and previews.
 # ============================================================================
 # This module handles all interactions with the MinIO object storage service.
-# Provides functions for:
-# - Catalog browsing: list buckets and files
-# - File management: upload files with metadata
-# - File preview: extract and format data for UI display
-# - Connection management: handle S3 credentials securely
+# The functions below cover catalog browsing, file management, previews,
+# and connection setup using credentials supplied by the environment.
 # ============================================================================
 
 import os
@@ -16,17 +14,16 @@ import io
 
 
 def get_s3_client():
-    """Initialize and return a boto3 S3 client configured for MinIO.
-    
-    Retrieves MinIO credentials from environment variables (injected via docker-compose).
-    Raises ValueError if credentials are not found.
-    Endpoint is configured for MinIO at http://minio:9000 (internal Docker network).
+    """Create a boto3 client configured for the internal MinIO endpoint.
+
+    Credentials are read from environment variables and a ``ValueError`` is
+    raised immediately when either required value is missing.
     """
-    # Retrieve credentials from environment variables (set in docker-compose)
+    # Retrieve credentials injected by the container environment.
     minio_ak = os.environ.get("MINIO_ACCESS_KEY")
     minio_sk = os.environ.get("MINIO_SECRET_KEY")
 
-    # Fail fast if credentials are missing
+    # Fail fast so storage operations never run with incomplete credentials.
     if not minio_ak or not minio_sk:
         raise ValueError(
             "ERRO CRÍTICO: Credenciais do MinIO (MINIO_ACCESS_KEY e MINIO_SECRET_KEY) não encontradas no ambiente!"
@@ -42,11 +39,10 @@ def get_s3_client():
 
 
 def fetch_catalog_data():
-    """Fetch and structure all buckets and files from MinIO.
-    
-    Returns a dictionary where keys are bucket names and values are
-    lists of file paths within each bucket.
-    Filters out Spark metadata files (_SUCCESS, .crc) automatically.
+    """Return a bucket-to-file mapping for objects visible in MinIO.
+
+    Spark-generated ``_SUCCESS`` markers and ``.crc`` checksum files are
+    omitted because they are processing metadata rather than user datasets.
     """
     s3_client = get_s3_client()
     buckets_response = s3_client.list_buckets()
@@ -61,8 +57,7 @@ def fetch_catalog_data():
         for obj in contents:
             key = obj["Key"]
 
-            # Filter out Spark metadata files (_SUCCESS files, .crc checksums, etc.)
-            # These are internal Spark artifacts, not user data
+            # Hide internal Spark artifacts from the user-facing catalog.
             if "_SUCCESS" in key or key.endswith(".crc") or "/_SUCCESS" in key:
                 continue
 
@@ -74,13 +69,10 @@ def fetch_catalog_data():
 
 
 def upload_file_to_datalake(bucket: str, file_obj, filename: str, username: str):
-    """Upload a file to MinIO with uploader metadata.
-    
-    Args:
-        bucket: Target bucket name
-        file_obj: File object to upload
-        filename: Name of the file
-        username: Username of the uploader (stored as metadata)
+    """Upload a file to a bucket and record the uploader as object metadata.
+
+    The file-like object is streamed through boto3, avoiding the need to write
+    a temporary copy to the portal container's local filesystem.
     """
     s3_client = get_s3_client()
     s3_client.upload_fileobj(
@@ -93,7 +85,7 @@ def upload_file_to_datalake(bucket: str, file_obj, filename: str, username: str)
 
 
 def format_size(size_bytes):
-    """Convert byte count to human-readable format (B, KB, MB, GB)."""
+    """Format a byte count using a compact B, KB, MB, or GB representation."""
     if size_bytes < 1024:
         return f"{size_bytes} B"
     elif size_bytes < 1024**2:
@@ -105,15 +97,11 @@ def format_size(size_bytes):
 
 
 def get_file_details(bucket: str, filename: str):
-    """Fetch file metadata and generate a preview for the UI.
-    
-    Handles multiple file formats:
-    - Images (PNG, JPG): generates presigned URL for display
-    - CSV files: reads first 10 rows and returns HTML table
-    - Parquet files: reads first 10 rows and returns HTML table
-    - Text files: reads first 10 lines
-    
-    Returns a dictionary with file metadata and preview content.
+    """Collect object metadata and generate a UI preview for supported formats.
+
+    Images receive a short-lived presigned URL. CSV and Parquet files are
+    converted to HTML tables, while text files are limited to their first ten
+    lines to keep previews lightweight.
     """
     s3_client = get_s3_client()
 
@@ -180,7 +168,7 @@ def get_file_details(bucket: str, filename: str):
     return details
 
 def delete_file_from_datalake(bucket: str, filename: str):
-    """Exclui um arquivo ou objeto do bucket do MinIO (Apenas Admin)"""
+    """Delete an object from a MinIO bucket for an authorized administrator."""
     s3_client = get_s3_client()
     s3_client.delete_object(Bucket=bucket, Key=filename)
     return True

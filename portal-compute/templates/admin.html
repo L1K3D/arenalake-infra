@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+    <!-- Admin page metadata and shared dashboard styling. -->
     <meta charset="UTF-8">
     <title>ArenaLake - DBA Control Panel</title>
     <link rel="stylesheet" href="/static/css/dashboard.css">
@@ -25,6 +26,7 @@
 </head>
 
 <body>
+    <!-- The admin panel is organized into independent operational sections. -->
     <div style="max-width: 1000px; margin: auto; padding-bottom: 50px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
@@ -38,6 +40,7 @@
         </div>
         <hr style="border: 1px solid #30363d; margin: 20px 0;">
 
+        <!-- User registration and role assignment form. -->
         <div
             style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-bottom: 30px;">
             <h3>➕ Register New Collaborator</h3>
@@ -64,6 +67,7 @@
             </form>
         </div>
 
+        <!-- Registered users and account-management actions. -->
         <div style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d;">
             <h3>👥 Users Registered in the Ecosystem</h3>
             <table style="width: 100%; margin-top: 15px; border-collapse: collapse; text-align: left;">
@@ -85,6 +89,7 @@
             </table>
         </div>
 
+        <!-- Active workspace services and administrator kill switch. -->
         <div
             style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-top: 30px;">
             <h3>⚡ Active Workspaces in the Cluster (Kill Switch)</h3>
@@ -108,6 +113,7 @@
             </table>
         </div>
 
+        <!-- Swarm node health and capacity information. -->
         <div
             style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-top: 30px;">
             <h3>🖥️ Cluster Infrastructure (Swarm Nodes)</h3>
@@ -131,6 +137,7 @@
             </table>
         </div>
 
+        <!-- Read-only inspection of files inside a user's persistent volume. -->
         <div
             style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-top: 30px;">
             <h3>🕵️‍♂️ File Spy (Volume Audit)</h3>
@@ -147,6 +154,7 @@
                 style="background: #0d1117; padding: 15px; border-radius: 6px; border: 1px solid #30363d; color: #58a6ff; max-height: 200px; overflow-y: auto; font-size: 0.85em; display: none;"></pre>
         </div>
 
+        <!-- Destructive cluster-wide action requiring explicit confirmation. -->
         <div
             style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #da3633; margin-top: 30px;">
             <h3 style="color: #f85149;">⚠️ Danger Zone: Critical Self-Destruction</h3>
@@ -161,6 +169,7 @@
             </div>
         </div>
 
+        <!-- Administrator access to MinIO bucket and object governance. -->
         <div
             style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-top: 30px;">
             <h3>🗄️ Data Catalog Governance (MinIO)</h3>
@@ -182,6 +191,7 @@
             </div>
         </div>
 
+        <!-- Separate self-deletion flow for the currently authenticated administrator. -->
         <div
             style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #da3633; margin-top: 30px;">
             <h3 style="color: #f85149;">🗑️ Delete My Administrator Account</h3>
@@ -201,6 +211,7 @@
     </div>
 
     <script>
+        // Keep the administrator session isolated to this browser tab.
         const token = sessionStorage.getItem('access_token');
         if (!token) {
             window.location.href = '/';
@@ -213,6 +224,7 @@
             window.location.href = '/';
         }
 
+        // Load users and render role, 2FA, and account action information.
         async function carregarUsuarios() {
             try {
                 const res = await fetch('/api/admin/users', {
@@ -228,11 +240,11 @@
                         let actionBtn = '';
                         if (u.role !== 'admin') {
                             actionBtn = `
-                                <button onclick="resetarSenha(${u.id}, '${u.username}')" style="background: #1f6feb; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer; margin-right: 5px;">🔑 Resetar</button>
-                                <button onclick="deletarUsuario(${u.id}, '${u.username}')" style="background: #da3633; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">🗑️ Excluir</button>
+                                <button onclick="resetarSenha(${u.id}, '${u.username}')" style="background: #1f6feb; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer; margin-right: 5px;">🔑 Reset Password</button>
+                                <button onclick="deletarUsuario(${u.id}, '${u.username}')" style="background: #da3633; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">🗑️ Delete</button>
                             `;
                         } else {
-                            actionBtn = `<span style="color: #8b949e; font-size: 0.8em; font-style: italic;">Protegido</span>`;
+                            actionBtn = `<span style="color: #8b949e; font-size: 0.8em; font-style: italic;">Protected</span>`;
                         }
 
                         tbody.innerHTML += `
@@ -258,6 +270,7 @@
             }
         }
 
+        // Delete a non-administrator account after confirmation.
         async function deletarUsuario(userId, username) {
             if (!confirm(`Are you sure you want to delete the regular user '${username}'?`)) return;
 
@@ -309,6 +322,7 @@
             }
         });
 
+        // Discover running workspace services from Docker Swarm.
         async function carregarWorkspaces() {
             try {
                 const res = await fetch('/api/admin/workspaces', {
@@ -339,7 +353,7 @@
                     });
                 }
             } catch (e) {
-                console.error('Erro ao carregar workspaces', e);
+                console.error('Error on load workspaces', e);
             }
         }
 
@@ -364,6 +378,7 @@
             }
         }
 
+        // Load node roles, readiness, and advertised hardware capacity.
         async function carregarClusterNodes() {
             try {
                 const res = await fetch('/api/admin/cluster/nodes', {
@@ -379,17 +394,18 @@
                             <tr style="border-bottom: 1px solid #21262d;">
                                 <td style="padding: 10px; font-family: monospace; color: #58a6ff;">${n.hostname}</td>
                                 <td style="padding: 10px;"><span style="background: ${n.role === 'MASTER' ? '#8957e5' : '#1f6feb'}; padding: 3px 8px; border-radius: 4px; font-size: 0.8em;">${n.role}</span></td>
-                                <td style="padding: 10px;">${n.status === 'ready' ? '🟢 Pronto' : '🔴 ' + n.status}</td>
+                                <td style="padding: 10px;">${n.status === 'ready' ? '🟢 Ready' : '🔴 Not Ready' + n.status}</td>
                                 <td style="padding: 10px;">${n.cpus} Cores | ${n.memory_gb} GB RAM</td>
                             </tr>
                         `;
                     });
                 }
             } catch (e) {
-                console.error('Erro ao carregar nós do cluster', e);
+                console.error('Error on load cluster nodes', e);
             }
         }
 
+        // Inspect a user's volume through the read-only audit endpoint.
         async function auditarArquivos() {
             const username = document.getElementById('auditUsername').value.trim();
             const outputBox = document.getElementById('auditOutput');
@@ -417,6 +433,7 @@
             }
         }
 
+        // Purge active workspace services after a deliberate administrator confirmation.
         async function executarAutodestruicao() {
             const confirmUser = document.getElementById('confirmDestroyUser').value.trim();
             if (!confirmUser) {
@@ -449,6 +466,7 @@
             }
         }
 
+        // Load MinIO buckets and render their files for governance actions.
         async function carregarDataCatalog() {
             try {
                 const res = await fetch('/api/admin/catalog', {
@@ -473,14 +491,14 @@
                         const files = catalog[bucket];
 
                         if (files.length === 0) {
-                            filesHtml = '<tr><td colspan="2" style="padding: 8px; color: #8b949e; font-style: italic;">Bucket vazio.</td></tr>';
+                            filesHtml = '<tr><td colspan="2" style="padding: 8px; color: #8b949e; font-style: italic;">Bucket is empty.</td></tr>';
                         } else {
                             files.forEach(file => {
                                 filesHtml += `
                                     <tr style="border-bottom: 1px solid #21262d;">
                                         <td style="padding: 8px; font-family: monospace; color: #58a6ff;">${file}</td>
                                         <td style="padding: 8px; text-align: right;">
-                                            <button onclick="deletarArquivoCatalog('${bucket}', '${file}')" style="background: #da3633; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">🗑️ Excluir</button>
+                                            <button onclick="deletarArquivoCatalog('${bucket}', '${file}')" style="background: #da3633; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">🗑️ Delete</button>
                                         </td>
                                     </tr>
                                 `;
@@ -498,10 +516,11 @@
                     });
                 }
             } catch (e) {
-                console.error('Erro ao carregar Data Catalog', e);
+                console.error('Error on load Data Catalog', e);
             }
         }
 
+        // Delete one object from the selected MinIO bucket.
         async function deletarArquivoCatalog(bucket, filename) {
             if (!confirm(`Are you sure you want to delete the file '${filename}' from bucket '${bucket}'?`)) return;
 
@@ -565,6 +584,7 @@
             }
         });
 
+        // Permanently delete the current administrator account.
         async function executarAutodelecao() {
             const inputVal = document.getElementById('selfDeleteInput').value.trim();
 
@@ -593,6 +613,7 @@
             }
         }
 
+        // Reset a user's temporary password and require onboarding again.
         async function resetarSenha(userId, username) {
             const novaSenha = prompt(`Enter the temporary new password for '${username}' (Min. 8 characters):`);
             if (!novaSenha) return;
@@ -624,6 +645,7 @@
             }
         }
 
+        // Populate all admin sections and keep workspace status refreshed.
         carregarDataCatalog();
         carregarClusterNodes();
         carregarUsuarios();

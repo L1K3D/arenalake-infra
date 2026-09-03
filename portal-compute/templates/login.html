@@ -2,17 +2,20 @@
 <html>
 
 <head>
+    <!-- Login page metadata and shared authentication styles. -->
     <title>ArenaLake - Login</title>
     <link rel="stylesheet" href="/static/css/login.css">
 </head>
 
 <body>
+    <!-- Authentication entry point for all ArenaLake user roles. -->
     <div class="card">
         <h2>🚀 ArenaLake</h2>
-        <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 25px;">Academic Big Data Platform</p>
+        <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 25px;">On-premises data warehouse platform with open-source tools</p>
 
+        <!-- The JavaScript handler submits these credentials to the authentication API. -->
         <form id="login-form">
-            <input type="text" id="usuario" name="usuario" placeholder="Username (e.g. heitor)" required>
+            <input type="text" id="usuario" name="usuario" placeholder="Username" required>
             <input type="password" id="senha" name="senha" placeholder="Password" required>
 
             <button type="submit">Enter Workspace</button>

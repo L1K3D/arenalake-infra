@@ -10,21 +10,22 @@ from sqlalchemy.orm import Session
 from core.database import SessionLocal
 from core.models import User
 
-# Read the secret key injected dynamically by the installer via .env.
+# Read the signing secret injected by the installer through the environment.
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "fallback-secret-key")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8  # Validity window: 8 hours
+# Keep access tokens valid for eight hours unless a shorter custom expiry is used.
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Compare a plain-text password with the secure SQLite bcrypt hash."""
+    """Check a submitted password against its stored bcrypt hash."""
     return pwd_context.verify(plain_password, hashed_password)
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
-    """Generate and sign a corporate JWT token."""
+    """Create a signed JWT containing the supplied claims and expiration time."""
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
@@ -35,6 +36,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
 def get_db():
+    """Yield a database session for authentication dependencies and close it safely."""
     db = SessionLocal()
     try:
         yield db
@@ -43,9 +45,7 @@ def get_db():
 
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
-    """
-    Validate the JWT and return the owning user. If the token is invalid or expired, reject it with 401.
-    """
+    """Validate a bearer token and return its active user or raise HTTP 401."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid or expired access credentials.",
@@ -53,7 +53,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     )
 
     try:
-        # Decode the payload using the configured secret key and algorithm.
+        # Decode the payload using the configured secret and signing algorithm.
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
@@ -61,7 +61,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     except JWTError:
         raise credentials_exception
 
-    # Ensure the user still exists and remains active in the SQLite database.
+    # Confirm that the token owner still exists and is allowed to access the portal.
     user = db.query(User).filter(User.username == username).first()
     if user is None or not user.is_active:
         raise credentials_exception

@@ -12,7 +12,7 @@ body {
     overflow: hidden;
 }
 
-/* SIDEBAR */
+/* Sidebar navigation and collapsed state. */
 .sidebar {
     width: 250px;
     background-color: #161b22;
@@ -65,7 +65,7 @@ body {
     color: white;
 }
 
-/* MAIN CONTENT */
+/* Main application content and header layout. */
 .main-content {
     flex: 1;
     display: flex;
@@ -150,7 +150,7 @@ body {
     font-size: 0.75em;
 }
 
-/* TAB CONTENT */
+/* Tab visibility, scrolling, and transition behavior. */
 .tab-content {
     display: none;
     flex: 1;
@@ -190,7 +190,7 @@ body {
     background: white;
 }
 
-/* CARDS */
+/* Shared card and button styles. */
 .card {
     background: #161b22;
     padding: 25px;
@@ -220,7 +220,7 @@ body {
     background-color: #2ea043;
 }
 
-/* METRICS */
+/* Resource metric cards, progress bars, and charts. */
 .metric-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -256,7 +256,7 @@ body {
     border: 1px solid #30363d;
 }
 
-/* TABLES */
+/* Data tables and file interaction elements. */
 table {
     width: 100%;
     border-collapse: collapse;
@@ -297,7 +297,7 @@ th {
     align-items: center;
 }
 
-/* SIDE PANEL */
+/* Sliding detail panel and preview elements. */
 .side-panel {
     position: fixed;
     top: 0;
@@ -380,19 +380,19 @@ th {
 }
 
 /* ============================================================================
-   ARENALAKE BI TOOLS - STYLES
-   ============================================================================ */
+    ArenaLake BI tools
+    ============================================================================ */
 .bi-ribbon {
     display: flex;
     flex-direction: row;
     align-items: center;
     justify-content: center;
-    /* <--- CENTRALIZOU TUDO AQUI */
+    /* Keep ribbon controls aligned around the center. */
     background-color: #111111;
     border: 1px solid #30363d;
     border-radius: 6px;
     padding: 6px 20px;
-    /* <--- DIMINUIU A ALTURA DA BARRA (antes era 12px) */
+    /* Compact vertical spacing keeps the ribbon unobtrusive. */
     margin-bottom: 15px;
     gap: 15px;
 }
@@ -404,7 +404,7 @@ th {
     justify-content: center;
     min-width: 140px;
     padding: 4px 10px;
-    /* <--- DIMINUIU O ESPAÇAMENTO INTERNO DOS BOTÕES */
+    /* Compact padding keeps each ribbon action easy to scan. */
     border-radius: 6px;
     transition: background-color 0.2s ease;
 }
@@ -419,9 +419,9 @@ th {
 
 .ribbon-icon {
     font-size: 26px;
-    /* <--- ÍCONES LEVEMENTE MENORES */
+    /* Keep icons prominent without increasing ribbon height. */
     margin-bottom: 2px;
-    /* <--- MENOS ESPAÇO ENTRE ÍCONE E TEXTO */
+    /* Keep the icon and label visually grouped. */
 }
 
 .ribbon-label {
@@ -435,12 +435,12 @@ th {
 .ribbon-divider {
     width: 2px;
     height: 35px;
-    /* <--- DIVISÓRIA MAIS CURTA ACOMPANHANDO A NOVA ALTURA */
+    /* Match the divider height to the compact ribbon. */
     background-color: #ffffff;
     border-radius: 1px;
 }
 
-/* O seletor de dados disfarçado de label (MANTÉM IGUAL) */
+/* Data source selector styled as a ribbon label. */
 .ribbon-select {
     background: transparent;
     color: #ffffff;
@@ -452,7 +452,7 @@ th {
     outline: none;
     width: 100%;
 
-    /* TRUQUE PARA ESCONDER A SETINHA DO DROPDOWN NATIVO */
+    /* Hide the native arrow so the selector matches the ribbon design. */
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
@@ -507,10 +507,10 @@ th {
     width: 100%;
     height: 100%;
     min-height: 150px;
-    /* <--- O SEGREDINHO PRA NÃO RENDERIZAR EM BRANCO */
+    /* A minimum height prevents charts from rendering into a blank area. */
 }
 
-/* Modal BI */
+/* BI configuration modal. */
 .bi-modal {
     display: none;
     position: fixed;
@@ -545,7 +545,7 @@ th {
     color: #8b949e;
 }
 
-/* ESTILIZAÇÃO DAS TABELAS COM TEMAS (ESTILO MICROSOFT) */
+/* Themed BI tables with a compact, spreadsheet-like presentation. */
 .bi-table-container {
     width: 100%;
     height: 100%;
@@ -576,7 +576,7 @@ th {
     color: #c9d1d9;
 }
 
-/* 1. Tema Padrão (Dark Zebra) */
+/* 1. Default theme with alternating dark rows. */
 .theme-padrao th {
     background: #161b22;
     color: #58a6ff;
@@ -587,7 +587,7 @@ th {
     background: #161b2250;
 }
 
-/* 2. Tema Azul (Blue Accent) */
+/* 2. Blue accent theme. */
 .theme-blue th {
     background: #005a9e;
     color: #ffffff;
@@ -602,7 +602,7 @@ th {
     background: #005a9e40;
 }
 
-/* 3. Tema Verde (Green Accent) */
+/* 3. Green accent theme. */
 .theme-green th {
     background: #107c41;
     color: #ffffff;
@@ -617,7 +617,7 @@ th {
     background: #107c4140;
 }
 
-/* 4. Tema Laranja (Orange Accent) */
+/* 4. Orange accent theme. */
 .theme-orange th {
     background: #d83b01;
     color: #ffffff;

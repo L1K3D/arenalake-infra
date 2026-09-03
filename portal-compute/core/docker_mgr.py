@@ -1,5 +1,6 @@
 # ============================================================================
-# Docker Swarm Workspace Manager
+# Docker Swarm workspace manager.
+# Coordinates isolated VS Code and Spark Worker services for each user.
 # ============================================================================
 import os
 import docker
@@ -19,7 +20,11 @@ WORKSPACE_LAST_SEEN = {}
 
 
 def parse_memory(mem_str: str):
-    """Convert a memory string like '2g' or '512m' into bytes."""
+    """Convert a human-readable memory value into bytes for Docker limits.
+
+    Values ending in ``g`` or ``m`` are interpreted as gibibytes or mebibytes;
+    values without a suffix are treated as raw byte counts.
+    """
     if mem_str.lower().endswith('g'):
         return int(mem_str[:-1]) * 1024**3
     elif mem_str.lower().endswith('m'):
@@ -28,6 +33,12 @@ def parse_memory(mem_str: str):
 
 
 def provision_workspace(usuario: str, perfil: str = "standard"):
+    """Create the VS Code and Spark Worker services for one user.
+
+    The selected profile determines CPU and memory reservations. Existing
+    services with the same user-specific names are removed first, and both new
+    services share a named volume containing the user's project files.
+    """
     if not client:
         raise Exception("Docker client is not initialized.")
 
@@ -39,7 +50,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         vscode_ram = "2g"
         worker_ram = "6g"
         spark_ram = "6g"
-        cpu_limit = 6 * 1000000000  # 6 cores em nanoCPUs
+        cpu_limit = 6 * 1000000000  # Docker represents six CPU cores as nanoCPUs.
         spark_cores = "6"
     else:
         vscode_ram = "1g"
@@ -48,16 +59,16 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         cpu_limit = 2 * 1000000000
         spark_cores = "2"
 
-    # Derruba serviços antigos caso existam
+    # Remove previous services so a new provisioning request starts cleanly.
     for s_name in [container_name_vscode, container_name_worker]:
         try:
             service = client.services.get(s_name)
             service.remove()
-            tm.sleep(2) # Pausa dramática para o Swarm matar as tasks antigas
+            tm.sleep(2)  # Give Swarm time to terminate the previous tasks.
         except docker.errors.NotFound:
             pass
 
-    # Usamos Volumes nomeados (Docker gerencia sozinho no disco do Worker)
+    # Use a named volume so Docker manages project storage on the worker node.
     vol_name = f"arena-vol-{usuario}"
 
     minio_ak = os.environ.get("MINIO_ACCESS_KEY")
@@ -66,7 +77,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
     if not minio_ak or not minio_sk:
         raise ValueError("ERRO CRÍTICO: Credenciais do MinIO não encontradas!")
 
-    # 1. Serviço do VS Code (A Interface)
+    # Create the user's browser-accessible VS Code service.
     startup_vscode_cmd = (
         f"sudo chown -R coder:coder /home/coder/project && "
         f"echo 'PS1=\"{usuario}@\\h:\\w\\$ \"' >> /home/coder/.bashrc && "
@@ -105,7 +116,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         }
     )
 
-    # 2. Serviço do Spark Worker
+    # Create the Spark Worker service that joins the shared Spark master.
     startup_worker_cmd = (
         "export SPARK_HOME=$(python3 -c 'import pyspark; print(pyspark.__path__[0])'); "
         "export SPARK_WORKER_DIR=/tmp/spark-work; "
@@ -134,6 +145,12 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
     return domain
 
 def get_workspace_metrics(usuario: str):
+    """Return the current status and reserved resources for a user's workspace.
+
+    Swarm tasks may run on nodes other than the manager, so this function reads
+    service task state and service resource limits instead of inspecting a
+    container directly.
+    """
     if not client:
         return {"status": "offline", "message": "Cliente offline"}
 
@@ -141,8 +158,7 @@ def get_workspace_metrics(usuario: str):
     allocated_mem = 0
     allocated_cpu = 0
 
-    # No Swarm, o get(container) quebra se a task não estiver no master.
-    # Por isso, checamos o status da Task do Serviço distribuído.
+    # Inspect distributed service tasks because a task may not run on the manager.
     for s_name in [f"vscode-{usuario}", f"spark-worker-{usuario}"]:
         try:
             service = client.services.get(s_name)
@@ -160,7 +176,7 @@ def get_workspace_metrics(usuario: str):
         return {"status": "offline", "message": "Workspace inativo"}
 
     mem_mb = round(allocated_mem / (1024 * 1024), 2)
-    # Como fallback para a UI não quebrar sem a métrica em tempo real do Worker, enviamos um load placeholder
+    # Return a stable fallback load when live worker metrics are unavailable.
     return {
         "status": "online",
         "cpu_percent": 1.0,
@@ -170,6 +186,7 @@ def get_workspace_metrics(usuario: str):
     }
 
 def list_spark_jobs():
+    """List Python job files available in the running Spark master container."""
     if not client:
         return []
     try:
@@ -190,6 +207,7 @@ def list_spark_jobs():
         return []
 
 def run_spark_job(job_name: str, origin: str = "manual"):
+    """Submit a Python job to the Spark master container asynchronously."""
     if not client:
         return False
     try:
@@ -207,6 +225,11 @@ def run_spark_job(job_name: str, origin: str = "manual"):
         return False
 
 def get_allocatable_resources():
+    """Calculate total, allocated, and available Swarm CPU and memory resources.
+
+    Ready node capacities are compared with limits reserved by user workspace
+    and Spark Worker services.
+    """
     if not client:
         return {"error": "Cliente Docker offline"}
     try:
@@ -214,7 +237,7 @@ def get_allocatable_resources():
         total_cpus = 0.0
         total_mem_bytes = 0
 
-        # 1. Soma recursos de todos os nós (Master + Worker)
+        # Sum the capacity reported by every ready manager and worker node.
         for node in nodes:
             if node.attrs.get("Status", {}).get("State") == "ready":
                 res = node.attrs.get("Description", {}).get("Resources", {})
@@ -224,7 +247,7 @@ def get_allocatable_resources():
         allocated_cpus = 0.0
         allocated_mem_bytes = 0
 
-        # 2. Soma recursos alocados pelos Serviços no Swarm
+        # Sum limits reserved by user-facing workspace and Spark Worker services.
         for svc in client.services.list():
             if svc.name.startswith("vscode-") or svc.name.startswith("spark-worker-"):
                 task_tmpl = svc.attrs.get("Spec", {}).get("TaskTemplate", {})
@@ -248,9 +271,11 @@ def get_allocatable_resources():
         return {"error": str(e)}
 
 def update_workspace_activity(usuario: str):
+    """Record the latest activity timestamp for a user's workspace."""
     WORKSPACE_LAST_SEEN[usuario] = tm.time()
 
 def shutdown_workspace(usuario: str):
+    """Remove a user's VS Code and Spark Worker services and activity record."""
     if not client:
         return
     for s_name in [f"vscode-{usuario}", f"spark-worker-{usuario}"]:
@@ -264,6 +289,7 @@ def shutdown_workspace(usuario: str):
         del WORKSPACE_LAST_SEEN[usuario]
 
 def verify_idle_workspaces():
+    """Shut down workspaces that have exceeded the inactivity timeout."""
     current_time = tm.time()
     idle_timeout = 15 * 60
     for usuario, last_seen in list(WORKSPACE_LAST_SEEN.items()):

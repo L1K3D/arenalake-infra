@@ -22,12 +22,12 @@ let metricsInterval;
 let ramChart, cpuChart;
 
 // Chart configuration
-const maxDataPoints = 20;  // Keep last 20 data points in history
+const maxDataPoints = 20;  // Retain only the most recent history points.
 const chartOptions = {
     responsive: true,
-    animation: false,  // Disable animation for real-time updates
+    animation: false,  // Avoid animation delays during live updates.
     scales: {
-        x: { display: false },  // Hide X-axis labels (timestamps)
+        x: { display: false },  // Hide timestamp labels to keep charts compact.
         y: { beginAtZero: true, grid: { color: '#30363d' }, ticks: { color: '#8b949e' } }
     },
     plugins: { legend: { labels: { color: 'white' } } }
@@ -51,16 +51,16 @@ function toggleSidebar() {
  * Only initializes if charts don't already exist (prevents duplicates)
  */
 function initCharts() {
-    if (ramChart) return;  // Already initialized
+    if (ramChart) return;  // Prevent duplicate Chart.js instances.
 
-    // RAM usage history chart (blue line)
+    // Configure the RAM usage history chart.
     const ctxRam = document.getElementById('ramChart').getContext('2d');
     ramChart = new Chart(ctxRam, {
         type: 'line',
         data: {
             labels: [],
             datasets: [{
-                label: 'Histórico de RAM (MB)',
+                label: 'RAM history (MB)',
                 data: [],
                 borderColor: '#58a6ff',  // Blue
                 backgroundColor: 'rgba(88, 166, 255, 0.1)',
@@ -71,14 +71,14 @@ function initCharts() {
         options: chartOptions
     });
 
-    // CPU usage history chart (green line)
+    // Configure the CPU usage history chart.
     const ctxCpu = document.getElementById('cpuChart').getContext('2d');
     cpuChart = new Chart(ctxCpu, {
         type: 'line',
         data: {
             labels: [],
             datasets: [{
-                label: 'Histórico de CPU (%)',
+                label: 'CPU history (%)',
                 data: [],
                 borderColor: '#2ea043',  // Green
                 backgroundColor: 'rgba(46, 160, 67, 0.1)',
@@ -109,7 +109,7 @@ function switchTab(tabId, element) {
     if (tabId === 'data') loadCatalog();
     if (tabId === 'compute') initCharts();
 
-    // NOVA LÓGICA DO BI:
+    // Initialize the BI grid only when its tab is opened for the first time.
     if (tabId === 'bi' && !biGridInicializado) {
         biGrid = GridStack.init({
             cellHeight: 120,
@@ -166,17 +166,17 @@ function updateFolderDropdown() {
     const folderSelect = document.getElementById('folderSelect');
     const files = globalCatalogData[bucket] || [];
 
-    // Extract unique folder names from file paths
+    // Extract unique top-level folder names from object paths.
     let folders = new Set();
     files.forEach(f => {
         if (f.includes('/')) {
-            const pastaPai = f.split('/')[0];
-            folders.add(pastaPai);
+            const parentFolder = f.split('/')[0];
+            folders.add(parentFolder);
         }
     });
 
-    // Build dropdown options: root + all folders
-    let optionsHtml = '<option value="/">📁 (Raiz - Arquivos Soltos)</option>';
+    // Build options for the bucket root and each discovered folder.
+    let optionsHtml = '<option value="/">📁 (Root - Loose Files)</option>';
     folders.forEach(folder => {
         optionsHtml += `<option value="${folder}">📁 ${folder}</option>`;
     });
@@ -194,7 +194,7 @@ function renderCatalogTable() {
     const files = globalCatalogData[bucket] || [];
     let tbody = '';
 
-    // Track datasets to avoid duplicates (Spark creates multiple part-* files per dataset)
+    // Track datasets because Spark can create multiple part files per dataset.
     let displayedDatasets = new Set();
     let filteredFiles = [];
 
@@ -210,34 +210,34 @@ function renderCatalogTable() {
             if (f.startsWith(selectedFolder + '/')) {
                 let subPath = f.substring(selectedFolder.length + 1);
 
-                // Check if this is a Spark dataset (contains part-* or .parquet)
+                // Treat part files and Parquet paths as Spark datasets.
                 if (subPath.includes('part-') || subPath.endsWith('.parquet')) {
                     let datasetName = subPath.split('/')[0];
                     let datasetKey = `${selectedFolder}/${datasetName}`;
-                    // Show dataset only once, even if it has multiple part files
+                    // Display each logical dataset only once.
                     if (!displayedDatasets.has(datasetKey)) {
                         displayedDatasets.add(datasetKey);
                         filteredFiles.push({ name: f, display: `📁 ${datasetName} (Dataset Spark)` });
                     }
                 } else {
-                    // Regular file
+                    // Display regular files using their relative path.
                     filteredFiles.push({ name: f, display: subPath });
                 }
             }
         }
     });
 
-    // Build table rows
+    // Build table rows from the filtered catalog entries.
     if (filteredFiles.length > 0) {
         filteredFiles.forEach(item => {
             tbody += `<tr>
                 <td>${bucket}</td>
                 <td><span class="file-link" onclick="openPreview('${bucket}', '${item.name}')">${item.display}</span></td>
-                <td><span style="font-size:0.8em; padding:3px 8px; background:#21262d; border-radius:3px;">Pronto</span></td>
+                        <td><span style="font-size:0.8em; padding:3px 8px; background:#21262d; border-radius:3px;">Ready</span></td>
             </tr>`;
         });
     } else {
-        tbody = '<tr><td colspan="3" style="text-align:center; color:#8b949e;">Nenhum arquivo ou tabela encontrado nesta pasta.</td></tr>';
+        tbody = '<tr><td colspan="3" style="text-align:center; color:#8b949e;">No files or tables found in this folder.</td></tr>';
     }
 
     document.querySelector('#catalogTable tbody').innerHTML = tbody;
@@ -394,7 +394,7 @@ async function loadMetrics() {
             if (wsRamBar) wsRamBar.style.width = '0%';
         }
     } catch (e) {
-        console.error('Erro ao buscar métricas');
+        console.error('Error fetching workspace metrics.');
     }
 }
 
@@ -433,7 +433,7 @@ async function updateSparkDashboard() {
                         <span style="color: #c9d1d9;"><strong>ID:</strong> ${w.id}</span><br>
                         <span style="color: #8b949e;"><strong>Host:</strong> ${w.host}:${w.port}</span> | 
                         <span style="color: #8b949e;"><strong>Cores:</strong> ${w.coresused} / ${w.cores}</span> | 
-                        <span style="color: #8b949e;"><strong>Memória:</strong> ${w.memoryused} / ${w.memory} MB</span>
+                        <span style="color: #8b949e;"><strong>Memory:</strong> ${w.memoryused} / ${w.memory} MB</span>
                     </div>`;
             });
         }
@@ -444,8 +444,8 @@ async function updateSparkDashboard() {
             activeHtml = '<span style="color: #8b949e;">No application is running right now. Start a process in your Jupyter session.</span>';
             expandedAppId = null;
         } else {
-            activeHtml = `<table style="${tableStyle}">
-                    <tr><th style="${thStyle}">Nome do Job</th><th style="${thStyle}">Usuário</th><th style="${thStyle}">Cores Usados</th><th style="${thStyle}">Memória/Nó</th><th style="${thStyle}">Duração</th></tr>`;
+                activeHtml = `<table style="${tableStyle}">
+                    <tr><th style="${thStyle}">Job Name</th><th style="${thStyle}">User</th><th style="${thStyle}">Used Cores</th><th style="${thStyle}">Memory/Node</th><th style="${thStyle}">Duration</th></tr>`;
 
             data.active_apps.forEach(app => {
                 let isExpanded = (expandedAppId === app.id);
@@ -466,7 +466,7 @@ async function updateSparkDashboard() {
 
                 activeHtml += `<tr id="details-${app.id}" style="display: ${displayState}; background: #0d1117;">
                      <td colspan="5" style="padding: 15px; border-bottom: 1px solid #30363d;" id="content-${app.id}">
-                        <span style="color: #8b949e;">Buscando métricas de paralelismo em tempo real...</span>
+                        <span style="color: #8b949e;">Fetching real-time parallelism metrics...</span>
                      </td>
                    </tr>`;
             });
@@ -482,8 +482,8 @@ async function updateSparkDashboard() {
         if (data.completed_apps && data.completed_apps.length === 0) {
             completedHtml = '<span style="color: #8b949e;">No recent execution history.</span>';
         } else {
-            completedHtml = `<table style="${tableStyle}">
-                    <tr><th style="${thStyle}">Nome do Job</th><th style="${thStyle}">Usuário</th><th style="${thStyle}">Estado</th><th style="${thStyle}">Duração</th></tr>`;
+                completedHtml = `<table style="${tableStyle}">
+                    <tr><th style="${thStyle}">Job Name</th><th style="${thStyle}">User</th><th style="${thStyle}">Status</th><th style="${thStyle}">Duration</th></tr>`;
             data.completed_apps.forEach(app => {
                 let stateColor = app.state === 'FINISHED' ? '#3fb950' : (app.state === 'FAILED' || app.state === 'KILLED' ? '#f85149' : '#d29922');
                 completedHtml += `<tr>
@@ -498,7 +498,7 @@ async function updateSparkDashboard() {
         document.getElementById('spark-completed-apps').innerHTML = completedHtml;
 
     } catch (error) {
-        console.error('Erro na engine do dashboard:', error);
+        console.error('Dashboard engine error:', error);
     }
 }
 
@@ -567,7 +567,7 @@ async function refreshJobProgress(appId) {
         contentDiv.innerHTML = jobsHtml;
 
     } catch (error) {
-        contentDiv.innerHTML = '<span style="color:#f85149">Erro ao processar as métricas na tela.</span>';
+        contentDiv.innerHTML = '<span style="color:#f85149">Error processing metrics for display.</span>';
     }
 }
 
@@ -586,7 +586,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==============================================================
-// ARENALAKE SCHEDULER - LÓGICA DE EXECUÇÃO DE JOBS
+// ArenaLake scheduler - job execution and recurring schedule management.
 // ==============================================================
 
 async function loadSchedulerData() {
@@ -596,7 +596,7 @@ async function loadSchedulerData() {
 
         if (data.status !== 'success') return;
 
-        // 1. Renderiza Scripts Disponíveis
+        // Render the scripts available in the shared jobs directory.
         let scriptsHtml = '';
         if (data.scripts.length === 0) {
             scriptsHtml = '<p style="color: #8b949e; font-style: italic;">No .py scripts found in the host /jobs folder.</p>';
@@ -606,15 +606,15 @@ async function loadSchedulerData() {
                 <div style="display: flex; justify-content: space-between; align-items: center; background: #0d1117; padding: 12px; margin-bottom: 8px; border-radius: 6px; border: 1px solid #30363d;">
                     <span style="color: #c9d1d9; font-family: monospace; font-size: 14px;">${script}</span>
                     <div>
-                        <button onclick="runJobNow('${script}')" class="btn" style="background: #238636; border: none; padding: 6px 12px; font-size: 12px; margin-right: 5px;">▶️ Rodar Agora</button>
-                        <button onclick="promptScheduleJob('${script}')" class="btn" style="background: #1f6feb; border: none; padding: 6px 12px; font-size: 12px;">⏰ Agendar (Cron)</button>
+                        <button onclick="runJobNow('${script}')" class="btn" style="background: #238636; border: none; padding: 6px 12px; font-size: 12px; margin-right: 5px;">▶️ Run Now</button>
+                        <button onclick="promptScheduleJob('${script}')" class="btn" style="background: #1f6feb; border: none; padding: 6px 12px; font-size: 12px;">⏰ Schedule (Cron)</button>
                     </div>
                 </div>`;
             });
         }
         document.getElementById('available-scripts-list').innerHTML = scriptsHtml;
 
-        // 2. Renderiza Agendamentos Ativos
+        // Render currently active schedules.
         let schedHtml = '';
         if (data.scheduled.length === 0) {
             schedHtml = '<p style="color: #8b949e; font-style: italic;">No jobs scheduled at the moment.</p>';
@@ -633,7 +633,7 @@ async function loadSchedulerData() {
         document.getElementById('scheduled-jobs-list').innerHTML = schedHtml;
 
     } catch (e) {
-        console.error("Erro ao carregar dados do scheduler:", e);
+        console.error("Error loading scheduler data:", e);
     }
 }
 
@@ -683,25 +683,25 @@ async function cancelSchedule(jobId) {
     }
 }
 
-// Carrega os dados na inicialização
+// Load scheduler data when the script starts.
 loadSchedulerData();
 
-// Adiciona um listener para dar auto-refresh suave quando o usuário estiver na aba do Scheduler
+// Refresh scheduler data periodically while its tab is active.
 setInterval(() => {
     const activeTab = document.querySelector('.tab-content.active');
     if (activeTab && activeTab.id === 'scheduler') {
         loadSchedulerData();
     }
-}, 10000); // Atualiza a cada 10 segundos
+}, 10000); // Refresh every ten seconds.
 
 // ==============================================================
-// ARENALAKE BI TOOLS - LÓGICA DO DASHBOARD
+// ArenaLake BI tools - dashboard visualization management.
 // ==============================================================
 
 function abrirModalVisual() {
     const tabela = document.getElementById('biDatasetSelector').value;
     if (!tabela) {
-        alert("Por favor, selecione uma Tabela/Dataset primeiro!");
+        alert("Please select a table or dataset first!");
         return;
     }
     document.getElementById('biModal').style.display = 'flex';
@@ -719,7 +719,7 @@ async function confirmarNovoVisual() {
     const eixoZ = document.getElementById('biEixoZ').value;
     const agregacao = document.getElementById('biAgregacao').value;
 
-    // CAPTURA AS NOVAS VARIÁVEIS DA TABELA
+    // Read table-specific styling, ordering, and row-limit options.
     const tema = document.getElementById('biTemaTabela').value;
     const ordenarPor = document.getElementById('biOrdenarPor').value;
     const ordem = document.getElementById('biOrdem').value;
@@ -752,13 +752,13 @@ async function confirmarNovoVisual() {
         if (result.status === 'success') {
             const idUnico = 'chart_' + Math.random().toString(36).substr(2, 9);
 
-            // LÓGICA INTELIGENTE DE TÍTULO
+            // Generate a readable title from the selected visualization.
             let titulo = '';
-            if (tipo === 'table' || tipo === 'matrix') titulo = 'Tabela de Dados';
-            else if (tipo === 'kpi') titulo = `Indicador: ${agregacao.toUpperCase()} de ${eixoY}`;
-            else titulo = `${agregacao.toUpperCase()} de ${eixoY} por ${eixoX}`;
+            if (tipo === 'table' || tipo === 'matrix') titulo = 'Data Table';
+            else if (tipo === 'kpi') titulo = `Metric: ${agregacao.toUpperCase()} of ${eixoY}`;
+            else titulo = `${agregacao.toUpperCase()} of ${eixoY} by ${eixoX}`;
 
-            // Salvamos as configurações escolhidas
+            // Preserve the selected options for future chart editing.
             const config = { bucket, filename, eixo_x: eixoX, eixo_y: eixoY, eixo_z: eixoZ, agregacao, tipo, colunas_tabela: colunasSelecionadas, tema: tema, ordenar_por: ordenarPor, ordem, limite_linhas: limiteLinhas };
             adicionarGraficoGrid(idUnico, titulo, tipo, result.data, config);
         } else {
@@ -769,17 +769,17 @@ async function confirmarNovoVisual() {
     }
 }
 
-// Criamos uma função separada para gerar a Option do Echarts, facilitando o re-uso na edição
+// Build reusable ECharts options for creation and later chart edits.
 function getEchartsOption(tipo, dados) {
     let option = {
         tooltip: { trigger: 'axis' },
-        color: ['#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6'], // Paleta da sua imagem
+        color: ['#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6'], // Shared chart color palette.
         xAxis: { type: 'category', data: dados.categorias },
         yAxis: { type: 'value' },
         series: []
     };
 
-    // A Mágica: Stacked Bar = Eixos Invertidos (Horizontal). Stacked Column cai no normal (Vertical).
+    // Horizontal stacked bars require the category and value axes to be swapped.
     if (tipo === 'stacked_bar') {
         option.xAxis = { type: 'value' };
         option.yAxis = { type: 'category', data: dados.categorias };
@@ -804,7 +804,7 @@ function getEchartsOption(tipo, dados) {
                 data: dados.categorias.map((cat, i) => ({ name: cat, value: dados.valores[i] }))
             }];
         } else if (tipo === 'funnel') {
-            // TRATAMENTO PARA O GRÁFICO DE FUNIL
+            // Configure the funnel chart as a radial-style categorical series.
             option.xAxis = null; option.yAxis = null;
             option.series = [{
                 type: 'funnel',
@@ -837,12 +837,12 @@ function getEchartsOption(tipo, dados) {
                 legend: dados.has_z ? { textStyle: { color: '#c9d1d9' }, top: 10 } : null,
                 xAxis: {
                     type: 'value',
-                    name: 'Eixo X', // Você pode injetar config.eixo_x aqui se passar a config pra função
+                    name: 'X Axis',
                     splitLine: { lineStyle: { color: '#30363d', type: 'dashed' } }
                 },
                 yAxis: {
                     type: 'value',
-                    name: 'Eixo Y',
+                    name: 'Y Axis',
                     splitLine: { lineStyle: { color: '#30363d', type: 'dashed' } }
                 },
                 grid: { left: '3%', right: '8%', bottom: '3%', containLabel: true },
@@ -850,12 +850,12 @@ function getEchartsOption(tipo, dados) {
                     name: s.name,
                     type: 'scatter',
                     data: s.data,
-                    symbolSize: 12, // Tamanho da bolinha
-                    itemStyle: { opacity: 0.8 } // Leve transparência para pontos sobrepostos
+                    symbolSize: 12, // Keep points large enough to inspect.
+                    itemStyle: { opacity: 0.8 } // Reduce opacity where points overlap.
                 }))
             };
         } else if (tipo === 'doughnut') {
-            // Prepara os dados no formato {name: 'Categoria', value: 10} que a Rosca exige
+            // Convert categories and values to the format required by the doughnut chart.
             let chartData = dados.categorias.map((cat, idx) => ({
                 name: cat,
                 value: dados.valores[idx]
@@ -875,19 +875,19 @@ function getEchartsOption(tipo, dados) {
                 series: [{
                     name: 'Valores',
                     type: 'pie',
-                    // O SEGREDO ESTÁ AQUI: O primeiro valor é o buraco interno, o segundo é o tamanho total
+                    // The first radius defines the hole and the second defines the outer edge.
                     radius: ['45%', '70%'],
                     avoidLabelOverlap: false,
                     itemStyle: {
-                        borderRadius: 5, // Borda arredondada nas fatias (Visual Premium)
-                        borderColor: '#0d1117', // Cria um "vão" entre as fatias da mesma cor do fundo
+                        borderRadius: 5, // Slightly round each slice.
+                        borderColor: '#0d1117', // Separate slices using the chart background color.
                         borderWidth: 2
                     },
                     label: {
                         show: false,
                         position: 'center'
                     },
-                    // Efeito PowerBI: Quando passa o mouse, o nome da fatia aparece no centro da rosca!
+                    // Show the slice label in the center while the user hovers over it.
                     emphasis: {
                         label: {
                             show: true,
@@ -901,7 +901,7 @@ function getEchartsOption(tipo, dados) {
                 }]
             };
         } else if (tipo === 'waterfall') {
-            // MATEMÁTICA DA CASCATA: Calcula a base invisível, os aumentos e as quedas
+            // Build invisible bases plus positive and negative segments for the waterfall.
             let baseData = [];
             let posData = [];
             let negData = [];
@@ -911,14 +911,14 @@ function getEchartsOption(tipo, dados) {
                 let num = parseFloat(val) || 0;
                 if (num >= 0) {
                     posData.push(num);
-                    negData.push('-'); // '-' ignora a renderização da barra negativa
+                    negData.push('-'); // A dash prevents a negative segment from rendering.
                     baseData.push(currentSum);
                     currentSum += num;
                 } else {
                     posData.push('-');
-                    negData.push(Math.abs(num)); // Deixa positivo para a barra desenhar pra baixo da base
+                    negData.push(Math.abs(num)); // Use a positive magnitude below the base.
                     currentSum += num;
-                    baseData.push(currentSum); // A base desce para encontrar a barra vermelha
+                    baseData.push(currentSum); // Lower the invisible base to the new total.
                 }
             });
 
@@ -961,14 +961,14 @@ function getEchartsOption(tipo, dados) {
                         name: 'Aumento',
                         type: 'bar',
                         stack: 'Total',
-                        itemStyle: { color: '#3fb950', borderRadius: [3, 3, 0, 0] }, // Verde do GitHub
+                        itemStyle: { color: '#3fb950', borderRadius: [3, 3, 0, 0] }, // Positive change color.
                         data: posData
                     },
                     {
                         name: 'Queda',
                         type: 'bar',
                         stack: 'Total',
-                        itemStyle: { color: '#f85149', borderRadius: [0, 0, 3, 3] }, // Vermelho do GitHub
+                        itemStyle: { color: '#f85149', borderRadius: [0, 0, 3, 3] }, // Negative change color.
                         data: negData
                     }
                 ]
@@ -1005,11 +1005,11 @@ function adicionarGraficoGrid(id, titulo, tipo, dados, config) {
     biGrid.addWidget({ w: 6, h: 3, content: widgetHtml });
     let containerDom = document.getElementById(id);
 
-    // SE FOR TABELA OU MATRIZ, RENDERIZAMOS HTML PURO ESTILIZADO
+    // Render tables and matrices as styled HTML instead of ECharts.
     if (tipo === 'table' || tipo === 'matrix') {
         let htmlTable = `<div class="bi-table-container"><table class="bi-custom-table"><thead><tr>`;
 
-        // Monta o cabeçalho
+        // Build the table header from the response columns.
         if (tipo === 'table') {
             dados.colunas.forEach(col => { htmlTable += `<th>${col}</th>`; });
         } else {
@@ -1018,7 +1018,7 @@ function adicionarGraficoGrid(id, titulo, tipo, dados, config) {
         }
         htmlTable += `</tr></thead><tbody>`;
 
-        // Monta as linhas
+        // Build rows and format numeric values for display.
         dados.linhas.forEach(row => {
             htmlTable += `<tr>`;
             row.forEach(cell => {
@@ -1031,7 +1031,7 @@ function adicionarGraficoGrid(id, titulo, tipo, dados, config) {
 
         containerDom.innerHTML = htmlTable;
 
-        // Salvamos os metadados para edição futura
+        // Preserve configuration metadata for future edits.
         let dummyChartObj = { arenaConfig: config, getOption: () => ({ series: [] }), setOption: () => { } };
         window.biCharts[id] = dummyChartObj;
         return;
@@ -1044,7 +1044,7 @@ function adicionarGraficoGrid(id, titulo, tipo, dados, config) {
         if (config.tema === 'orange') corKpi = '#f59e0b';
         if (config.tema === 'padrao') corKpi = '#c9d1d9'; // Cinza claro
 
-        // INJETANDO ESTILOS DIRETO NO HTML PARA GARANTIR O VISUAL PREMIUM
+        // Keep the KPI layout self-contained inside the grid widget.
         let htmlKpi = `
         <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; text-align: center; box-sizing: border-box; padding: 10px;">
             <div style="font-size: 3.5rem; font-weight: 800; color: ${corKpi}; line-height: 1.1; text-shadow: 0px 4px 15px ${corKpi}40;">${valorFormatado}</div>
@@ -1058,7 +1058,7 @@ function adicionarGraficoGrid(id, titulo, tipo, dados, config) {
         return;
     }
 
-    // CASO CONTRÁRIO, SEGUE A RENDERIZAÇÃO NORMAL DOS GRÁFICOS ECHARTS...
+    // Render all remaining chart types through ECharts.
     let myChart = echarts.init(containerDom, 'dark', { backgroundColor: 'transparent' });
     myChart.arenaConfig = config;
     myChart.setOption(getEchartsOption(tipo, dados));
@@ -1074,7 +1074,7 @@ function removerGraficoGrid(element, id) {
 }
 
 // -------------------------------------------------------------------
-// LÓGICA DE EDIÇÃO (CORES GRANULARES E TROCA DE MÉTRICAS)
+// Chart editing: metric replacement and granular color controls.
 // -------------------------------------------------------------------
 let chartEmEdicao = null;
 
@@ -1108,7 +1108,7 @@ async function abrirModalEdicao(id) {
     ['biEditEixoX', 'biEditEixoY', 'biEditEixoZ', 'biEditOrdenarPor'].forEach(el => document.getElementById(el).innerHTML = colsHtml);
     document.getElementById('biEditColunasTabela').innerHTML = colsMultiHtml;
 
-    // Restaura valores normais
+    // Restore the chart's current values in the edit form.
     document.getElementById('biEditEixoX').value = config.eixo_x;
     document.getElementById('biEditEixoY').value = config.eixo_y;
     document.getElementById('biEditEixoZ').value = config.eixo_z || "";
@@ -1118,17 +1118,17 @@ async function abrirModalEdicao(id) {
     document.getElementById('biEditOrdem').value = config.ordem || 'asc';
     document.getElementById('biEditLimiteLinhas').value = config.limite_linhas || 100;
 
-    // Restaura as colunas múltiplas selecionadas
+    // Restore the selected table columns.
     if (config.colunas_tabela) {
         Array.from(document.getElementById('biEditColunasTabela').options).forEach(opt => {
             if (config.colunas_tabela.includes(opt.value)) opt.selected = true;
         });
     }
 
-    // Alterna a visualização dos painéis para esconder Eixos se for tabela
+    // Hide axis controls when the selected visualization does not use them.
     toggleCamposGrafico('edit');
 
-    // Monta o painel de Cores dinâmico apenas se NÃO for tabela/matriz
+    // Build color controls only for visualization types that support them.
     const colorsContainer = document.getElementById('biEditColorsContainer');
     colorsContainer.innerHTML = '';
 
@@ -1176,7 +1176,7 @@ async function salvarEdicaoGrafico() {
     const novoZ = document.getElementById('biEditEixoZ').value;
     const novaAgregacao = document.getElementById('biEditAgregacao').value;
 
-    // Captura campos de Tabela
+    // Read table-specific styling, ordering, and row-limit options.
     const novoTema = document.getElementById('biEditTemaTabela').value;
     const novoOrdenarPor = document.getElementById('biEditOrdenarPor').value;
     const novaOrdem = document.getElementById('biEditOrdem').value;
@@ -1185,7 +1185,7 @@ async function salvarEdicaoGrafico() {
 
     document.getElementById(id).previousElementSibling.querySelector('.titulo-grafico').innerText = novoTitulo;
 
-    // Checa se algum dado estrutural mudou
+    // Check whether a data-affecting setting changed.
     let dataChanged = (
         novoX !== config.eixo_x || novoY !== config.eixo_y || novoZ !== config.eixo_z ||
         novaAgregacao !== config.agregacao || novoTema !== config.tema ||
@@ -1211,7 +1211,7 @@ async function salvarEdicaoGrafico() {
                 config.eixo_x = novoX; config.eixo_y = novoY; config.eixo_z = novoZ;
                 config.agregacao = novaAgregacao; config.colunas_tabela = novasColunas; config.tema = novoTema;
 
-                // Se for tabela, re-renderizamos a DOM manualmente
+                // Re-render the table widget directly when its data changes.
                 if (config.tipo === 'table' || config.tipo === 'matrix') {
                     const dados = result.data;
                     let classeTema = config.tema ? `theme-${config.tema}` : 'theme-padrao';
@@ -1245,7 +1245,7 @@ async function salvarEdicaoGrafico() {
             alert("Falha de conexão.");
         }
     } else if (config.tipo !== 'table' && config.tipo !== 'matrix') {
-        // Se os dados continuam os mesmos e for gráfico, aplicamos apenas as cores
+        // When data is unchanged, update only the chart colors.
         const option = chart.getOption();
         const pickers = document.querySelectorAll('.color-picker-edit');
 
@@ -1298,7 +1298,7 @@ function atualizarListaDatasetsBI() {
         const files = globalCatalogData[bucket];
         files.forEach(f => {
             if (f.endsWith('.csv') || f.endsWith('.parquet') || f.includes('part-')) {
-                // Passamos bucket e filename no value
+                // Store the bucket and filename together in the option value.
                 const value = `${bucket}|${f}`;
                 optionsHtml += `<option value="${value}">📁 ${f} (${bucket})</option>`;
             }
@@ -1307,7 +1307,7 @@ function atualizarListaDatasetsBI() {
     biSelector.innerHTML = optionsHtml;
 }
 
-// Busca as colunas via Pandas quando o usuário escolhe a tabela
+// Fetch dataset columns through Pandas after the user selects a table.
 async function carregarColunasDataset() {
     const selector = document.getElementById('biDatasetSelector');
     const eixoX = document.getElementById('biEixoX');
@@ -1339,7 +1339,7 @@ async function carregarColunasDataset() {
                 colsHtml += `<option value="${col}">${col}</option>`;
                 colsMultiHtml += `<option value="${col}">${col}</option>`;
             });
-            // NOVO: Adicionado biOrdenarPor na lista
+            // Include the ordering selector in the available column list.
             ['biEixoX', 'biEixoY', 'biEixoZ', 'biOrdenarPor'].forEach(el => document.getElementById(el).innerHTML = colsHtml);
             document.getElementById('biColunasTabela').innerHTML = colsMultiHtml;
         } else {
@@ -1351,48 +1351,48 @@ async function carregarColunasDataset() {
 }
 
 // ==============================================================
-// FUNÇÕES DE EXPORTAÇÃO DE RELATÓRIO (PNG e PDF)
+// Report export functions for PNG and PDF output.
 // ==============================================================
 async function exportarDashboard(formato) {
     const gridArea = document.querySelector('.grid-container');
 
-    // Verifica se tem algum card no Dashboard
+    // Do not export an empty dashboard.
     if (biGrid.engine.nodes.length === 0) {
         alert("The dashboard is empty. Add charts before exporting.");
         return;
     }
 
-    // Pequeno ajuste cosmético temporário: tira as bordas tracejadas para a "foto" ficar mais limpa
+    // Temporarily remove grid borders so the captured image is clean.
     const bordaOriginal = gridArea.style.border;
     gridArea.style.border = 'none';
 
     try {
-        // html2canvas tira a foto exata dos elementos HTML
+        // Capture the rendered dashboard as a high-resolution canvas.
         const canvas = await html2canvas(gridArea, {
             backgroundColor: '#0d1117',
-            scale: 2, // Dobra a resolução para o PDF/PNG ficar em alta qualidade
+            scale: 2, // Increase output resolution for PNG and PDF exports.
             useCORS: true
         });
 
         const imgData = canvas.toDataURL('image/png');
 
         if (formato === 'png') {
-            // Cria um link invisível, anexa a imagem e clica nele para forçar o download
+            // Trigger a browser download through a temporary link.
             let link = document.createElement('a');
             link.download = `ArenaLake_Relatorio_${new Date().toISOString().slice(0, 10)}.png`;
             link.href = imgData;
             link.click();
         }
         else if (formato === 'pdf') {
-            // Inicializa a biblioteca PDF e configura a página como Paisagem (Landscape) formato A4
+            // Create an A4 landscape PDF and place the captured image on it.
             const { jsPDF } = window.jspdf;
             const pdf = new jsPDF('l', 'mm', 'a4');
 
             const pdfWidth = pdf.internal.pageSize.getWidth();
-            // Calcula a altura proporcional da imagem no PDF
+            // Preserve the image aspect ratio in the PDF.
             const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-            // Adiciona a imagem, centraliza no topo e salva o documento
+            // Add the image at the top and save the generated document.
             pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
             pdf.save(`ArenaLake_Relatorio_${new Date().toISOString().slice(0, 10)}.pdf`);
         }
@@ -1400,7 +1400,7 @@ async function exportarDashboard(formato) {
         alert("An error occurred while generating the report.");
         console.error(error);
     } finally {
-        // Restaura a borda da interface
+        // Restore the dashboard grid border after capture.
         gridArea.style.border = bordaOriginal;
     }
 }
@@ -1414,35 +1414,35 @@ function toggleCamposGrafico(modo) {
     const isTable = (tipo === 'table');
     const isMatrix = (tipo === 'matrix');
     const isKpi = (tipo === 'kpi');
-    const isScatter = (tipo === 'scatter'); // NOVO
+    const isScatter = (tipo === 'scatter');
     const isWaterfall = (tipo === 'waterfall');
 
     document.getElementById(prefix + 'EixosComuns').style.display = isTable ? 'none' : 'block';
 
-    // Esconde Eixos específicos para KPI
+    // Hide axis controls that are not relevant to KPI cards.
     if (document.getElementById(prefix + 'DivEixoX')) document.getElementById(prefix + 'DivEixoX').style.display = isKpi ? 'none' : 'block';
     if (document.getElementById(prefix + 'DivEixoZ')) document.getElementById(prefix + 'DivEixoZ').style.display = isKpi ? 'none' : 'block';
 
-    // NOVO: Esconde Agregação para Tabelas e Scatter Plot
+    // Hide aggregation controls for tables and scatter plots.
     if (document.getElementById(prefix + 'DivAgregacao')) {
         document.getElementById(prefix + 'DivAgregacao').style.display = (isTable || isScatter) ? 'none' : 'block';
     }
 
     document.getElementById(prefix + 'DivColunasTabela').style.display = isTable ? 'block' : 'none';
 
-    // O Tema só não se aplica ao Scatter e aos gráficos comuns
+    // Show table themes only for tables, matrices, and KPI cards.
     document.getElementById(prefix + 'DivTemaTabela').style.display = (isTable || isMatrix || isKpi) ? 'block' : 'none';
 
-    // NOVO: O Limite de Linhas é muito útil no Scatter também!
+    // Row limits are also useful for keeping scatter plots responsive.
     document.getElementById(prefix + 'DivConfigTabela').style.display = (isTable || isMatrix || isScatter) ? 'block' : 'none';
 
     if (modo === 'edit') {
-        // NOVO: Esconde a edição de cores para a Cascata (já usamos verde/vermelho por padrão)
+        // Hide color editing for waterfall charts, which use fixed semantic colors.
         document.getElementById('biEditColorSection').style.display = (isTable || isMatrix || isKpi || isWaterfall) ? 'none' : 'block';
     }
 }
 
-// VARIÁVEIS DE FILTRO GLOBAL
+// Global BI filter state shared by all dashboard visualizations.
 window.globalFiltroColuna = "";
 window.globalFiltroValor = "";
 
@@ -1499,7 +1499,7 @@ async function limparFiltroGlobal() {
 }
 
 async function recarregarTodosGraficos() {
-    // Passa por todos os gráficos na grid e pede para o backend gerar os dados novamente com o filtro!
+    // Rebuild every grid visualization with the current global filter.
     for (let id in window.biCharts) {
         let chartObj = window.biCharts[id];
         let config = chartObj.arenaConfig;

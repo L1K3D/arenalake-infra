@@ -6,102 +6,102 @@
    Theme: GitHub dark theme, interactive card selection with visual feedback
    ============================================================================ */
 
-/* Full-screen dark background with centered layout */
+/* Full-screen background with a centered setup interface. */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: #0d1117;
-    /* GitHub dark background */
+    /* GitHub-inspired dark background. */
     color: white;
     display: flex;
     justify-content: center;
-    /* Center horizontally */
+    /* Center the setup panel horizontally. */
     align-items: center;
-    /* Center vertically */
+    /* Center the setup panel vertically. */
     height: 100vh;
-    /* Full viewport height */
+    /* Fill the viewport. */
     margin: 0;
 }
 
-/* Main setup container - centered on screen */
+/* Main hardware profile selection panel. */
 .container {
     background: #161b22;
-    /* Dark card background */
+    /* Elevated dark surface. */
     padding: 40px;
     border-radius: 10px;
-    /* Rounded corners */
+    /* Soften the panel edges. */
     border: 1px solid #30363d;
-    /* Subtle border */
+    /* Define the panel boundary. */
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
     /* Drop shadow */
     width: 600px;
     text-align: center;
-    /* Center content */
+    /* Center headings and the launch action. */
 }
 
-/* Page title styling */
+/* Page title styling. */
 h2 {
     margin-top: 0;
     margin-bottom: 5px;
     color: #c9d1d9;
-    /* Light gray */
+    /* Light neutral text. */
 }
 
-/* Subtitle/description text */
+/* Subtitle and explanatory text. */
 p.subtitle {
     color: #8b949e;
-    /* Muted gray */
+    /* Reduce emphasis for supporting text. */
     font-size: 0.95em;
     margin-bottom: 30px;
-    /* Spacing below subtitle */
+    /* Separate the description from the profile cards. */
 }
 
-/* Grid for machine selection cards - side by side */
+/* Side-by-side hardware profile layout. */
 .card-grid {
     display: flex;
     gap: 20px;
-    /* Space between cards */
+    /* Keep profile cards visually separated. */
     justify-content: center;
     margin-bottom: 30px;
-    /* Spacing below cards */
+    /* Separate profiles from the launch action. */
 }
 
-/* Individual machine profile card - clickable selection */
+/* Clickable hardware profile card. */
 .machine-card {
     flex: 1;
-    /* Equal width cards */
+    /* Give each profile equal available width. */
     background: #0d1117;
-    /* Dark background */
+    /* Contrast the profile card with the panel. */
     border: 2px solid #30363d;
-    /* Subtle border */
+    /* Default card boundary. */
     border-radius: 8px;
     padding: 20px;
     cursor: pointer;
-    /* Clickable */
+    /* Indicate that the card is interactive. */
     transition: all 0.2s ease;
-    /* Smooth animation */
+    /* Animate selection feedback. */
     text-align: left;
     position: relative;
 }
 
-/* Card hover state - blue highlight and lift effect */
+/* Hover state with a blue highlight and subtle lift. */
 .machine-card:hover {
     border-color: #58a6ff;
-    /* Blue border on hover */
+    /* Highlight the interactive boundary. */
     transform: translateY(-3px);
-    /* Lift up slightly */
+    /* Provide a small elevation cue. */
     box-shadow: 0 4px 12px rgba(88, 166, 255, 0.15);
-    /* Blue glow */
+    /* Add a restrained focus glow. */
 }
 
-/* Card selected state - green highlight */
+/* Selected state with a green confirmation highlight. */
 .machine-card.selected {
     border-color: #2ea043;
-    /* Green border when selected */
+    /* Confirm the active profile. */
     background: rgba(46, 160, 67, 0.05);
-    /* Subtle green tint */
+    /* Add a subtle selected-state tint. */
 }
 
-/* Machine profile title (Standard / Extreme) */
+/* Hardware profile title (Standard or Extreme). */
 .machine-title {
     font-size: 1.2em;
     font-weight: bold;
@@ -109,57 +109,57 @@ p.subtitle {
     display: flex;
     align-items: center;
     gap: 8px;
-    /* Space between icon and text */
+    /* Separate the icon from the title. */
 }
 
-/* Standard profile title - blue color */
+/* Standard profile accent. */
 .title-standard {
     color: #58a6ff;
-    /* Bright blue */
+    /* Blue identifies the standard option. */
 }
 
-/* Extreme profile title - red color */
+/* Extreme profile accent. */
 .title-extreme {
     color: #f85149;
-    /* Red accent */
+    /* Red identifies the higher-resource option. */
 }
 
-/* Machine specifications box (CPU, RAM info) */
+/* CPU and RAM specification block. */
 .machine-specs {
     font-size: 0.9em;
     color: #c9d1d9;
     margin-bottom: 12px;
     line-height: 1.6;
-    /* Line spacing for readability */
+    /* Improve readability of specification rows. */
     background: #161b22;
-    /* Slightly different background */
+    /* Separate specifications from the card surface. */
     padding: 10px;
     border-radius: 5px;
     border: 1px solid #30363d;
-    /* Subtle border */
+    /* Define the specification block boundary. */
 }
 
-/* Machine description text (use cases, benefits) */
+/* Profile description and usage guidance. */
 .machine-desc {
     font-size: 0.85em;
     color: #8b949e;
-    /* Muted gray */
+    /* Keep supporting copy visually secondary. */
     line-height: 1.4;
-    /* Comfortable line spacing */
+    /* Improve readability of longer descriptions. */
 }
 
-/* Hide native radio buttons - using card as selector instead */
+/* Hide native radio controls because the card provides the visual selector. */
 input[type="radio"] {
     display: none;
-    /* Use CSS for visual selection state */
+    /* Selection is represented by the card state. */
 }
 
-/* Launch/Provision button styling */
+/* Workspace launch and provisioning action. */
 .btn-launch {
     width: 100%;
     padding: 14px;
     background-color: #238636;
-    /* GitHub green */
+    /* Success-oriented action color. */
     color: white;
     font-weight: bold;
     border: none;
@@ -167,22 +167,22 @@ input[type="radio"] {
     cursor: pointer;
     font-size: 16px;
     transition: 0.2s;
-    /* Smooth state transitions */
+    /* Animate button state changes. */
 }
 
 .btn-launch:hover {
     background-color: #2ea043;
-    /* Lighter green on hover */
+    /* Increase contrast on hover. */
 }
 
-/* Disabled state - until a profile is selected */
+/* Disabled until a hardware profile is selected. */
 .btn-launch:disabled {
     background-color: #21262d;
-    /* Muted background */
+    /* Reduce emphasis for the unavailable action. */
     color: #8b949e;
-    /* Muted text */
+    /* Communicate the disabled state through contrast. */
     cursor: not-allowed;
-    /* Show not-allowed cursor */
+    /* Indicate that the action cannot be used yet. */
     border: 1px solid #30363d;
-    /* Border instead of solid fill */
+    /* Preserve the control boundary in the disabled state. */
 }
