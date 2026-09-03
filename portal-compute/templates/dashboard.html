@@ -5,7 +5,7 @@
     <title>ArenaLake Dashboard - {{ usuario }}</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- CORREÇÃO AQUI: Mudamos para v=4 para o Chrome ser obrigado a baixar o visual novo -->
+    <!-- Versioned stylesheet URL forces clients to refresh changed dashboard styles. -->
     <link rel="stylesheet" href="/static/css/dashboard.css?v=16">
 
     <link href="https://cdn.jsdelivr.net/npm/gridstack@8.2.1/dist/gridstack.min.css" rel="stylesheet" />
@@ -78,7 +78,7 @@
             </div>
         </div>
 
-        <!-- 1. ABA WORKSPACE -->
+        <!-- Workspace tab: embeds the user's isolated browser-based development environment. -->
         <div id="workspace" class="tab-content active" style="position: relative;">
             <div id="loadingWorkspace"
                 style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #0d1117; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 5; color: #8b949e;">
@@ -90,6 +90,7 @@
                 onload="document.getElementById('loadingWorkspace').style.display='none';"></iframe>
         </div>
 
+        <!-- Data Catalog tab: browse buckets, folders, and uploaded objects. -->
         <div id="data" class="tab-content padded-tab">
             <div class="card" style="display: block;">
                 <h2 style="margin-top: 0;">MinIO Data Lake</h2>
@@ -130,6 +131,7 @@
             </div>
         </div>
 
+        <!-- Compute tab: displays current CPU/RAM values and historical charts. -->
         <div id="compute" class="tab-content padded-tab">
             <div class="card" style="display: block;">
                 <h2 style="margin-top: 0;">Real-Time Resource Usage</h2>
@@ -152,6 +154,7 @@
             </div>
         </div>
 
+        <!-- Spark tab: monitors workers, active applications, and completed runs. -->
         <div id="spark" class="tab-content padded-tab">
             <div class="card" style="padding: 10px;">
                 <div id="spark-native-dashboard"
@@ -180,6 +183,7 @@
             </div>
         </div>
 
+        <!-- Scheduler tab: runs scripts immediately or registers Cron schedules. -->
         <div id="scheduler" class="tab-content padded-tab">
             <div class="card" style="display: block;">
                 <h2 style="margin-top: 0; color: #e6edf3;">⏰ Spark Job Scheduler</h2>
@@ -205,14 +209,14 @@
             </div>
         </div>
 
-        <!-- 6. ABA BI TOOLS -->
+        <!-- BI tab: creates, edits, filters, and exports data visualizations. -->
         <div id="bi" class="tab-content padded-tab">
             <div class="card" style="display: block; display: flex; flex-direction: column; height: 100%;">
 
-                <!-- Barra de Ferramentas do BI -->
+                <!-- BI command ribbon for selecting data and managing visualizations. -->
                 <div class="bi-ribbon">
 
-                    <!-- Item 1: Fonte de dados -->
+                    <!-- Data source selector. -->
                     <div class="ribbon-item">
                         <span class="ribbon-icon">🗄️</span>
                         <select id="biDatasetSelector" class="ribbon-select" onchange="carregarColunasDataset()">
@@ -222,7 +226,7 @@
 
                     <div class="ribbon-divider"></div>
 
-                    <!-- Item 2: Adicionar visuais -->
+                    <!-- Add a new visualization to the grid. -->
                     <div class="ribbon-item ribbon-btn" onclick="abrirModalVisual()">
                         <span class="ribbon-icon">📊</span>
                         <span class="ribbon-label">Adicionar visuais</span>
@@ -237,7 +241,7 @@
 
                     <div class="ribbon-divider"></div>
 
-                    <!-- Item 3: Exportar como imagem -->
+                    <!-- Export the dashboard grid as an image. -->
                     <div class="ribbon-item ribbon-btn" onclick="exportarDashboard('png')">
                         <span class="ribbon-icon">🖼️</span>
                         <span class="ribbon-label">Exportar como imagem</span>
@@ -245,7 +249,7 @@
 
                     <div class="ribbon-divider"></div>
 
-                    <!-- Item 4: Exportar como documento -->
+                    <!-- Export the dashboard grid as a PDF document. -->
                     <div class="ribbon-item ribbon-btn" onclick="exportarDashboard('pdf')">
                         <span class="ribbon-icon">📄</span>
                         <span class="ribbon-label">Exportar como documento</span>
@@ -260,12 +264,12 @@
             </div>
         </div>
 
-        <!-- MODAL SIMPLES PARA ADICIONAR VISUAL -->
+        <!-- Modal for configuring a new visualization. -->
         <div id="biModal" class="bi-modal">
             <div class="bi-modal-content">
                 <h3>Configurar Novo Gráfico</h3>
                 <label>Tipo de Gráfico:</label>
-                <!-- EVENTO ONCHANGE PARA ALTERNAR OS CAMPOS DA TELA -->
+                <!-- Change the visible configuration fields when the chart type changes. -->
                 <select id="biTipoGrafico" class="bi-select" style="width: 100%; margin-bottom: 15px;"
                     onchange="toggleCamposGrafico('create')">
                     <option value="bar">📊 Barras Simples (Vertical)</option>
@@ -283,7 +287,7 @@
                     <option value="waterfall">🌊 Cascata (Waterfall Chart)</option>
                 </select>
 
-                <!-- BLOCO 1: Eixos Normais e Matriz -->
+                <!-- Common axes and matrix configuration. -->
                 <div id="biEixosComuns">
                     <div id="biDivEixoX">
                         <label>Eixo X (Categoria):</label>
@@ -298,7 +302,7 @@
                         <select id="biEixoZ" class="bi-select" style="width: 100%; margin-bottom: 10px;"></select>
                     </div>
 
-                    <!-- NOVO: DIV QUE ISOLA A AGREGAÇÃO PARA PODER ESCONDER NO SCATTER -->
+                    <!-- Isolated aggregation control so it can be hidden for scatter plots. -->
                     <div id="biDivAgregacao">
                         <label>Agregação do Eixo Y:</label>
                         <select id="biAgregacao" class="bi-select" style="width: 100%; margin-bottom: 20px;">
@@ -309,14 +313,14 @@
                     </div>
                 </div>
 
-                <!-- BLOCO 2: Múltiplas Colunas para Tabela -->
+                <!-- Multiple-column selection for table visualizations. -->
                 <div id="biDivColunasTabela" style="display: none;">
                     <label>Selecione as Colunas (Segure CTRL para vários):</label>
                     <select id="biColunasTabela" class="bi-select" multiple size="6"
                         style="width: 100%; margin-bottom: 20px;"></select>
                 </div>
 
-                <!-- BLOCO 3: Tema Visual da Tabela/Matriz -->
+                <!-- Visual theme selection for tables and matrices. -->
                 <div id="biDivTemaTabela" style="display: none;">
                     <label>Tema Estilo Microsoft:</label>
                     <select id="biTemaTabela" class="bi-select" style="width: 100%; margin-bottom: 20px;">
@@ -327,7 +331,7 @@
                     </select>
                 </div>
 
-                <!-- BLOCO 4: Limite e Ordenação -->
+                <!-- Row limit and sort-order configuration. -->
                 <div id="biDivConfigTabela" style="display: none;">
                     <div style="display: flex; gap: 10px;">
                         <div style="flex: 1;">
@@ -355,7 +359,7 @@
             </div>
         </div>
 
-        <!-- MODAL DE EDIÇÃO AVANÇADA -->
+        <!-- Advanced visualization editing modal. -->
         <div id="biEditModal" class="bi-modal">
             <div class="bi-modal-content" style="width: 480px;">
                 <h3>Editar Gráfico / Tabela</h3>
@@ -376,7 +380,7 @@
                                 id="biEditEixoZ" class="bi-select" style="width: 100%; margin-bottom: 10px;"></select>
                         </div>
 
-                        <!-- NOVO: DIV QUE ISOLA A AGREGAÇÃO PARA PODER ESCONDER NO SCATTER (EDIÇÃO) -->
+                        <!-- Isolated edit control for aggregation visibility. -->
                         <div style="flex: 1;" id="biEditDivAgregacao"><label>Agregação:</label><select
                                 id="biEditAgregacao" class="bi-select" style="width: 100%; margin-bottom: 15px;">
                                 <option value="sum">Soma (SUM)</option>
@@ -461,9 +465,9 @@
             </div>
         </div>
 
-    </div> <!-- FIM DO MAIN CONTENT -->
+    </div> <!-- End of main dashboard content. -->
 
-    <!-- SIDE PANEL COMPONENT -->
+    <!-- Side panel for object metadata and file previews. -->
     <div id="sidePanel" class="side-panel">
         <button class="close-btn" onclick="closePanel()">×</button>
         <h3 id="spFilename" style="margin-top: 0; color: white; word-wrap: break-word;">Arquivo</h3>
@@ -479,7 +483,7 @@
     <script>
         window.dashboardConfig = { usuario: "{{ usuario }}", domain: "{{ domain }}" };
     </script>
-    <!-- MÁGICA DO CACHE AQUI (adicionamos o ?v=2) -->
+    <!-- Version query string controls browser caching for dashboard logic. -->
     <script src="/static/js/dashboard.js?v=4"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/gridstack@8.2.1/dist/gridstack-all.js"></script>

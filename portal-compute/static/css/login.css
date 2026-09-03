@@ -6,58 +6,58 @@
    Theme: GitHub dark theme for consistency with main dashboard
    ============================================================================ */
 
-/* Full-screen dark background with centered card layout */
+/* Full-screen background with the authentication card centered in both axes. */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: #0d1117;
-    /* GitHub dark background */
+    /* GitHub-inspired dark background. */
     color: white;
     display: flex;
     justify-content: center;
-    /* Center horizontally */
+    /* Center the card horizontally. */
     align-items: center;
-    /* Center vertically */
+    /* Center the card vertically. */
     height: 100vh;
-    /* Full viewport height */
+    /* Fill the viewport. */
     margin: 0;
 }
 
-/* Login card container - centered on screen */
+/* Authentication card container. */
 .card {
     background: #161b22;
-    /* Dark card background */
+    /* Elevated dark surface. */
     padding: 40px;
     border-radius: 10px;
-    /* Rounded corners */
+    /* Soften the card edges. */
     border: 1px solid #30363d;
-    /* Subtle border */
+    /* Define the card boundary against the page background. */
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-    /* Drop shadow */
+    /* Separate the card from the background. */
     width: 350px;
     text-align: center;
-    /* Center content */
+    /* Center labels, fields, and actions. */
 }
 
-/* Input field styling - username and password inputs */
+/* Shared username and password input styling. */
 input {
     width: 90%;
     padding: 12px;
     margin: 10px 0;
     border-radius: 5px;
     border: 1px solid #30363d;
-    /* Dark border */
+    /* Low-contrast field border. */
     background: #0d1117;
-    /* Dark background */
+    /* Match the page background. */
     color: white;
     font-size: 14px;
 }
 
-/* Login button styling */
+/* Primary login action. */
 button {
     width: 95%;
     padding: 12px;
     background-color: #238636;
-    /* GitHub green */
+    /* Success-oriented action color. */
     color: white;
     font-weight: bold;
     border: none;
@@ -66,16 +66,16 @@ button {
     margin-top: 15px;
     font-size: 15px;
     transition: 0.2s;
-    /* Smooth hover transition */
+    /* Animate hover feedback. */
 }
 
 button:hover {
     background-color: #2ea043;
-    /* Lighter green on hover */
+    /* Increase contrast on hover. */
 }
 
-/* Page title styling */
+/* Page title spacing. */
 h2 {
     margin-bottom: 5px;
-    /* Spacing below title */
+    /* Keep the subtitle close to the title. */
 }

@@ -4,27 +4,29 @@ from .database import Base
 
 
 class User(Base):
+    """SQLAlchemy model representing a portal user and their security state."""
+
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
 
-    # Access level (RBAC): 'admin' or 'common'.
+    # Role used by the application for role-based access control.
     role = Column(String, default="common", nullable=False)
 
-    # Security gate used to force first-access setup for a new account.
+    # Flags controlling account activation and mandatory first-access setup.
     must_change_password = Column(Boolean, default=True, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
 
-    # User profile fields and privacy metadata collected during onboarding.
+    # Optional profile and organizational fields collected during onboarding.
     full_name = Column(String, nullable=True)
     phone = Column(String, nullable=True)
     email = Column(String, unique=True, index=True, nullable=True)
     department = Column(String, nullable=True)
     job_title = Column(String, nullable=True)
 
-    # Two-factor authentication (2FA) fields.
+    # Temporary and persistent values used by the 2FA flow.
     otp_code = Column(String, nullable=True)
     otp_expires_at = Column(DateTime, nullable=True)
     is_2fa_verified = Column(Boolean, default=False, nullable=False)
