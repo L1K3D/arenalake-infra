@@ -1,3 +1,5 @@
+# API router for authentication-protected catalog, compute, scheduler, Spark,
+# business intelligence, and administrator operations.
 import urllib.request
 import json
 import re
@@ -52,7 +54,7 @@ class VisualRequest(BaseModel):
     limite_linhas: int = 100
     ordenar_por: str = ""
     ordem: str = "asc"
-    # NOVOS CAMPOS PARA O SLICER GLOBAL:
+    # Optional global filter applied before grouping or visualization.
     filtro_coluna: str = ""
     filtro_valor: str = ""
 
@@ -77,13 +79,14 @@ class UserPasswordResetRequest(BaseModel):
 
 router = APIRouter(prefix="/api")
 
-# --- INICIALIZA O MOTOR DE AGENDAMENTO (CRON) ---
+# Start the in-process scheduler used for recurring Spark jobs.
 scheduler = BackgroundScheduler()
 scheduler.start()
 
 
 @router.get("/catalog")
-async def get_catalog(current_user: User = Depends(get_current_user)): # <--- Protegido!
+async def get_catalog(current_user: User = Depends(get_current_user)):
+    """Return the authenticated user's view of the MinIO data catalog."""
     try:
         return JSONResponse(content={"status": "success", "data": fetch_catalog_data()})
     except Exception as e:
@@ -94,6 +97,7 @@ async def get_catalog(current_user: User = Depends(get_current_user)): # <--- Pr
 
 @router.get("/metrics/{usuario}")
 async def get_metrics(usuario: str, current_user: User = Depends(get_current_user)):
+    """Return workspace metrics and refresh the user's activity timestamp."""
     try:
         metrics = get_workspace_metrics(usuario)
         if metrics.get("status") == "offline":
@@ -114,6 +118,7 @@ async def upload_file(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user)
 ):
+    """Upload an authenticated user's file to the selected data lake bucket."""
     try:
         upload_file_to_datalake(bucket, file.file, file.filename, usuario)
         return JSONResponse(
@@ -127,6 +132,7 @@ async def upload_file(
 
 @router.get("/preview/{bucket}/{filename:path}")
 async def preview_file(bucket: str, filename: str, current_user: User = Depends(get_current_user)):
+    """Return metadata and preview content for a stored object."""
     try:
         details = get_file_details(bucket, filename)
         return JSONResponse(content={"status": "success", "data": details})
@@ -137,13 +143,13 @@ async def preview_file(bucket: str, filename: str, current_user: User = Depends(
 
 
 # ==========================================
-# ROTAS DO ARENALAKE SCHEDULER E JOBS
+# ArenaLake scheduler and Spark job routes
 # ==========================================
 
 
 @router.get("/jobs")
-async def get_all_jobs(current_user: User = Depends(get_current_user)): # <--- Protegido!
-    """Lista os scripts .py disponíveis e os agendamentos ativos na memória"""
+async def get_all_jobs(current_user: User = Depends(get_current_user)):
+    """List available Python jobs and schedules held by the process scheduler."""
     scripts = list_spark_jobs()
 
     scheduled_jobs = []
@@ -167,7 +173,7 @@ async def get_all_jobs(current_user: User = Depends(get_current_user)): # <--- P
 
 @router.post("/jobs/run/{job_name}")
 async def execute_job_now(job_name: str, current_user: User = Depends(get_current_user)):
-    """Executa o script imediatamente"""
+    """Submit a selected Spark script for immediate asynchronous execution."""
     success = run_spark_job(job_name, origin="UI Manual")
     if success:
         return JSONResponse(
@@ -183,6 +189,7 @@ async def execute_job_now(job_name: str, current_user: User = Depends(get_curren
 
 @router.post("/bi/colunas")
 async def get_bi_columns(req: BiColumnsRequest, current_user: User = Depends(get_current_user)):
+    """Read only the schema of a CSV or Parquet object for BI selectors."""
     try:
         s3_client = get_s3_client()
         obj = s3_client.get_object(Bucket=req.bucket, Key=req.filename)
@@ -203,6 +210,7 @@ async def get_bi_columns(req: BiColumnsRequest, current_user: User = Depends(get
 
 @router.post("/bi/valores_coluna")
 async def valores_coluna_bi(req: FilterRequest, current_user: User = Depends(get_current_user)):
+    """Return sorted, non-null values from one dataset column for filtering."""
     try:
         s3_client = get_s3_client()
         obj = s3_client.get_object(Bucket=req.bucket, Key=req.filename)
@@ -223,12 +231,18 @@ async def valores_coluna_bi(req: FilterRequest, current_user: User = Depends(get
 
 @router.post("/bi/gerar_dados")
 async def gerar_dados_bi(req: VisualRequest, current_user: User = Depends(get_current_user)):
+    """Load a dataset and transform it into the requested visualization payload.
+
+    The function selects only required columns, applies the global filter,
+    removes incomplete rows, and then executes the aggregation strategy for
+    tables, KPIs, scatter plots, matrices, or standard charts.
+    """
     try:
         s3_client = get_s3_client()
         obj = s3_client.get_object(Bucket=req.bucket, Key=req.filename)
         file_data = io.BytesIO(obj["Body"].read())
 
-        # Define quais colunas carregar do arquivo
+        # Load only columns required by the selected visualization and filters.
         cols_to_use = (
             req.colunas_tabela.copy()
             if req.tipo_grafico == "table"
@@ -245,7 +259,7 @@ async def gerar_dados_bi(req: VisualRequest, current_user: User = Depends(get_cu
         else:
             df = pd.read_parquet(file_data, columns=cols_to_use)
 
-        # APLICA O FILTRO GLOBAL ANTES DE TUDO!
+        # Apply the global filter before dropping values or aggregating data.
         if req.filtro_coluna and req.filtro_valor:
             df = df[df[req.filtro_coluna].astype(str) == str(req.filtro_valor)]
 
@@ -257,7 +271,7 @@ async def gerar_dados_bi(req: VisualRequest, current_user: User = Depends(get_cu
             ]
         )
 
-        # 1. TABELA DE MÚLTIPLAS COLUNAS
+        # Build a multi-column table response.
         if req.tipo_grafico == "table":
             if req.ordenar_por and req.ordenar_por in df.columns:
                 df = df.sort_values(by=req.ordenar_por, ascending=(req.ordem == "asc"))
@@ -270,7 +284,7 @@ async def gerar_dados_bi(req: VisualRequest, current_user: User = Depends(get_cu
                 "tema": req.tema,
             }
 
-        # 2. CARTÃO KPI (NOVO)
+        # Build a single-value KPI response.
         elif req.tipo_grafico == "kpi":
             if req.agregacao != "count":
                 df[req.eixo_y] = pd.to_numeric(df[req.eixo_y], errors="coerce").fillna(
@@ -287,22 +301,22 @@ async def gerar_dados_bi(req: VisualRequest, current_user: User = Depends(get_cu
             resposta = {"valor": float(valor), "is_kpi": True, "tema": req.tema}
 
         elif req.tipo_grafico == "scatter":
-            # Força numérico no X e Y para garantir que o plano cartesiano funcione
+            # Coerce both axes to numeric values for Cartesian plotting.
             df[req.eixo_x] = pd.to_numeric(df[req.eixo_x], errors="coerce").fillna(0)
             df[req.eixo_y] = pd.to_numeric(df[req.eixo_y], errors="coerce").fillna(0)
 
-            # Usa o limite de linhas para não travar o ECharts (milhões de pontos travam a tela)
+            # Limit points so the browser chart remains responsive.
             df_scatter = df.head(req.limite_linhas)
 
             if req.eixo_z:
-                # Se tiver Eixo Z, separamos por categorias (Cores diferentes)
+                # Split the points into series when a third category is provided.
                 series_data = []
                 for categoria, grupo in df_scatter.groupby(req.eixo_z):
                     pontos = grupo[[req.eixo_x, req.eixo_y]].values.tolist()
                     series_data.append({"name": str(categoria), "data": pontos})
                 resposta = {"series": series_data, "is_scatter": True, "has_z": True}
             else:
-                # Sem categoria, todos da mesma cor
+                # Without a category, return one series containing all points.
                 pontos = df_scatter[[req.eixo_x, req.eixo_y]].values.tolist()
                 resposta = {
                     "series": [{"name": "Distribuição", "data": pontos}],
@@ -310,7 +324,7 @@ async def gerar_dados_bi(req: VisualRequest, current_user: User = Depends(get_cu
                     "has_z": False,
                 }
 
-        # 2. TABELA MATRIZ
+        # Build a pivoted matrix response.
         elif req.tipo_grafico == "matrix":
             if req.agregacao != "count":
                 df[req.eixo_y] = pd.to_numeric(df[req.eixo_y], errors="coerce").fillna(
@@ -347,7 +361,7 @@ async def gerar_dados_bi(req: VisualRequest, current_user: User = Depends(get_cu
                     index=req.eixo_x, columns=req.eixo_z, values=req.eixo_y
                 ).fillna(0)
 
-            # Reseta o index para ele virar uma coluna normal e podermos ordená-la
+            # Turn the index into a regular column so it can be sorted and serialized.
             df_pivot = df_pivot.reset_index()
 
             if req.ordenar_por and req.ordenar_por in df_pivot.columns:
@@ -357,7 +371,7 @@ async def gerar_dados_bi(req: VisualRequest, current_user: User = Depends(get_cu
 
             df_pivot = df_pivot.head(req.limite_linhas)
 
-            # Pega as colunas da resposta ignorando o eixo X que é o nosso índice visual
+            # Exclude the visual index column from the returned value columns.
             cols_for_response = [str(c) for c in df_pivot.columns if c != req.eixo_x]
 
             resposta = {
@@ -368,7 +382,7 @@ async def gerar_dados_bi(req: VisualRequest, current_user: User = Depends(get_cu
                 "tema": req.tema,
             }
 
-        # 3. TODOS OS OUTROS GRÁFICOS ECHARTS (MANTÉM IGUAL AO SEU)
+        # Build the grouped series payload used by the remaining ECharts types.
         else:
             if req.agregacao != "count":
                 df[req.eixo_y] = pd.to_numeric(df[req.eixo_y], errors="coerce").fillna(
@@ -437,6 +451,7 @@ async def gerar_dados_bi(req: VisualRequest, current_user: User = Depends(get_cu
 
 @router.get("/system/resources")
 async def get_system_resources(current_user: User = Depends(get_current_user)):
+    """Return CPU and memory capacity calculated from the Docker Swarm."""
     data = get_allocatable_resources()
     if "error" in data:
         return JSONResponse(
@@ -451,6 +466,7 @@ async def schedule_job_cron(
     cron_expr: str = Form(...),
     current_user: User = Depends(get_current_user)
 ):
+    """Create or replace an in-memory recurring schedule for a Spark job."""
     try:
         trigger = CronTrigger.from_crontab(cron_expr)
         job_id = f"job_{job_name.replace('.py', '')}"
@@ -483,6 +499,7 @@ async def schedule_job_cron(
 
 @router.delete("/jobs/schedule/{job_id}")
 async def remove_scheduled_job(job_id: str, current_user: User = Depends(get_current_user)):
+    """Remove a scheduled Spark job from the process scheduler."""
     if scheduler.get_job(job_id):
         scheduler.remove_job(job_id)
         return JSONResponse(
@@ -495,12 +512,13 @@ async def remove_scheduled_job(job_id: str, current_user: User = Depends(get_cur
 
 
 # ==========================================
-# ROTAS DO CLUSTER SPARK (MONITORAMENTO)
+# Spark cluster monitoring routes
 # ==========================================
 
 
 @router.get("/spark/status")
 async def get_spark_status(current_user: User = Depends(get_current_user)):
+    """Proxy the Spark master status page as a compact JSON payload."""
     try:
         url = "http://spark-master:8080/json/"
         with urllib.request.urlopen(url) as response:
@@ -520,6 +538,7 @@ async def get_spark_status(current_user: User = Depends(get_current_user)):
 
 @router.get("/spark/app/{app_id}/jobs")
 async def get_spark_app_jobs(app_id: str):
+    """Resolve a Spark application's driver and return its job metadata."""
     import urllib.error
 
     try:
@@ -580,7 +599,7 @@ async def get_spark_app_jobs(app_id: str):
         
 @router.get("/admin/users")
 async def admin_list_users(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Lista todos os usuários cadastrados no ecossistema (Apenas Admin)"""
+    """List all registered users for authenticated administrators."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
@@ -600,7 +619,7 @@ async def admin_list_users(current_user: User = Depends(get_current_user), db: S
 
 @router.post("/admin/users")
 async def admin_create_user(req: UserCreateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Cria um novo usuário com senha temporária e perfil definido (Apenas Admin)"""
+    """Create a user with a temporary password and selected access role."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
@@ -629,7 +648,7 @@ async def admin_create_user(req: UserCreateRequest, current_user: User = Depends
 
 @router.delete("/admin/users/{user_id}")
 async def admin_delete_user(user_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Exclui um usuário comum do ecossistema (Apenas Admin)"""
+    """Delete a standard user while protecting administrator accounts."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
@@ -650,7 +669,7 @@ async def admin_delete_user(user_id: int, current_user: User = Depends(get_curre
 
 @router.get("/admin/workspaces")
 async def admin_list_workspaces(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Lista todos os workspaces (containers de usuários) ativos no Docker Swarm (Apenas Admin)"""
+    """List active user workspace services and their reserved resources."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
@@ -659,7 +678,7 @@ async def admin_list_workspaces(current_user: User = Depends(get_current_user), 
 
     active_workspaces = []
     try:
-        # Lista serviços do swarm que começam com vscode-
+        # Identify user-facing VS Code services in the Swarm.
         services = docker_client.services.list()
         for svc in services:
             if svc.name.startswith("vscode-"):
@@ -675,7 +694,7 @@ async def admin_list_workspaces(current_user: User = Depends(get_current_user), 
                         break
                 
                 if is_running:
-                    # Pcura limites de recursos definidos no spec do serviço
+                    # Read CPU and memory limits from the service specification.
                     spec = svc.attrs.get("Spec", {}).get("TaskTemplate", {}).get("Resources", {}).get("Limits", {})
                     cpu_cores = spec.get("NanoCPUs", 0) / 1e9
                     ram_mb = spec.get("MemoryBytes", 0) / (1024 * 1024)
@@ -694,7 +713,7 @@ async def admin_list_workspaces(current_user: User = Depends(get_current_user), 
 
 @router.post("/admin/workspaces/kill/{username}")
 async def admin_kill_workspace(username: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Executa o Kill Switch: derruba os containers do workspace do usuário imediatamente (Apenas Admin)"""
+    """Immediately remove the selected user's VS Code and Spark services."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
@@ -706,7 +725,7 @@ async def admin_kill_workspace(username: str, current_user: User = Depends(get_c
 
 @router.get("/admin/cluster/nodes")
 async def admin_cluster_nodes(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Inspeciona os nós do Docker Swarm (Master/Worker, Status e Hardware) (Apenas Admin)"""
+    """Return Swarm node roles, readiness, CPU capacity, and memory capacity."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
@@ -742,7 +761,7 @@ async def admin_cluster_nodes(current_user: User = Depends(get_current_user), db
 
 @router.get("/admin/files/{username}")
 async def admin_inspect_user_files(username: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Espionagem de Arquivos: Inspeciona o volume persistente do usuário com segurança (Apenas Admin)"""
+    """Inspect a user's persistent volume through a temporary read-only container."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
@@ -752,7 +771,7 @@ async def admin_inspect_user_files(username: str, current_user: User = Depends(g
     vol_name = f"arena-vol-{username}"
     files_list = []
     try:
-        # Roda um container Alpine temporário montando o volume do usuário em modo somente leitura (ro)
+        # Mount the volume read-only in a short-lived Alpine inspection container.
         output = docker_client.containers.run(
             image="alpine:latest",
             command="find /data -maxdepth 3 -not -path '*/.*'",
@@ -767,7 +786,7 @@ async def admin_inspect_user_files(username: str, current_user: User = Depends(g
 
 @router.post("/admin/danger/destroy")
 async def admin_self_destruct(req: DangerDestroyRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Painel de Autodestruição Crítica: Purgar todos os workspaces ativos do cluster (Apenas Admin)"""
+    """Remove all active workspace and Spark Worker services after confirmation."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
@@ -791,7 +810,7 @@ async def admin_self_destruct(req: DangerDestroyRequest, current_user: User = De
 
 @router.get("/admin/catalog")
 async def admin_get_catalog(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Retorna o catálogo completo de buckets e arquivos do MinIO para auditoria do Admin (Apenas Admin)"""
+    """Return the complete MinIO bucket catalog for administrator auditing."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     try:
@@ -801,7 +820,7 @@ async def admin_get_catalog(current_user: User = Depends(get_current_user), db: 
 
 @router.delete("/admin/catalog/file")
 async def admin_delete_catalog_file(bucket: str = Form(...), filename: str = Form(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Exclui um arquivo/parquet do Data Catalog (Apenas Admin)"""
+    """Delete a dataset or Parquet object from the catalog as an administrator."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     try:
@@ -817,7 +836,7 @@ async def admin_upload_catalog_file(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Faz upload de novos datasets ou scripts diretamente para o Data Lake (Apenas Admin)"""
+    """Upload a dataset or script directly to a MinIO bucket as an administrator."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     try:
@@ -828,7 +847,7 @@ async def admin_upload_catalog_file(
 
 @router.delete("/admin/account/self")
 async def admin_self_delete(req: SelfDeleteRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Permite que o Administrador exclua a própria conta mediante frase de confirmação (Apenas Admin)"""
+    """Delete the current administrator account after exact phrase confirmation."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
@@ -843,7 +862,7 @@ async def admin_self_delete(req: SelfDeleteRequest, current_user: User = Depends
 
 @router.post("/admin/users/{user_id}/reset-password")
 async def admin_reset_user_password(user_id: int, req: UserPasswordResetRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Reseta a senha de um usuário comum e força o fluxo de primeiro acesso/2FA (Apenas Admin)"""
+    """Reset a user's password and require first-access setup and new 2FA pairing."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
@@ -857,7 +876,7 @@ async def admin_reset_user_password(user_id: int, req: UserPasswordResetRequest,
     if len(req.new_password) < 8:
         raise HTTPException(status_code=400, detail="A senha temporária deve ter pelo menos 8 caracteres.")
 
-    # Reseta a senha, força a troca no próximo login e limpa o 2FA antigo para exigir novo pareamento
+    # Force a password change and clear the old 2FA pairing for the next login.
     user.hashed_password = pwd_context.hash(req.new_password)
     user.must_change_password = True
     user.is_2fa_verified = False

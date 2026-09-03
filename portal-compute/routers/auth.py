@@ -1,3 +1,4 @@
+# Authentication router for login, first-access setup, and OTP verification.
 import pyotp
 import qrcode
 import base64
@@ -14,15 +15,20 @@ from core.models import User
 from core.security import verify_password, create_access_token, get_current_user, pwd_context
 
 class FirstAccessSetup(BaseModel):
+    """Payload required to set a new password and confirm initial 2FA setup."""
+
     new_password: str
     otp_code: str
 
 class VerifyOtpRequest(BaseModel):
+    """Payload containing the one-time code used during standard-user login."""
+
     otp_code: str
 
 router = APIRouter()
 
 def get_db():
+    """Yield a database session and close it after the request completes."""
     db = SessionLocal()
     try:
         yield db
@@ -34,6 +40,11 @@ def login_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
+    """Authenticate a user and return the next step in the access workflow.
+
+    New users are sent to first-access setup, administrators go to the admin
+    panel, and standard users must complete OTP verification.
+    """
     user = db.query(User).filter(User.username == form_data.username).first()
 
     if not user or not verify_password(form_data.password, user.hashed_password):
@@ -49,7 +60,7 @@ def login_access_token(
             detail="User disabled by the administrator."
         )
 
-    # 1) First access flow: password change or 2FA not yet verified.
+    # First-access flow: password change or 2FA setup is still pending.
     if user.must_change_password or not user.is_2fa_verified:
         temp_token = create_access_token(data={"sub": user.username, "role": user.role})
         return {
@@ -58,7 +69,7 @@ def login_access_token(
             "next_step": "first_access"
         }
 
-    # 2) Admin users are allowed to proceed after password validation.
+    # Administrators proceed directly after password validation.
     if user.role == "admin":
         access_token = create_access_token(data={"sub": user.username, "role": user.role})
         return {
@@ -67,7 +78,7 @@ def login_access_token(
             "next_step": "admin"
         }
 
-    # 3) Standard users must confirm an OTP on every login.
+    # Standard users confirm a fresh OTP code on every login.
     temp_token = create_access_token(data={"sub": user.username, "role": user.role, "scope": "otp_pending"})
     return {
         "access_token": temp_token,
@@ -104,6 +115,7 @@ def generate_2fa_qr(current_user: User = Depends(get_current_user), db: Session 
 
 @router.post("/api/auth/first-access")
 def complete_first_access(data: FirstAccessSetup, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Complete password setup and verify the user's authenticator code."""
     if current_user.is_2fa_verified:
         raise HTTPException(status_code=400, detail="Setup has already been completed.")
 
@@ -114,12 +126,12 @@ def complete_first_access(data: FirstAccessSetup, current_user: User = Depends(g
 
     totp = pyotp.TOTP(user.otp_secret)
 
-    # Validate the OTP code using an extended verification window.
+    # Allow a small time drift window when validating the authenticator code.
     if not totp.verify(data.otp_code, valid_window=2):
         expected = totp.now()
         import time
         server_epoch = int(time.time())
-        # Debug telemetry in the browser response while onboarding is still active.
+        # Return temporary diagnostic details while the onboarding flow is active.
         error_msg = f"DEBUG: App sent '{data.otp_code}' | Server calculated '{expected}'. Secret: {user.otp_secret} | Epoch: {server_epoch}"
         raise HTTPException(status_code=400, detail=error_msg)
 
@@ -143,7 +155,7 @@ def verify_login_otp(data: VerifyOtpRequest, current_user: User = Depends(get_cu
     if not totp.verify(data.otp_code, valid_window=2):
         raise HTTPException(status_code=400, detail="Verification code (2FA) is invalid or expired.")
 
-    # Issue the final access token when the user has validated the OTP.
+    # Issue the final access token after successful OTP validation.
     final_token = create_access_token(data={"sub": current_user.username, "role": current_user.role})
 
     return {

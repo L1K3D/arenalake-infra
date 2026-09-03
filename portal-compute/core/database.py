@@ -3,7 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 
-# Lightweight embedded SQLite database used by the application.
+# Database URL supplied through the environment, normally pointing to SQLite.
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
 engine = create_engine(
@@ -15,7 +15,11 @@ Base = declarative_base()
 
 
 def get_db():
-    """FastAPI dependency that injects a database session into routes."""
+    """Yield a SQLAlchemy session for FastAPI dependencies.
+
+    The session is always closed after the request finishes, including when
+    the route raises an exception.
+    """
     db = SessionLocal()
     try:
         yield db

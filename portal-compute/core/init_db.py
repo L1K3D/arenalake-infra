@@ -4,22 +4,26 @@ from passlib.context import CryptContext
 from .database import SessionLocal, engine, Base
 from .models import User
 
-# Secure password hashing context using bcrypt.
+# Configure bcrypt hashing for administrator credentials.
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def init_db():
-    """Create the schema and ensure the master DBA administrator exists."""
-    # Ensure all tables exist before accessing users or creating records.
+    """Create the schema and ensure the master DBA account exists.
+
+    The initial administrator credentials are read from environment variables.
+    A new account is inserted only when the configured username is absent.
+    """
+    # Create every declared table before querying or inserting users.
     Base.metadata.create_all(bind=engine)
 
     db: Session = SessionLocal()
 
-    # Retrieve the DBA credentials injected by the installation process.
+    # Read administrator credentials provided by the installation process.
     dba_username = os.getenv("DBA_USERNAME")
     dba_password = os.getenv("DBA_PASSWORD")
 
-    # Verify whether the master DBA user already exists.
+    # Avoid creating duplicate administrator records on repeated startups.
     existing_dba = db.query(User).filter(User.username == dba_username).first()
 
     if not existing_dba:
