@@ -65,6 +65,8 @@ def main():
         tar_cmd.append(".env")
     if os.path.exists("docker-compose.yml"):
         tar_cmd.append("docker-compose.yml")
+    if os.path.exists("telemetry-agent"):
+        tar_cmd.append("telemetry-agent")
 
     try:
         # Run the backup and show progress as the archive is being created.

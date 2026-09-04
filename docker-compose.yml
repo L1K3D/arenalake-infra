@@ -111,6 +111,20 @@ services:
         - "traefik.http.services.portal.loadbalancer.server.port=8000"
         - "traefik.docker.network=arenalake-prod_arenalake-net"
 
+  telemetry-agent:
+    build:
+      context: ./telemetry-agent
+      dockerfile: Dockerfile
+    image: arenalake-telemetry:latest
+    privileged: true
+    volumes:
+      - /sys:/sys:ro  # Permite ao agente ler a BIOS/Placa mãe do hospedeiro
+      - /proc:/proc:ro # Permite ler dados profundos da CPU
+    networks:
+      - arenalake-net
+    deploy:
+      mode: global # <--- O SEGREDO MÁGICO: Garante 1 container em CADA máquina do Swarm!
+
 networks:
   arenalake-net:
     driver: overlay

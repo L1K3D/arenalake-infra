@@ -125,7 +125,28 @@ def provision_storage():
         os.makedirs(folder_path, exist_ok=True)
         os.chmod(folder_path, 0o777)
         print(f"[+] Mirrored subfolder: {folder}")
-
+        
+def build_local_agent():
+    """Build the telemetry agent image locally so Swarm can deploy it on this node."""
+    print("\n[*] Building the Telemetry Agent image locally for this worker...")
+    agent_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "telemetry-agent")
+    
+    if os.path.exists(agent_dir):
+        try:
+            subprocess.run(
+                ["docker", "build", "-t", "arenalake-telemetry:latest", agent_dir],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            print("[+] Telemetry Agent built successfully!")
+        except subprocess.CalledProcessError:
+            print("\n[ERROR] Failed to build the Telemetry Agent image.")
+            sys.exit(1)
+    else:
+        print(f"\n[ERROR] Directory {agent_dir} not found.")
+        print("Please ensure you cloned the full ArenaLake repository to this worker.")
+        sys.exit(1)
 
 def main():
     check_root()
@@ -138,6 +159,7 @@ def main():
     install_dependencies()
     check_swarm_status()
     provision_storage()
+    build_local_agent()
 
     print("\n============================================================")
     print(" STEP 1: NETWORK AUTHENTICATION (TAILSCALE)")
