@@ -6,6 +6,8 @@ import re
 import pandas as pd
 import os
 import io
+import socket
+import httpx
 
 from fastapi import APIRouter, UploadFile, File, Form, Request, Depends, HTTPException
 from fastapi.responses import JSONResponse
@@ -885,6 +887,45 @@ async def admin_reset_user_password(user_id: int, req: UserPasswordResetRequest,
     db.commit()
 
     return JSONResponse(content={"status": "success", "message": f"Senha do usuário '{user.username}' resetada com sucesso! Ele fará o onboarding completo no próximo login."})
+
+@router.get("/admin/hardware/telemetry/advanced")
+async def admin_hardware_telemetry_advanced(current_user: User = Depends(get_current_user)):
+    """Varre a rede Swarm buscando os agentes de telemetria em todos os nós (Apenas Admin)"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado.")
+    
+    cluster_nodes = []
+    
+    # 1. Pede ao DNS interno do Docker Swarm os IPs de todos os containers "telemetry-agent" ativos
+    try:
+        _, _, ips = socket.gethostbyname_ex("tasks.telemetry-agent")
+    except Exception:
+        ips = [] # Caso o agente não esteja rodando ainda
+
+    # 2. Faz um "ping" em cada IP coletando o hardware real
+    for ip in ips:
+        try:
+            # Requisita a métrica de hardware do Worker (timeout curto para não travar)
+            response = httpx.get(f"http://{ip}:5000/metrics", timeout=3.0)
+            if response.status_code == 200:
+                cluster_nodes.append(response.json())
+        except Exception:
+            continue
+
+    # 3. Consolida os totais para os Gráficos do Painel (Chart.js)
+    totais = {
+        "cpus_intel": sum(1 for n in cluster_nodes if n["marca_cpu"] == "Intel"),
+        "cpus_amd": sum(1 for n in cluster_nodes if n["marca_cpu"] == "AMD"),
+        "cpus_qualcomm": sum(1 for n in cluster_nodes if n["marca_cpu"] == "Qualcomm"),
+        "cpus_outros": sum(1 for n in cluster_nodes if n["marca_cpu"] not in ["Intel", "AMD", "Qualcomm"]),
+        "ram_total": sum(n["ram_gb"] for n in cluster_nodes),
+        "ram_usada": sum(n["ram_usada_gb"] for n in cluster_nodes),
+        "disk_total": sum(n["disk_gb"] for n in cluster_nodes),
+        "disk_usado": sum(n["disk_usado_gb"] for n in cluster_nodes),
+        "cores_total": sum(n["cores"] for n in cluster_nodes)
+    }
+
+    return JSONResponse(content={"status": "success", "nodes": cluster_nodes, "totais": totais})
 
 scheduler.add_job(
     verify_idle_workspaces,

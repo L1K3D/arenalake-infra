@@ -172,10 +172,17 @@ def get_tailscale_url():
         pass
     return ""
 
+def check_telemetry_folder():
+    """Verify the telemetry-agent folder is present before building."""
+    if not os.path.isdir("telemetry-agent"):
+        print("[ERROR] The 'telemetry-agent' directory was not found.")
+        print("Ensure the full repository is downloaded.")
+        sys.exit(1)
 
 def main():
     check_root()
     check_compose_file()
+    check_telemetry_folder()
 
     print("=" * 60)
     print("      ArenaLake - Enterprise Interactive Setup")
@@ -426,7 +433,6 @@ AUTO_UPDATE_CORE={auto_update_core}
 
     except subprocess.CalledProcessError:
         print("\n[ERROR] There was a problem starting Docker Swarm or the deployment.")
-
 
 if __name__ == "__main__":
     main()
