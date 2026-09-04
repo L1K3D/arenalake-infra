@@ -95,6 +95,16 @@ def check_environment():
             "NOT FOUND!",
             "Download docker-compose.yml from the repository and place it in this folder.",
         )
+        
+    if os.path.isdir("telemetry-agent"):
+        print_status("Telemetry Agent", "OK", "Source folder found.")
+    else:
+        print_status(
+            "Telemetry Agent",
+            "ERROR",
+            "NOT FOUND!",
+            "The telemetry-agent folder is missing. Cluster hardware metrics will fail.",
+        )
 
 
 def check_tailscale():

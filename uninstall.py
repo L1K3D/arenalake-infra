@@ -51,6 +51,14 @@ def remove_docker_stack(stack_name="arenalake-prod"):
                 break
             time.sleep(2)
         print("[+] ArenaLake services shut down successfully.")
+        
+        print("[*] Removing compiled telemetry image...")
+        subprocess.run(
+            ["docker", "image", "rm", "arenalake-telemetry:latest", "-f"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        
     except Exception:
         print("[-] No ArenaLake stack is running (or it has already been removed).")
 
