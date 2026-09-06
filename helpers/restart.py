@@ -131,6 +131,15 @@ def rebuild_images():
 
 def deploy_stack():
     """Deploy the rebuilt images and external services through Swarm."""
+    
+    if os.path.isfile(".env"):
+        with open(".env", "r") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    key, value = line.split("=", 1)
+                    os.environ[key] = value
+
     run_command(
         [
             "docker",
