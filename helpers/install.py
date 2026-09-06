@@ -13,12 +13,15 @@ YELLOW = "\033[93m"
 CYAN = "\033[96m"
 RESET = "\033[0m"
 
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(PROJECT_ROOT)
+
 
 def check_root():
     """Ensure the install script has administrator privileges."""
     if os.geteuid() != 0:
         print(f"{YELLOW}[ERROR]{RESET} This script requires administrator privileges.")
-        print(f"{CYAN}Run it again with: sudo python3 install.py{RESET}")
+        print(f"{CYAN}Run it again with: sudo python3 helpers/install.py{RESET}")
         sys.exit(1)
 
 
@@ -277,7 +280,7 @@ def main():
     print("============================================================")
 
     # Dynamic local directory plus all mandatory subfolders needed by the platform.
-    current_project_dir = os.path.dirname(os.path.abspath(__file__))
+    current_project_dir = PROJECT_ROOT
     datalake_path = os.path.join(current_project_dir, "datalake_data")
 
     print(f"[*] Provisioning storage directories in {datalake_path}...")

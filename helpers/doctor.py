@@ -10,6 +10,9 @@ RED = "\033[91m"
 CYAN = "\033[96m"
 RESET = "\033[0m"
 
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(PROJECT_ROOT)
+
 
 def print_status(component, status, message, tip=None):
     """Render a standardized health status line for the cluster check."""
@@ -33,8 +36,7 @@ def get_datalake_path():
                 if line.startswith("DATALAKE_STORAGE_PATH="):
                     return line.strip().split("=")[1]
     # Fallback when the .env file is not present.
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(current_dir, "datalake_data")
+    return os.path.join(PROJECT_ROOT, "datalake_data")
 
 
 def check_resources():
@@ -42,8 +44,7 @@ def check_resources():
     print("\n--- 1. Server Resources ---")
 
     # Use the dynamic path aligned with the new architecture.
-    current_project_dir = os.path.dirname(os.path.abspath(__file__))
-    datalake_path = os.path.join(current_project_dir, "datalake_data")
+    datalake_path = os.path.join(PROJECT_ROOT, "datalake_data")
 
     if os.path.exists(datalake_path):
         total, used, free = shutil.disk_usage(datalake_path)
@@ -69,7 +70,7 @@ def check_resources():
             "Disk (DataLake)",
             "ERROR",
             f"Folder {datalake_path} not found!",
-            "The base folder was removed. Run install.py again to recreate the infrastructure.",
+            "The base folder was removed. Run helpers/install.py again to recreate the infrastructure.",
         )
 
 
@@ -83,7 +84,7 @@ def check_environment():
             ".env file",
             "ERROR",
             "NOT FOUND!",
-            "You are running the script from the wrong folder or the file was deleted. Run 'install.py' to recreate it.",
+            "You are running the script from the wrong folder or the file was deleted. Run 'helpers/install.py' to recreate it.",
         )
 
     if os.path.isfile("docker-compose.yml"):
