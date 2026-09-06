@@ -132,7 +132,7 @@ def provision_storage():
 def build_local_agent():
     """Build the telemetry agent image locally so Swarm can deploy it on this node."""
     print("\n[*] Building the Telemetry Agent image locally for this worker...")
-    agent_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "telemetry-agent")
+    agent_dir = os.path.join(PROJECT_ROOT, "telemetry-agent")
     
     if os.path.exists(agent_dir):
         try:
