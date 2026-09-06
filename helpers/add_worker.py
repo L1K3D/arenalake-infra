@@ -151,6 +151,34 @@ def build_local_agent():
         print("Please ensure you cloned the full ArenaLake repository to this worker.")
         sys.exit(1)
 
+def build_local_workspace():
+    """Build the workspace image locally so user services can run on this worker."""
+    print("\n[*] Building the Workspace image locally for this worker...")
+    dockerfile = os.path.join(PROJECT_ROOT, "docker", "Dockerfile.workspace")
+
+    if not os.path.isfile(dockerfile):
+        print(f"\n[ERROR] Dockerfile not found: {dockerfile}")
+        print("Please ensure you cloned the full ArenaLake repository to this worker.")
+        sys.exit(1)
+
+    try:
+        subprocess.run(
+            [
+                "docker",
+                "build",
+                "-t",
+                "arenalake-workspace:latest",
+                "-f",
+                dockerfile,
+                PROJECT_ROOT,
+            ],
+            check=True,
+        )
+        print("[+] Workspace image built successfully!")
+    except subprocess.CalledProcessError:
+        print("\n[ERROR] Failed to build the Workspace image.")
+        sys.exit(1)
+
 def main():
     check_root()
 
@@ -162,6 +190,7 @@ def main():
     install_dependencies()
     check_swarm_status()
     provision_storage()
+    build_local_workspace()
     build_local_agent()
 
     print("\n============================================================")

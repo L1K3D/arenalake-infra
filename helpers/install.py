@@ -318,6 +318,7 @@ SPARK_UI_PORT=8080
 TRAEFIK_DASH_PORT=8089
 
 WORKSPACE_NETWORK={workspace_network}
+WORKSPACE_IMAGE=arenalake-workspace:latest
 TAILSCALE_BASE_URL={tailscale_url}
 
 # --- Enterprise Auto-Update Policies ---
