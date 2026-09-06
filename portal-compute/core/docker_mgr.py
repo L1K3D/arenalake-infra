@@ -75,9 +75,10 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         raise ValueError("ERRO CRÍTICO: Credenciais do MinIO não encontradas!")
 
     # Create the user's browser-accessible VS Code service.
-    # Keep the image entrypoint in charge of starting code-server. Passing the
-    # arguments directly avoids a shell process masking startup failures.
+    # Call code-server's entrypoint explicitly; the base image does not expose
+    # it as a Docker ENTRYPOINT when the service command is overridden.
     startup_vscode_cmd = [
+        "/usr/bin/entrypoint.sh",
         "--bind-addr", "0.0.0.0:8080",
         "--auth", "none",
         "--user-data-dir", "/home/coder/project/.vscode-data/data",
