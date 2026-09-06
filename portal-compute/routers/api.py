@@ -103,7 +103,8 @@ async def get_metrics(usuario: str, current_user: User = Depends(get_current_use
     try:
         metrics = get_workspace_metrics(usuario)
         if metrics.get("status") == "offline":
-            return JSONResponse(content=metrics, status_code=404)
+            # Provisioning is asynchronous; offline is a valid transient state.
+            return JSONResponse(content=metrics)
 
         update_workspace_activity(usuario)
         return JSONResponse(content=metrics)

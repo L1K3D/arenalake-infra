@@ -14,8 +14,6 @@ except Exception as e:
     client = None
 
 network_name = os.getenv("WORKSPACE_NETWORK")
-tailscale_url = os.getenv("TAILSCALE_BASE_URL")
-vscode_port = os.getenv("VSCODE_EXTERNAL_PORT")
 WORKSPACE_LAST_SEEN = {}
 
 
@@ -44,8 +42,6 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
 
     container_name_vscode = f"vscode-{usuario}"
     container_name_worker = f"spark-worker-{usuario}"
-    domain = f"{tailscale_url}:{vscode_port}"
-
     if perfil == "extreme":
         vscode_ram = "2g"
         worker_ram = "6g"
@@ -79,7 +75,6 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
 
     # Create the user's browser-accessible VS Code service.
     startup_vscode_cmd = (
-        f"sudo chown -R coder:coder /home/coder/project && "
         f"echo 'PS1=\"{usuario}@\\h:\\w\\$ \"' >> /home/coder/.bashrc && "
         f"/usr/bin/entrypoint.sh --bind-addr 0.0.0.0:8080 --auth none "
         f"--user-data-dir /home/coder/project/.vscode-data/data "
@@ -142,7 +137,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         constraints=["node.labels.papel == worker"]
     )
 
-    return domain
+    return f"/workspace/{usuario}"
 
 def get_workspace_metrics(usuario: str):
     """Return the current status and reserved resources for a user's workspace.

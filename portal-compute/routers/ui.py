@@ -8,7 +8,6 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from core.docker_mgr import provision_workspace, shutdown_workspace
-import os
 from core.database import SessionLocal
 from core.models import User
 from core.security import verify_password
@@ -79,12 +78,10 @@ async def provisionar_ambiente(
 
 @router.get("/dashboard/{usuario}", response_class=HTMLResponse)
 async def dashboard(request: Request, usuario: str):
-    """Render the user dashboard with the externally reachable workspace URL."""
-    tailscale_url = os.getenv("TAILSCALE_BASE_URL")
-    vscode_port = os.getenv("VSCODE_EXTERNAL_PORT")
-
-    # Build the external workspace URL from the deployment configuration.
-    domain = f"{tailscale_url}:{vscode_port}/workspace/{usuario}"
+    """Render the dashboard with a workspace URL routed by the same host."""
+    # Use a relative URL so Traefik handles the workspace on the current host.
+    # This avoids relying on an optional VSCODE_EXTERNAL_PORT setting.
+    domain = f"/workspace/{usuario}"
 
     return templates.TemplateResponse(
         request=request,
