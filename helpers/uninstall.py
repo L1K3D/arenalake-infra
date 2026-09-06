@@ -4,12 +4,15 @@ import subprocess
 import shutil
 import time
 
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(PROJECT_ROOT)
+
 
 def check_root():
     """Ensure the script runs with administrator privileges."""
     if os.geteuid() != 0:
         print("[ERROR] This script requires administrator privileges.")
-        print("Run it again with: sudo python3 uninstall.py")
+        print("Run it again with: sudo python3 helpers/uninstall.py")
         sys.exit(1)
 
 
@@ -95,7 +98,7 @@ def handle_data_volume():
     print("============================================================")
 
     # This path matches the dynamic storage layout used by the current architecture.
-    current_project_dir = os.path.dirname(os.path.abspath(__file__))
+    current_project_dir = PROJECT_ROOT
     datalake_path = os.path.join(current_project_dir, "datalake_data")
 
     if os.path.exists(datalake_path):

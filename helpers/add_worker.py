@@ -5,12 +5,15 @@ import subprocess
 import time
 import re
 
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(PROJECT_ROOT)
+
 
 def check_root():
     """Ensure the script is executed with administrator rights."""
     if os.geteuid() != 0:
         print("[ERROR] This script requires administrator privileges.")
-        print("Run it again with: sudo python3 add_worker.py")
+        print("Run it again with: sudo python3 helpers/add_worker.py")
         sys.exit(1)
 
 
@@ -112,7 +115,7 @@ def test_connection(ip):
 
 def provision_storage():
     """Mirror the essential folders required by the worker container runtime."""
-    current_project_dir = os.path.dirname(os.path.abspath(__file__))
+    current_project_dir = PROJECT_ROOT
     datalake_path = os.path.join(current_project_dir, "datalake_data")
 
     print(f"[*] Mirroring the worker's essential directories ({datalake_path})...")

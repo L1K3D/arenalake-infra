@@ -4,12 +4,15 @@ import subprocess
 import time
 from datetime import datetime
 
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(PROJECT_ROOT)
+
 
 def check_root():
     """Ensure the backup process has root privileges to read protected files."""
     if os.geteuid() != 0:
         print(
-            "[ERROR] The backup process needs to read protected files. Run: sudo python3 backup.py"
+            "[ERROR] The backup process needs to read protected files. Run: sudo python3 helpers/backup.py"
         )
         sys.exit(1)
 
@@ -25,7 +28,7 @@ def main():
     print("\n")
 
     # Use a dynamic project path so the tool still works with the new architecture.
-    current_project_dir = os.path.dirname(os.path.abspath(__file__))
+    current_project_dir = PROJECT_ROOT
     datalake_path = os.path.join(current_project_dir, "datalake_data")
 
     # Verify that the required data volume exists before starting the archive.

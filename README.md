@@ -207,14 +207,15 @@ arenalake-infra/
 │   ├── Dockerfile
 │   ├── main.py
 │   └── requirements.txt
-├── configs_scripts/             # Additional setup or automation scripts
-│   └── install_new.py
-├── add_worker.py                # Worker-related automation helper
-├── backup.py                    # Backup utility for platform state
-├── doctor.py                    # Infrastructure and environment diagnostics
-├── install.py                   # Installation bootstrap flow
+├── helpers/                     # Operational and maintenance scripts
+│   ├── add_worker.py            # Worker-related automation helper
+│   ├── backup.py                # Backup utility for platform state
+│   ├── doctor.py                # Infrastructure and environment diagnostics
+│   ├── install.py               # Installation bootstrap flow
+│   ├── install_new.py           # Alternative installation flow
+│   ├── restart.py               # Rebuild and restart utility
+│   └── uninstall.py             # Uninstall and cleanup utility
 ├── README.md                    # Project documentation
-├── uninstall.py                 # Uninstall and cleanup utility
 └── projects_data/               # Persistent volume for user projects and storage
 ```
 
@@ -286,6 +287,37 @@ This command builds the necessary images and starts the main services:
 - MinIO
 - workspace builder image
 - portal application
+
+### Operational helpers
+
+Run the maintenance scripts from the repository root using their paths under
+`helpers/`:
+
+```bash
+sudo python3 helpers/install.py
+sudo python3 helpers/add_worker.py
+sudo python3 helpers/doctor.py
+sudo python3 helpers/backup.py
+sudo python3 helpers/restart.py
+sudo python3 helpers/uninstall.py
+```
+
+The scripts resolve the repository root automatically, so they can also be
+started while the current directory is elsewhere.
+
+### Rebuild and restart after an update
+
+After changing the portal, workspace image, telemetry agent, or Docker configuration,
+use the support script below from the project directory:
+
+```bash
+sudo python3 helpers/restart.py
+```
+
+The script temporarily stops the `arenalake-prod` Swarm stack, restarts the Docker
+daemon, rebuilds all locally defined images without cache, and deploys the stack again.
+It preserves `.env`, `datalake_data`, the database, and user workspace volumes. The
+normal interactive confirmation can be skipped for automation with `--yes`.
 
 ### Access points
 
