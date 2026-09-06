@@ -31,7 +31,8 @@
                         <b>CPU:</b> 2 Cores<br>
                         <b>RAM:</b> 4 GB
                     </div>
-                    <div class="machine-desc">Ideal for everyday tasks, basic scripting, and exploratory data analysis.</div>
+                    <div class="machine-desc">Ideal for everyday tasks, basic scripting, and exploratory data analysis.
+                    </div>
                     <div class="insufficient-resource" id="warn-standard"
                         style="display: none; color: #f85149; font-size: 0.8em; margin-top: 10px; font-weight: bold;">
                         Insufficient resources
@@ -45,7 +46,8 @@
                         <b>CPU:</b> 6 Cores<br>
                         <b>RAM:</b> 8 GB
                     </div>
-                    <div class="machine-desc">High performance. Recommended for heavy Apache Spark and Machine Learning workloads.</div>
+                    <div class="machine-desc">High performance. Recommended for heavy Apache Spark and Machine Learning
+                        workloads.</div>
                     <div class="insufficient-resource" id="warn-extreme"
                         style="display: none; color: #f85149; font-size: 0.8em; margin-top: 10px; font-weight: bold;">
                         Insufficient resources
@@ -61,6 +63,31 @@
     <script src="/static/js/setup.js"></script>
 
     <script>
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+            if (token) {
+                try {
+                    // Decodifica a parte do payload do JWT
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+
+                    if (payload.sub) {
+                        // 1. Preenche o input hidden para o POST /provisionar não quebrar
+                        const userInput = document.querySelector('input[name="usuario"]');
+                        if (userInput) userInput.value = payload.sub;
+
+                        // 2. Atualiza a mensagem de boas-vindas caso o Jinja2 tenha deixado vazia
+                        const welcomeText = document.querySelector('.subtitle b');
+                        if (welcomeText && welcomeText.innerText.trim() === '') {
+                            welcomeText.innerText = payload.sub;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Erro ao ler o token JWT do navegador', e);
+                }
+            }
+        });
+
         // The inline logic periodically refreshes capacity and disables unavailable profiles.
         async function fetchSystemResources() {
             try {
