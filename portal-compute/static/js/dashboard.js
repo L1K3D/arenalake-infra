@@ -11,6 +11,26 @@
    - Chart visualization with Chart.js
    ============================================================================ */
 
+const originalFetch = window.fetch;
+window.fetch = async function (resource, config = {}) {
+    if (typeof resource === 'string' && resource.startsWith('/api/')) {
+        const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+        if (token) {
+            config.headers = config.headers || {};
+            if (config.headers instanceof Headers) {
+                if (!config.headers.has('Authorization')) {
+                    config.headers.append('Authorization', `Bearer ${token}`);
+                }
+            } else {
+                if (!config.headers['Authorization']) {
+                    config.headers['Authorization'] = `Bearer ${token}`;
+                }
+            }
+        }
+    }
+    return originalFetch(resource, config);
+};
+
 // Configuration passed from Jinja2 template (username and domain)
 const dashboardConfig = window.dashboardConfig || { usuario: 'usuario', domain: 'localhost' };
 const usuario = dashboardConfig.usuario;
@@ -444,7 +464,7 @@ async function updateSparkDashboard() {
             activeHtml = '<span style="color: #8b949e;">No application is running right now. Start a process in your Jupyter session.</span>';
             expandedAppId = null;
         } else {
-                activeHtml = `<table style="${tableStyle}">
+            activeHtml = `<table style="${tableStyle}">
                     <tr><th style="${thStyle}">Job Name</th><th style="${thStyle}">User</th><th style="${thStyle}">Used Cores</th><th style="${thStyle}">Memory/Node</th><th style="${thStyle}">Duration</th></tr>`;
 
             data.active_apps.forEach(app => {
@@ -482,7 +502,7 @@ async function updateSparkDashboard() {
         if (data.completed_apps && data.completed_apps.length === 0) {
             completedHtml = '<span style="color: #8b949e;">No recent execution history.</span>';
         } else {
-                completedHtml = `<table style="${tableStyle}">
+            completedHtml = `<table style="${tableStyle}">
                     <tr><th style="${thStyle}">Job Name</th><th style="${thStyle}">User</th><th style="${thStyle}">Status</th><th style="${thStyle}">Duration</th></tr>`;
             data.completed_apps.forEach(app => {
                 let stateColor = app.state === 'FINISHED' ? '#3fb950' : (app.state === 'FAILED' || app.state === 'KILLED' ? '#f85149' : '#d29922');
