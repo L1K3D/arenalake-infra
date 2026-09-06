@@ -5,7 +5,7 @@
 import os
 import docker
 import time as tm
-from docker.types import Mount, Resources
+from docker.types import EndpointSpec, Mount, Resources
 
 try:
     client = docker.from_env()
@@ -105,8 +105,10 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         ),
         # Docker assigns this role automatically when a node joins as a worker.
         constraints=["node.role == worker"],
+        endpoint_spec=EndpointSpec(mode="dnsrr"),
         labels={
             "traefik.enable": "true",
+            "traefik.docker.lbswarm": "false",
             f"traefik.http.routers.vscode-{usuario}.rule": f"PathPrefix(`/workspace/{usuario}`)",
             f"traefik.http.routers.vscode-{usuario}.entrypoints": "web",
             f"traefik.http.middlewares.strip-{usuario}.stripprefix.prefixes": f"/workspace/{usuario}",
