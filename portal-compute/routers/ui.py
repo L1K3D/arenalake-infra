@@ -9,7 +9,6 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from core.docker_mgr import provision_workspace, shutdown_workspace
 import os
-from pydantic import BaseModel
 from core.database import SessionLocal
 from core.models import User
 from core.security import verify_password
@@ -17,10 +16,6 @@ from core.security import verify_password
 # Initialize the router and Jinja2 template engine used by all page handlers.
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
-
-class ProvisionRequest(BaseModel):
-    usuario: str
-    perfil: str = "standard"
 
 @router.get("/")
 async def login_page(request: Request):
@@ -70,16 +65,16 @@ async def shutdown_ambiente(usuario: str = Form(...)):
 
 
 @router.post("/provisionar")
-async def provisionar_ambiente(req: ProvisionRequest):
+async def provisionar_ambiente(
+    usuario: str = Form(...),
+    perfil: str = Form("standard"),
+):
     """Provision workspace services using the selected hardware profile."""
     # Aplica os limites de CPU e memória específicos do perfil no gerenciador Docker.
-    domain = provision_workspace(req.usuario, req.perfil)
+    provision_workspace(usuario, perfil)
     
-    # Retorna um JSON para que o fetch do front-end saiba para onde redirecionar
-    return JSONResponse(content={
-        "status": "success", 
-        "redirect": f"/dashboard/{req.usuario}"
-    })
+    # O formulário é enviado como navegação normal, então redireciona o browser para o dashboard.
+    return RedirectResponse(url=f"/dashboard/{usuario}", status_code=303)
 
 
 @router.get("/dashboard/{usuario}", response_class=HTMLResponse)
