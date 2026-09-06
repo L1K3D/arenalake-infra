@@ -99,7 +99,8 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
             cpu_limit=cpu_limit, mem_limit=parse_memory(vscode_ram),
             cpu_reservation=cpu_limit, mem_reservation=parse_memory(vscode_ram)
         ),
-        constraints=["node.labels.papel == worker"],
+        # Docker assigns this role automatically when a node joins as a worker.
+        constraints=["node.role == worker"],
         labels={
             "traefik.enable": "true",
             f"traefik.http.routers.vscode-{usuario}.rule": f"PathPrefix(`/workspace/{usuario}`)",
@@ -134,7 +135,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
             cpu_limit=cpu_limit, mem_limit=parse_memory(worker_ram),
             cpu_reservation=cpu_limit, mem_reservation=parse_memory(worker_ram)
         ),
-        constraints=["node.labels.papel == worker"]
+        constraints=["node.role == worker"]
     )
 
     return f"/workspace/{usuario}"
