@@ -306,6 +306,7 @@ MINIO_CONSOLE_PORT=9001
 SPARK_UI_PORT=8080
 
 WORKSPACE_NETWORK={workspace_network}
+WORKSPACE_IMAGE=arenalake-workspace:latest
 TAILSCALE_BASE_URL={tailscale_url}
 
 # --- Enterprise Auto-Update Policies ---
