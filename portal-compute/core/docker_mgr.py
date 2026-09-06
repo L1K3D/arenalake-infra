@@ -75,18 +75,20 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         raise ValueError("ERRO CRÍTICO: Credenciais do MinIO não encontradas!")
 
     # Create the user's browser-accessible VS Code service.
-    startup_vscode_cmd = (
-        f"echo 'PS1=\"{usuario}@\\h:\\w\\$ \"' >> /home/coder/.bashrc && "
-        f"/usr/bin/entrypoint.sh --bind-addr 0.0.0.0:8080 --auth none "
-        f"--user-data-dir /home/coder/project/.vscode-data/data "
-        f"--extensions-dir /home/coder/project/.vscode-data/extensions "
-        f"/home/coder/project"
-    )
+    # Keep the image entrypoint in charge of starting code-server. Passing the
+    # arguments directly avoids a shell process masking startup failures.
+    startup_vscode_cmd = [
+        "--bind-addr", "0.0.0.0:8080",
+        "--auth", "none",
+        "--user-data-dir", "/home/coder/project/.vscode-data/data",
+        "--extensions-dir", "/home/coder/project/.vscode-data/extensions",
+        "/home/coder/project",
+    ]
 
     client.services.create(
         image=workspace_image,
         name=container_name_vscode,
-        command=["/bin/sh", "-c", startup_vscode_cmd],
+        command=startup_vscode_cmd,
         env=[
             "SPARK_MASTER=spark://spark-master:7077",
             f"MINIO_ACCESS_KEY={minio_ak}",
@@ -151,7 +153,8 @@ def get_workspace_metrics(usuario: str):
     if not client:
         return {"status": "offline", "message": "Cliente offline"}
 
-    is_online = False
+    vscode_online = False
+    worker_online = False
     allocated_mem = 0
     allocated_cpu = 0
 
@@ -162,15 +165,22 @@ def get_workspace_metrics(usuario: str):
             tasks = service.tasks(filters={"desired-state": "running"})
             for task in tasks:
                 if task["Status"]["State"] == "running":
-                    is_online = True
+                    if s_name == f"vscode-{usuario}":
+                        vscode_online = True
+                    else:
+                        worker_online = True
                     res = service.attrs.get("Spec", {}).get("TaskTemplate", {}).get("Resources", {}).get("Limits", {})
                     allocated_cpu += res.get("NanoCPUs", 0) / 1e9
                     allocated_mem += res.get("MemoryBytes", 0)
         except docker.errors.NotFound:
             continue
 
-    if not is_online:
-        return {"status": "offline", "message": "Workspace inativo"}
+    if not vscode_online:
+        return {
+            "status": "offline",
+            "message": "VS Code ainda não está disponível",
+            "worker_status": "online" if worker_online else "offline",
+        }
 
     mem_mb = round(allocated_mem / (1024 * 1024), 2)
     # Return a stable fallback load when live worker metrics are unavailable.
