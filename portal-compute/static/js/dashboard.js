@@ -368,6 +368,14 @@ async function loadMetrics() {
         const wsRamBar = document.getElementById('wsRamBar');
 
         if (data.status === 'online') {
+            // The Swarm service can become ready after the dashboard first loads.
+            // Reload the iframe once metrics confirm that a task is running.
+            const workspaceFrame = document.getElementById('workspaceFrame');
+            if (workspaceFrame && workspaceFrame.dataset.workspaceReady !== 'true') {
+                workspaceFrame.dataset.workspaceReady = 'true';
+                workspaceFrame.src = workspaceFrame.src;
+            }
+
             if (ramValEl) ramValEl.innerText = `${data.memory_usage_mb} MB`;
             if (ramPctEl) ramPctEl.innerText = `${data.memory_percent}% of ${data.memory_limit_mb}MB`;
             if (cpuValEl) cpuValEl.innerText = `${data.cpu_percent} %`;

@@ -305,6 +305,18 @@ sudo python3 helpers/uninstall.py
 The scripts resolve the repository root automatically, so they can also be
 started while the current directory is elsewhere.
 
+After updating the workspace image, build it on every Swarm worker before
+provisioning user environments. Run this on each worker node from the project
+directory:
+
+```bash
+sudo docker build -t arenalake-workspace:latest -f docker/Dockerfile.workspace .
+```
+
+This does not require removing the worker from the Swarm. The `add_worker.py`
+script is intended for a new node and may ask an already joined node to leave
+its current cluster.
+
 ### Rebuild and restart after an update
 
 After changing the portal, workspace image, telemetry agent, or Docker configuration,
