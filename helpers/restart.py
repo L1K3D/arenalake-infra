@@ -127,6 +127,11 @@ def rebuild_images():
         ]
     )
     print("[+] Local images rebuilt successfully.")
+    
+def cleanup_docker():
+    """Remove stopped containers, dangling images, and build cache to free up disk space."""
+    print("[*] Cleaning up old Docker images and build cache...")
+    run_command(["docker", "system", "prune", "-f"])
 
 
 def deploy_stack():
@@ -189,6 +194,7 @@ def main():
     restart_docker()
     check_swarm()
     rebuild_images()
+    cleanup_docker()
     deploy_stack()
 
     print("\n[+] Restart completed. Existing persistent data was preserved.")
