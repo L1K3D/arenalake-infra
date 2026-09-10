@@ -15,202 +15,230 @@
             background: #0d1117 !important;
             color: #c9d1d9 !important;
             font-family: sans-serif;
-            overflow-y: auto !important;
+            overflow: hidden;
+            /* Prevent body scroll, handle inside layout */
         }
 
-        body {
+        /* Kibana Layout Style */
+        .admin-layout {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Sidebar Styling */
+        .sidebar {
+            width: 280px;
+            background: #161b22;
+            border-right: 1px solid #30363d;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #30363d;
+        }
+
+        .sidebar-header h2 {
+            margin: 0;
+            font-size: 1.2em;
+            color: #58a6ff;
+        }
+
+        .sidebar-header p {
+            margin: 5px 0 0 0;
+            font-size: 0.85em;
+            color: #8b949e;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 10px 0;
+            margin: 0;
+            flex-grow: 1;
+        }
+
+        .sidebar-menu li {
+            padding: 12px 20px;
+            cursor: pointer;
+            color: #8b949e;
+            transition: all 0.2s;
+            font-size: 0.95em;
+        }
+
+        .sidebar-menu li:hover {
+            background: #21262d;
+            color: #c9d1d9;
+        }
+
+        .sidebar-menu li.active {
+            background: #1f6feb;
+            color: #ffffff;
+            font-weight: bold;
+            border-left: 4px solid #79c0ff;
+        }
+
+        .sidebar-footer {
+            padding: 20px;
+            border-top: 1px solid #30363d;
+        }
+
+        .sidebar-footer button {
+            width: 100%;
+        }
+
+        /* Main Content Styling */
+        .main-content {
+            flex-grow: 1;
             padding: 30px;
-            box-sizing: border-box;
+            overflow-y: auto;
+            background: #0d1117;
+        }
+
+        .admin-section {
+            display: none;
+            max-width: 1000px;
+        }
+
+        .admin-section.active {
+            display: block;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Reusing your component styles */
+        .card {
+            background: #161b22;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            margin-bottom: 30px;
+        }
+
+        .card-danger {
+            border-color: #da3633;
         }
     </style>
 </head>
 
 <body>
-    <!-- The admin panel is organized into independent operational sections. -->
-    <div style="max-width: 1000px; margin: auto; padding-bottom: 50px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <h1>👑 ArenaLake - DBA Control Panel</h1>
-                <p style="color: #8b949e; margin: 5px 0 0 0;">Infrastructure, session, and corporate user management.
-                </p>
+    <div class="admin-layout">
+        <!-- Sidebar / Menu -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>👑 DBA Control Panel</h2>
+                <p>ArenaLake Management</p>
             </div>
-            <button onclick="logoutAdmin()"
-                style="padding: 10px 18px; background: #da3633; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s;">🔌
-                Shut Down / Sign Out</button>
-        </div>
-        <hr style="border: 1px solid #30363d; margin: 20px 0;">
-
-        <!-- User registration and role assignment form. -->
-        <div
-            style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-bottom: 30px;">
-            <h3>➕ Register New Collaborator</h3>
-            <form id="createUserForm"
-                style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
-                <input type="text" id="username" placeholder="Username (e.g. carlos.silva)" required
-                    style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                <input type="password" id="password" placeholder="Temporary Password (Min. 8 chars)" required
-                    style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                <input type="text" id="full_name" placeholder="Full Name" required
-                    style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                <input type="email" id="email" placeholder="Corporate Email" required
-                    style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-
-                <select id="roleSelect" required
-                    style="grid-column: span 2; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                    <option value="common">👤 Standard Profile (Workspace and Data Catalog Access)</option>
-                    <option value="admin">👑 Administrator / DBA Profile (Full Infrastructure Control)</option>
-                </select>
-
-                <button type="submit"
-                    style="grid-column: span 2; padding: 12px; background: #238636; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Create
-                    Corporate Access</button>
-            </form>
-        </div>
-
-        <!-- Registered users and account-management actions. -->
-        <div style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d;">
-            <h3>👥 Users Registered in the Ecosystem</h3>
-            <table style="width: 100%; margin-top: 15px; border-collapse: collapse; text-align: left;">
-                <thead>
-                    <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
-                        <th style="padding: 10px;">ID</th>
-                        <th style="padding: 10px;">Username</th>
-                        <th style="padding: 10px;">Name</th>
-                        <th style="padding: 10px;">Role / Profile</th>
-                        <th style="padding: 10px;">2FA Status</th>
-                        <th style="padding: 10px; text-align: right;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="userTableBody">
-                    <tr>
-                        <td colspan="6" style="padding: 15px; text-align: center; color: #8b949e;">Loading users...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Active workspace services and administrator kill switch. -->
-        <div
-            style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-top: 30px;">
-            <h3>⚡ Active Workspaces in the Cluster (Kill Switch)</h3>
-            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">Monitor active session consumption and
-                terminate isolated containers if needed.</p>
-            <table style="width: 100%; border-collapse: collapse; text-align: left;">
-                <thead>
-                    <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
-                        <th style="padding: 10px;">User</th>
-                        <th style="padding: 10px;">Swarm Service</th>
-                        <th style="padding: 10px;">Quota (CPU / RAM)</th>
-                        <th style="padding: 10px; text-align: right;">Session Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="workspaceTableBody">
-                    <tr>
-                        <td colspan="4" style="padding: 15px; text-align: center; color: #8b949e;">Looking up active
-                            Docker sessions...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Swarm node health and capacity information. -->
-        <div
-            style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-top: 30px;">
-            <h3>🖥️ Cluster Infrastructure (Swarm Nodes)</h3>
-            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">Real-time monitoring of active nodes in
-                the distributed architecture.</p>
-            <table style="width: 100%; border-collapse: collapse; text-align: left;">
-                <thead>
-                    <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
-                        <th style="padding: 10px;">Hostname</th>
-                        <th style="padding: 10px;">Role</th>
-                        <th style="padding: 10px;">Status</th>
-                        <th style="padding: 10px;">Capacity (CPU / RAM)</th>
-                    </tr>
-                </thead>
-                <tbody id="nodesTableBody">
-                    <tr>
-                        <td colspan="4" style="padding: 15px; text-align: center; color: #8b949e;">Analyzing cluster
-                            nodes...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Read-only inspection of files inside a user's persistent volume. -->
-        <div
-            style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-top: 30px;">
-            <h3>🕵️‍♂️ File Spy (Volume Audit)</h3>
-            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">Inspect temporary files in a specific user
-                volume.</p>
-            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                <input type="text" id="auditUsername" placeholder="Enter username (e.g. carlos.silva)"
-                    style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                <button onclick="auditarArquivos()"
-                    style="padding: 10px 20px; background: #1f6feb; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Inspect
-                    Volume</button>
+            <ul class="sidebar-menu">
+                <li id="nav-identity" class="active" onclick="showSection('identity')">👥 Identity & Access</li>
+                <li id="nav-sessions" onclick="showSection('sessions')">⚡ Session Management</li>
+                <li id="nav-infra" onclick="showSection('infra')">🖥️ Infrastructure</li>
+                <li id="nav-data" onclick="showSection('data')">🗄️ Data Governance</li>
+                <li id="nav-danger" onclick="showSection('danger')" style="color: #f85149;">🚨 Danger Zone</li>
+            </ul>
+            <div class="sidebar-footer">
+                <button onclick="logoutAdmin()"
+                    style="padding: 10px; background: #da3633; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">🔌
+                    Shut Down / Sign Out</button>
             </div>
-            <pre id="auditOutput"
-                style="background: #0d1117; padding: 15px; border-radius: 6px; border: 1px solid #30363d; color: #58a6ff; max-height: 200px; overflow-y: auto; font-size: 0.85em; display: none;"></pre>
-        </div>
+        </aside>
 
-        <!-- Destructive cluster-wide action requiring explicit confirmation. -->
-        <div
-            style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #da3633; margin-top: 30px;">
-            <h3 style="color: #f85149;">⚠️ Danger Zone: Critical Self-Destruction</h3>
-            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">Global destructive actions. This operation
-                immediately shuts down every active workspace in the cluster.</p>
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <input type="text" id="confirmDestroyUser" placeholder="Type your username to confirm"
-                    style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                <button onclick="executarAutodestruicao()"
-                    style="padding: 10px 20px; background: #da3633; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">🚨
-                    Run Self-Destruction</button>
+        <!-- Main Workspace -->
+        <main class="main-content">
+
+            <!-- SECTION: IDENTITY & ACCESS -->
+            <div id="sec-identity" class="admin-section active">
+                <h1 style="margin-top:0;">Identity & Access</h1>
+                <p style="color: #8b949e; margin-bottom: 25px;">Manage users, roles, and ecosystem registrations.</p>
+
+                <div class="card">
+                    <h3>➕ Register New Collaborator</h3>
+                    <!-- SEU FORMULÁRIO createUserForm ORIGINAL VEM AQUI -->
+                </div>
+
+                <div class="card">
+                    <h3>👥 Users Registered</h3>
+                    <!-- SUA TABELA DE USUÁRIOS ORIGINAL VEM AQUI -->
+                </div>
+
+                <div class="card card-danger">
+                    <h3 style="color: #f85149;">🗑️ Delete My Administrator Account</h3>
+                    <!-- SUA DIV DE AUTODELEÇÃO ORIGINAL VEM AQUI -->
+                </div>
             </div>
-        </div>
 
-        <!-- Administrator access to MinIO bucket and object governance. -->
-        <div
-            style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d; margin-top: 30px;">
-            <h3>🗄️ Data Catalog Governance (MinIO)</h3>
-            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">View, add, or remove datasets and
-                Parquet/CSV files from corporate buckets.</p>
+            <!-- SECTION: SESSION MANAGEMENT -->
+            <div id="sec-sessions" class="admin-section">
+                <h1 style="margin-top:0;">Session Management</h1>
 
-            <form id="uploadCatalogForm" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                <input type="text" id="uploadBucket" placeholder="Bucket Name (e.g. analise-dados)" required
-                    style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                <input type="file" id="uploadFile" required
-                    style="flex: 1; padding: 8px; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; border-radius: 4px;">
-                <button type="submit"
-                    style="padding: 10px 20px; background: #238636; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">📤
-                    Upload File</button>
-            </form>
+                <div class="card">
+                    <h3>⚡ Active Workspaces (Kill Switch)</h3>
+                    <!-- SUA TABELA DE WORKSPACES ORIGINAL VEM AQUI -->
+                </div>
 
-            <div id="catalogContainer" style="color: #c9d1d9; font-size: 0.9em;">
-                <p style="color: #8b949e;">Loading bucket structure...</p>
+                <div class="card">
+                    <h3>🕵️‍♂️ File Spy (Volume Audit)</h3>
+                    <!-- SUA DIV DE AUDITORIA DE ARQUIVOS ORIGINAL VEM AQUI -->
+                </div>
             </div>
-        </div>
 
-        <!-- Separate self-deletion flow for the currently authenticated administrator. -->
-        <div
-            style="background: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #da3633; margin-top: 30px;">
-            <h3 style="color: #f85149;">🗑️ Delete My Administrator Account</h3>
-            <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">
-                To delete your own account, type the exact phrase: <code id="expectedPhraseLabel"
-                    style="color: #58a6ff; background: #0d1117; padding: 2px 6px; border-radius: 4px;">DELETE ACCOUNT [your-username]</code>
-            </p>
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <input type="text" id="selfDeleteInput" placeholder="Enter the exact confirmation phrase"
-                    style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                <button onclick="executarAutodelecao()"
-                    style="padding: 10px 20px; background: #da3633; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Delete
-                    My Account</button>
+            <!-- SECTION: INFRASTRUCTURE -->
+            <div id="sec-infra" class="admin-section">
+                <h1 style="margin-top:0;">Cluster Infrastructure</h1>
+
+                <div class="card">
+                    <h3>🖥️ Swarm Nodes</h3>
+                    <!-- SUA TABELA DE NODES ORIGINAL VEM AQUI -->
+                </div>
             </div>
-        </div>
 
+            <!-- SECTION: DATA GOVERNANCE -->
+            <div id="sec-data" class="admin-section">
+                <h1 style="margin-top:0;">Data Governance</h1>
+
+                <div class="card">
+                    <h3>🗄️ Data Catalog (MinIO)</h3>
+                    <!-- SEU FORMULÁRIO uploadCatalogForm E LISTAGEM ORIGINAL VÊM AQUI -->
+                </div>
+            </div>
+
+            <!-- SECTION: DANGER ZONE -->
+            <div id="sec-danger" class="admin-section">
+                <h1 style="margin-top:0; color: #da3633;">Danger Zone</h1>
+
+                <div class="card card-danger">
+                    <h3 style="color: #f85149;">⚠️ Critical Self-Destruction</h3>
+                    <!-- SUA DIV DE DESTRUIÇÃO GLOBAL ORIGINAL VEM AQUI -->
+                </div>
+            </div>
+
+        </main>
     </div>
 
     <script>
+
+        function showSection(targetSection) {
+            // Esconde todas as seções
+            document.querySelectorAll('.admin-section').forEach(sec => sec.classList.remove('active'));
+            // Remove 'active' de todos os itens do menu lateral
+            document.querySelectorAll('.sidebar-menu li').forEach(li => li.classList.remove('active'));
+
+            // Exibe a seção alvo e marca o menu como ativo
+            document.getElementById('sec-' + targetSection).classList.add('active');
+            document.getElementById('nav-' + targetSection).classList.add('active');
+        }
+
         // Keep the administrator session isolated to this browser tab.
         const token = sessionStorage.getItem('access_token');
         if (!token) {
