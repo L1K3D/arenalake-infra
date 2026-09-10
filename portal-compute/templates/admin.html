@@ -2,7 +2,6 @@
 <html lang="en">
 
 <head>
-    <!-- Admin page metadata and shared dashboard styling. -->
     <meta charset="UTF-8">
     <title>ArenaLake - DBA Control Panel</title>
     <link rel="stylesheet" href="/static/css/dashboard.css">
@@ -57,7 +56,6 @@
             flex-grow: 1;
         }
 
-        /* Títulos das categorias (Não clicáveis) */
         .menu-header {
             color: #8b949e;
             font-size: 0.75em;
@@ -68,10 +66,8 @@
             pointer-events: none;
         }
 
-        /* Sub-itens (Clicáveis) */
         .menu-item {
             padding: 10px 20px 10px 30px;
-            /* Leve recuo à direita para parecer sub-item */
             cursor: pointer;
             color: #c9d1d9;
             transition: all 0.2s;
@@ -203,7 +199,26 @@
                 <h1 style="margin-top:0; color: #c9d1d9;">Register New Collaborator</h1>
                 <p style="color: #8b949e; margin-bottom: 25px;">Provision a new corporate identity in the ecosystem.</p>
                 <div class="card">
-                    <!-- SEU FORMULÁRIO createUserForm ORIGINAL VEM AQUI -->
+                    <form id="createUserForm" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <input type="text" id="username" placeholder="Username (e.g. carlos.silva)" required
+                            style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                        <input type="password" id="password" placeholder="Temporary Password (Min. 8 chars)" required
+                            style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                        <input type="text" id="full_name" placeholder="Full Name" required
+                            style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                        <input type="email" id="email" placeholder="Corporate Email" required
+                            style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+
+                        <select id="roleSelect" required
+                            style="grid-column: span 2; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                            <option value="common">👤 Standard Profile (Workspace and Data Catalog Access)</option>
+                            <option value="admin">👑 Administrator / DBA Profile (Full Infrastructure Control)</option>
+                        </select>
+
+                        <button type="submit"
+                            style="grid-column: span 2; padding: 12px; background: #238636; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Create
+                            Corporate Access</button>
+                    </form>
                 </div>
             </div>
 
@@ -212,7 +227,24 @@
                 <h1 style="margin-top:0; color: #c9d1d9;">Users Registered</h1>
                 <p style="color: #8b949e; margin-bottom: 25px;">Manage roles, 2FA status, and access.</p>
                 <div class="card">
-                    <!-- SUA TABELA DE USUÁRIOS ORIGINAL VEM AQUI -->
+                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
+                                <th style="padding: 10px;">ID</th>
+                                <th style="padding: 10px;">Username</th>
+                                <th style="padding: 10px;">Name</th>
+                                <th style="padding: 10px;">Role / Profile</th>
+                                <th style="padding: 10px;">2FA Status</th>
+                                <th style="padding: 10px; text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTableBody">
+                            <tr>
+                                <td colspan="6" style="padding: 15px; text-align: center; color: #8b949e;">Loading
+                                    users...</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -221,7 +253,17 @@
                 <h1 style="margin-top:0; color: #f85149;">Delete My Administrator Account</h1>
                 <p style="color: #8b949e; margin-bottom: 25px;">Permanently remove your own access from the cluster.</p>
                 <div class="card card-danger">
-                    <!-- SUA DIV DE AUTODELEÇÃO ORIGINAL VEM AQUI -->
+                    <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">
+                        To delete your own account, type the exact phrase: <code id="expectedPhraseLabel"
+                            style="color: #58a6ff; background: #0d1117; padding: 2px 6px; border-radius: 4px;">DELETE ACCOUNT [your-username]</code>
+                    </p>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="text" id="selfDeleteInput" placeholder="Enter the exact confirmation phrase"
+                            style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                        <button onclick="executarAutodelecao()"
+                            style="padding: 10px 20px; background: #da3633; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Delete
+                            My Account</button>
+                    </div>
                 </div>
             </div>
 
@@ -231,7 +273,22 @@
                 <p style="color: #8b949e; margin-bottom: 25px;">Monitor active session consumption and kill running
                     containers.</p>
                 <div class="card">
-                    <!-- SUA TABELA DE WORKSPACES ORIGINAL VEM AQUI -->
+                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
+                                <th style="padding: 10px;">User</th>
+                                <th style="padding: 10px;">Swarm Service</th>
+                                <th style="padding: 10px;">Quota (CPU / RAM)</th>
+                                <th style="padding: 10px; text-align: right;">Session Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="workspaceTableBody">
+                            <tr>
+                                <td colspan="4" style="padding: 15px; text-align: center; color: #8b949e;">Looking up
+                                    active Docker sessions...</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -240,7 +297,15 @@
                 <h1 style="margin-top:0; color: #c9d1d9;">File Spy (Volume Audit)</h1>
                 <p style="color: #8b949e; margin-bottom: 25px;">Inspect temporary files in user persistent volumes.</p>
                 <div class="card">
-                    <!-- SUA DIV DE AUDITORIA DE ARQUIVOS ORIGINAL VEM AQUI -->
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <input type="text" id="auditUsername" placeholder="Enter username (e.g. carlos.silva)"
+                            style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                        <button onclick="auditarArquivos()"
+                            style="padding: 10px 20px; background: #1f6feb; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Inspect
+                            Volume</button>
+                    </div>
+                    <pre id="auditOutput"
+                        style="background: #0d1117; padding: 15px; border-radius: 6px; border: 1px solid #30363d; color: #58a6ff; max-height: 200px; overflow-y: auto; font-size: 0.85em; display: none;"></pre>
                 </div>
             </div>
 
@@ -249,7 +314,22 @@
                 <h1 style="margin-top:0; color: #c9d1d9;">Swarm Nodes</h1>
                 <p style="color: #8b949e; margin-bottom: 25px;">Real-time monitoring of cluster capacity.</p>
                 <div class="card">
-                    <!-- SUA TABELA DE NODES ORIGINAL VEM AQUI -->
+                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
+                                <th style="padding: 10px;">Hostname</th>
+                                <th style="padding: 10px;">Role</th>
+                                <th style="padding: 10px;">Status</th>
+                                <th style="padding: 10px;">Capacity (CPU / RAM)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="nodesTableBody">
+                            <tr>
+                                <td colspan="4" style="padding: 15px; text-align: center; color: #8b949e;">Analyzing
+                                    cluster nodes...</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -258,7 +338,19 @@
                 <h1 style="margin-top:0; color: #c9d1d9;">Data Catalog Governance</h1>
                 <p style="color: #8b949e; margin-bottom: 25px;">Manage raw and processed layers in MinIO.</p>
                 <div class="card">
-                    <!-- SEU FORMULÁRIO E LISTAGEM ORIGINAL DO CATALOG VÊM AQUI -->
+                    <form id="uploadCatalogForm" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                        <input type="text" id="uploadBucket" placeholder="Bucket Name (e.g. analise-dados)" required
+                            style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                        <input type="file" id="uploadFile" required
+                            style="flex: 1; padding: 8px; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; border-radius: 4px;">
+                        <button type="submit"
+                            style="padding: 10px 20px; background: #238636; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">📤
+                            Upload File</button>
+                    </form>
+
+                    <div id="catalogContainer" style="color: #c9d1d9; font-size: 0.9em;">
+                        <p style="color: #8b949e;">Loading bucket structure...</p>
+                    </div>
                 </div>
             </div>
 
@@ -268,7 +360,13 @@
                 <p style="color: #8b949e; margin-bottom: 25px;">Kill all running workspaces across the entire cluster
                     instantly.</p>
                 <div class="card card-danger">
-                    <!-- SUA DIV DE DESTRUIÇÃO GLOBAL ORIGINAL VEM AQUI -->
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="text" id="confirmDestroyUser" placeholder="Type your username to confirm"
+                            style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                        <button onclick="executarAutodestruicao()"
+                            style="padding: 10px 20px; background: #da3633; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">🚨
+                            Run Self-Destruction</button>
+                    </div>
                 </div>
             </div>
 
@@ -276,7 +374,7 @@
     </div>
 
     <script>
-
+        // Função de Navegação Atualizada
         function showSection(targetSection) {
             // Esconde todo o conteúdo
             document.querySelectorAll('.admin-section').forEach(sec => sec.classList.remove('active'));
