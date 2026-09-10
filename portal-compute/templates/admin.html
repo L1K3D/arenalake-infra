@@ -30,6 +30,7 @@
             display: flex;
             flex-direction: column;
             overflow-y: auto;
+            flex-shrink: 0;
         }
 
         .sidebar-header {
@@ -117,9 +118,10 @@
             background: #0d1117;
         }
 
+        /* Removido o max-width para preencher toda a tela */
         .admin-section {
             display: none;
-            max-width: 900px;
+            width: 100%;
         }
 
         .admin-section.active {
@@ -148,6 +150,47 @@
 
         .card-danger {
             border-color: #da3633;
+        }
+
+        /* KPI Styling */
+        .kpi-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .kpi-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .kpi-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #58a6ff;
+            margin-top: 10px;
+        }
+
+        .kpi-label {
+            color: #8b949e;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Sortable Tables */
+        .sortable {
+            cursor: pointer;
+            user-select: none;
+            transition: color 0.2s;
+        }
+
+        .sortable:hover {
+            color: #79c0ff;
         }
     </style>
 </head>
@@ -226,21 +269,45 @@
             <div id="sec-users" class="admin-section">
                 <h1 style="margin-top:0; color: #c9d1d9;">Users Registered</h1>
                 <p style="color: #8b949e; margin-bottom: 25px;">Manage roles, 2FA status, and access.</p>
+
+                <!-- KPIs Section -->
+                <div class="kpi-container">
+                    <div class="kpi-card">
+                        <div class="kpi-label">Total Users</div>
+                        <div class="kpi-value" id="kpi-total">-</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Administrators</div>
+                        <div class="kpi-value" id="kpi-admins">-</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Common Users</div>
+                        <div class="kpi-value" id="kpi-common">-</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Online (Active Sessions)</div>
+                        <div class="kpi-value" style="color: #2ea043;" id="kpi-online">-</div>
+                    </div>
+                </div>
+
                 <div class="card">
                     <table style="width: 100%; border-collapse: collapse; text-align: left;">
                         <thead>
                             <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
-                                <th style="padding: 10px;">ID</th>
-                                <th style="padding: 10px;">Username</th>
-                                <th style="padding: 10px;">Name</th>
-                                <th style="padding: 10px;">Role / Profile</th>
-                                <th style="padding: 10px;">2FA Status</th>
+                                <th class="sortable" onclick="sortUsers('id')" style="padding: 10px;">ID ↕</th>
+                                <th class="sortable" onclick="sortUsers('username')" style="padding: 10px;">Username ↕
+                                </th>
+                                <th class="sortable" onclick="sortUsers('email')" style="padding: 10px;">Email ↕</th>
+                                <th class="sortable" onclick="sortUsers('full_name')" style="padding: 10px;">Name ↕</th>
+                                <th class="sortable" onclick="sortUsers('role')" style="padding: 10px;">Role ↕</th>
+                                <th class="sortable" onclick="sortUsers('is_2fa_verified')" style="padding: 10px;">2FA
+                                    Status ↕</th>
                                 <th style="padding: 10px; text-align: right;">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="userTableBody">
                             <tr>
-                                <td colspan="6" style="padding: 15px; text-align: center; color: #8b949e;">Loading
+                                <td colspan="7" style="padding: 15px; text-align: center; color: #8b949e;">Loading
                                     users...</td>
                             </tr>
                         </tbody>
@@ -374,33 +441,71 @@
     </div>
 
     <script>
-        // Função de Navegação Atualizada
         function showSection(targetSection) {
-            // Esconde todo o conteúdo
             document.querySelectorAll('.admin-section').forEach(sec => sec.classList.remove('active'));
-
-            // Remove a seleção "acesa" de todos os sub-itens do menu
             document.querySelectorAll('.menu-item').forEach(li => li.classList.remove('active'));
 
-            // Ativa o conteúdo específico e "acende" o sub-item no menu lateral
             document.getElementById('sec-' + targetSection).classList.add('active');
             document.getElementById('nav-' + targetSection).classList.add('active');
         }
 
-        // Keep the administrator session isolated to this browser tab.
         const token = sessionStorage.getItem('access_token');
         if (!token) {
             window.location.href = '/';
         }
 
         let loggedAdminUsername = '';
+        let allUsers = [];
+        let activeUsernames = new Set();
+        let currentSortCol = 'id';
+        let currentSortAsc = true;
 
         function logoutAdmin() {
             sessionStorage.removeItem('access_token');
             window.location.href = '/';
         }
 
-        // Load users and render role, 2FA, and account action information.
+        // Modified to store active sessions in a Set and trigger table re-render
+        async function carregarWorkspaces() {
+            try {
+                const res = await fetch('/api/admin/workspaces', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    // Update global state of active sessions
+                    activeUsernames = new Set(data.workspaces.map(w => w.username));
+
+                    // Re-render users table to update KPIs and online dots
+                    renderUserTable();
+
+                    const tbody = document.getElementById('workspaceTableBody');
+                    tbody.innerHTML = '';
+
+                    if (data.workspaces.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" style="padding: 15px; text-align: center; color: #8b949e;">No active workspace at the moment.</td></tr>';
+                        return;
+                    }
+
+                    data.workspaces.forEach(w => {
+                        tbody.innerHTML += `
+                            <tr style="border-bottom: 1px solid #21262d;">
+                                <td style="padding: 10px; color: #58a6ff; font-weight: bold;">${w.username}</td>
+                                <td style="padding: 10px; font-family: monospace; font-size: 0.9em;">${w.service_name}</td>
+                                <td style="padding: 10px;">${w.cpu} | ${w.ram}</td>
+                                <td style="padding: 10px; text-align: right;">
+                                    <button onclick="killWorkspace('${w.username}')" style="background: #da3633; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer;">🛑 Derrubar Sessão</button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+            } catch (e) {
+                console.error('Error on load workspaces', e);
+            }
+        }
+
         async function carregarUsuarios() {
             try {
                 const res = await fetch('/api/admin/users', {
@@ -409,44 +514,97 @@
                 const data = await res.json();
 
                 if (data.status === 'success') {
-                    const tbody = document.getElementById('userTableBody');
-                    tbody.innerHTML = '';
+                    allUsers = data.users;
 
-                    data.users.forEach(u => {
-                        let actionBtn = '';
-                        if (u.role !== 'admin') {
-                            actionBtn = `
-                                <button onclick="resetarSenha(${u.id}, '${u.username}')" style="background: #1f6feb; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer; margin-right: 5px;">🔑 Reset Password</button>
-                                <button onclick="deletarUsuario(${u.id}, '${u.username}')" style="background: #da3633; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">🗑️ Delete</button>
-                            `;
-                        } else {
-                            actionBtn = `<span style="color: #8b949e; font-size: 0.8em; font-style: italic;">Protected</span>`;
-                        }
-
-                        tbody.innerHTML += `
-                            <tr style="border-bottom: 1px solid #21262d;">
-                                <td style="padding: 10px;">#${u.id}</td>
-                                <td style="padding: 10px; color: #58a6ff; font-weight: bold;">${u.username}</td>
-                                <td style="padding: 10px;">${u.full_name}</td>
-                                <td style="padding: 10px;"><span style="background: ${u.role === 'admin' ? '#da3633' : '#1f6feb'}; padding: 3px 8px; border-radius: 4px; font-size: 0.8em;">${u.role.toUpperCase()}</span></td>
-                                <td style="padding: 10px;">${u.is_2fa_verified ? '✅ Verified' : '⏳ Pending'}</td>
-                                <td style="padding: 10px; text-align: right;">${actionBtn}</td>
-                            </tr>
-                        `;
-                    });
-
-                    const currentAdmin = data.users.find(u => u.role === 'admin');
+                    const currentAdmin = allUsers.find(u => u.role === 'admin');
                     if (currentAdmin) {
                         loggedAdminUsername = currentAdmin.username;
                         document.getElementById('expectedPhraseLabel').innerText = `DELETE ACCOUNT ${loggedAdminUsername}`;
                     }
+
+                    renderUserTable();
                 }
             } catch (e) {
                 console.error('Erro ao carregar usuários', e);
             }
         }
 
-        // Delete a non-administrator account after confirmation.
+        // Sorting logic handler
+        function sortUsers(col) {
+            if (currentSortCol === col) {
+                currentSortAsc = !currentSortAsc; // toggle order
+            } else {
+                currentSortCol = col;
+                currentSortAsc = true;
+            }
+            renderUserTable();
+        }
+
+        // Logic to build the table, compute KPIs and apply sorting
+        function renderUserTable() {
+            if (!allUsers || allUsers.length === 0) return;
+
+            // Clone and Sort Array
+            let sortedUsers = [...allUsers].sort((a, b) => {
+                let valA = a[currentSortCol] || '';
+                let valB = b[currentSortCol] || '';
+
+                if (typeof valA === 'string') valA = valA.toLowerCase();
+                if (typeof valB === 'string') valB = valB.toLowerCase();
+
+                if (valA < valB) return currentSortAsc ? -1 : 1;
+                if (valA > valB) return currentSortAsc ? 1 : -1;
+                return 0;
+            });
+
+            // Update KPIs
+            const total = sortedUsers.length;
+            const admins = sortedUsers.filter(u => u.role === 'admin').length;
+            const common = sortedUsers.filter(u => u.role === 'common').length;
+            const onlineCount = sortedUsers.filter(u => activeUsernames.has(u.username)).length;
+
+            document.getElementById('kpi-total').innerText = total;
+            document.getElementById('kpi-admins').innerText = `${admins} (${Math.round((admins / total) * 100)}%)`;
+            document.getElementById('kpi-common').innerText = `${common} (${Math.round((common / total) * 100)}%)`;
+            document.getElementById('kpi-online').innerText = onlineCount;
+
+            // Render Table Rows
+            const tbody = document.getElementById('userTableBody');
+            tbody.innerHTML = '';
+
+            sortedUsers.forEach(u => {
+                let actionBtn = '';
+                if (u.role !== 'admin') {
+                    actionBtn = `
+                        <button onclick="resetarSenha(${u.id}, '${u.username}')" style="background: #1f6feb; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer; margin-right: 5px;">🔑 Reset Password</button>
+                        <button onclick="deletarUsuario(${u.id}, '${u.username}')" style="background: #da3633; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">🗑️ Delete</button>
+                    `;
+                } else {
+                    actionBtn = `<span style="color: #8b949e; font-size: 0.8em; font-style: italic;">Protected</span>`;
+                }
+
+                // Online/Offline status dot
+                const isOnline = activeUsernames.has(u.username);
+                const statusDot = isOnline
+                    ? '<span style="color: #2ea043; margin-right: 8px; font-size: 1.2em;" title="Online">●</span>'
+                    : '<span style="color: #da3633; margin-right: 8px; font-size: 1.2em;" title="Offline">●</span>';
+
+                const email = u.email || 'N/A';
+
+                tbody.innerHTML += `
+                    <tr style="border-bottom: 1px solid #21262d;">
+                        <td style="padding: 10px;">${statusDot} #${u.id}</td>
+                        <td style="padding: 10px; color: #58a6ff; font-weight: bold;">${u.username}</td>
+                        <td style="padding: 10px; font-size: 0.9em; color: #8b949e;">${email}</td>
+                        <td style="padding: 10px;">${u.full_name}</td>
+                        <td style="padding: 10px;"><span style="background: ${u.role === 'admin' ? '#da3633' : '#1f6feb'}; padding: 3px 8px; border-radius: 4px; font-size: 0.8em;">${u.role.toUpperCase()}</span></td>
+                        <td style="padding: 10px;">${u.is_2fa_verified ? '✅ Verified' : '⏳ Pending'}</td>
+                        <td style="padding: 10px; text-align: right;">${actionBtn}</td>
+                    </tr>
+                `;
+            });
+        }
+
         async function deletarUsuario(userId, username) {
             if (!confirm(`Are you sure you want to delete the regular user '${username}'?`)) return;
 
@@ -498,41 +656,6 @@
             }
         });
 
-        // Discover running workspace services from Docker Swarm.
-        async function carregarWorkspaces() {
-            try {
-                const res = await fetch('/api/admin/workspaces', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await res.json();
-
-                if (data.status === 'success') {
-                    const tbody = document.getElementById('workspaceTableBody');
-                    tbody.innerHTML = '';
-
-                    if (data.workspaces.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="4" style="padding: 15px; text-align: center; color: #8b949e;">No active workspace at the moment.</td></tr>';
-                        return;
-                    }
-
-                    data.workspaces.forEach(w => {
-                        tbody.innerHTML += `
-                            <tr style="border-bottom: 1px solid #21262d;">
-                                <td style="padding: 10px; color: #58a6ff; font-weight: bold;">${w.username}</td>
-                                <td style="padding: 10px; font-family: monospace; font-size: 0.9em;">${w.service_name}</td>
-                                <td style="padding: 10px;">${w.cpu} | ${w.ram}</td>
-                                <td style="padding: 10px; text-align: right;">
-                                    <button onclick="killWorkspace('${w.username}')" style="background: #da3633; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer;">🛑 Derrubar Sessão</button>
-                                </td>
-                            </tr>
-                        `;
-                    });
-                }
-            } catch (e) {
-                console.error('Error on load workspaces', e);
-            }
-        }
-
         async function killWorkspace(username) {
             if (!confirm(`Are you sure you want to terminate the session for '${username}' with the kill switch?`)) return;
 
@@ -554,7 +677,6 @@
             }
         }
 
-        // Load node roles, readiness, and advertised hardware capacity.
         async function carregarClusterNodes() {
             try {
                 const res = await fetch('/api/admin/cluster/nodes', {
@@ -581,7 +703,6 @@
             }
         }
 
-        // Inspect a user's volume through the read-only audit endpoint.
         async function auditarArquivos() {
             const username = document.getElementById('auditUsername').value.trim();
             const outputBox = document.getElementById('auditOutput');
@@ -609,7 +730,6 @@
             }
         }
 
-        // Purge active workspace services after a deliberate administrator confirmation.
         async function executarAutodestruicao() {
             const confirmUser = document.getElementById('confirmDestroyUser').value.trim();
             if (!confirmUser) {
@@ -642,7 +762,6 @@
             }
         }
 
-        // Load MinIO buckets and render their files for governance actions.
         async function carregarDataCatalog() {
             try {
                 const res = await fetch('/api/admin/catalog', {
@@ -696,7 +815,6 @@
             }
         }
 
-        // Delete one object from the selected MinIO bucket.
         async function deletarArquivoCatalog(bucket, filename) {
             if (!confirm(`Are you sure you want to delete the file '${filename}' from bucket '${bucket}'?`)) return;
 
@@ -760,7 +878,6 @@
             }
         });
 
-        // Permanently delete the current administrator account.
         async function executarAutodelecao() {
             const inputVal = document.getElementById('selfDeleteInput').value.trim();
 
@@ -789,7 +906,6 @@
             }
         }
 
-        // Reset a user's temporary password and require onboarding again.
         async function resetarSenha(userId, username) {
             const novaSenha = prompt(`Enter the temporary new password for '${username}' (Min. 8 characters):`);
             if (!novaSenha) return;
@@ -821,12 +937,17 @@
             }
         }
 
-        // Populate all admin sections and keep workspace status refreshed.
-        carregarDataCatalog();
-        carregarClusterNodes();
-        carregarUsuarios();
-        carregarWorkspaces();
-        setInterval(carregarWorkspaces, 10000);
+        // Initialize Admin Dashboard
+        async function init() {
+            carregarDataCatalog();
+            carregarClusterNodes();
+            // Call workspaces first to populate active sessions, then load users to render KPIs accurately
+            await carregarWorkspaces();
+            await carregarUsuarios();
+            setInterval(carregarWorkspaces, 10000);
+        }
+
+        init();
     </script>
 </body>
 
