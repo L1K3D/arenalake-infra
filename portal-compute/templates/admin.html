@@ -16,10 +16,8 @@
             color: #c9d1d9 !important;
             font-family: sans-serif;
             overflow: hidden;
-            /* Prevent body scroll, handle inside layout */
         }
 
-        /* Kibana Layout Style */
         .admin-layout {
             display: flex;
             height: 100vh;
@@ -32,6 +30,7 @@
             border-right: 1px solid #30363d;
             display: flex;
             flex-direction: column;
+            overflow-y: auto;
         }
 
         .sidebar-header {
@@ -53,29 +52,56 @@
 
         .sidebar-menu {
             list-style: none;
-            padding: 10px 0;
+            padding: 0 0 20px 0;
             margin: 0;
             flex-grow: 1;
         }
 
-        .sidebar-menu li {
-            padding: 12px 20px;
-            cursor: pointer;
+        /* Títulos das categorias (Não clicáveis) */
+        .menu-header {
             color: #8b949e;
-            transition: all 0.2s;
-            font-size: 0.95em;
+            font-size: 0.75em;
+            text-transform: uppercase;
+            font-weight: bold;
+            padding: 25px 20px 10px 20px;
+            letter-spacing: 0.05em;
+            pointer-events: none;
         }
 
-        .sidebar-menu li:hover {
-            background: #21262d;
+        /* Sub-itens (Clicáveis) */
+        .menu-item {
+            padding: 10px 20px 10px 30px;
+            /* Leve recuo à direita para parecer sub-item */
+            cursor: pointer;
             color: #c9d1d9;
+            transition: all 0.2s;
+            font-size: 0.9em;
+            opacity: 0.7;
         }
 
-        .sidebar-menu li.active {
+        .menu-item:hover {
+            background: #21262d;
+            opacity: 1;
+        }
+
+        .menu-item.active {
             background: #1f6feb;
             color: #ffffff;
             font-weight: bold;
             border-left: 4px solid #79c0ff;
+            opacity: 1;
+        }
+
+        .menu-item.danger-item:hover {
+            background: #da363320;
+            color: #ff7b72;
+            opacity: 1;
+        }
+
+        .menu-item.danger-item.active {
+            background: #da3633;
+            color: white;
+            border-left-color: #ff7b72;
         }
 
         .sidebar-footer {
@@ -90,19 +116,19 @@
         /* Main Content Styling */
         .main-content {
             flex-grow: 1;
-            padding: 30px;
+            padding: 40px;
             overflow-y: auto;
             background: #0d1117;
         }
 
         .admin-section {
             display: none;
-            max-width: 1000px;
+            max-width: 900px;
         }
 
         .admin-section.active {
             display: block;
-            animation: fadeIn 0.3s ease-in-out;
+            animation: fadeIn 0.25s ease-in-out;
         }
 
         @keyframes fadeIn {
@@ -117,13 +143,11 @@
             }
         }
 
-        /* Reusing your component styles */
         .card {
             background: #161b22;
-            padding: 20px;
+            padding: 25px;
             border-radius: 8px;
             border: 1px solid #30363d;
-            margin-bottom: 30px;
         }
 
         .card-danger {
@@ -140,13 +164,30 @@
                 <h2>👑 DBA Control Panel</h2>
                 <p>ArenaLake Management</p>
             </div>
+
             <ul class="sidebar-menu">
-                <li id="nav-identity" class="active" onclick="showSection('identity')">👥 Identity & Access</li>
-                <li id="nav-sessions" onclick="showSection('sessions')">⚡ Session Management</li>
-                <li id="nav-infra" onclick="showSection('infra')">🖥️ Infrastructure</li>
-                <li id="nav-data" onclick="showSection('data')">🗄️ Data Governance</li>
-                <li id="nav-danger" onclick="showSection('danger')" style="color: #f85149;">🚨 Danger Zone</li>
+                <li class="menu-header">👥 Identity & Access</li>
+                <li id="nav-register" class="menu-item active" onclick="showSection('register')">Register Collaborator
+                </li>
+                <li id="nav-users" class="menu-item" onclick="showSection('users')">Users Registered</li>
+                <li id="nav-deladmin" class="menu-item danger-item" onclick="showSection('deladmin')">Delete Admin
+                    Account</li>
+
+                <li class="menu-header">⚡ Session Management</li>
+                <li id="nav-workspaces" class="menu-item" onclick="showSection('workspaces')">Active Workspaces</li>
+                <li id="nav-filespy" class="menu-item" onclick="showSection('filespy')">File Spy (Audit)</li>
+
+                <li class="menu-header">🖥️ Infrastructure</li>
+                <li id="nav-nodes" class="menu-item" onclick="showSection('nodes')">Swarm Nodes</li>
+
+                <li class="menu-header">🗄️ Data Governance</li>
+                <li id="nav-catalog" class="menu-item" onclick="showSection('catalog')">Data Catalog (MinIO)</li>
+
+                <li class="menu-header" style="color: #da3633;">🚨 Danger Zone</li>
+                <li id="nav-destroy" class="menu-item danger-item" onclick="showSection('destroy')">Critical
+                    Self-Destruction</li>
             </ul>
+
             <div class="sidebar-footer">
                 <button onclick="logoutAdmin()"
                     style="padding: 10px; background: #da3633; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">🔌
@@ -157,68 +198,76 @@
         <!-- Main Workspace -->
         <main class="main-content">
 
-            <!-- SECTION: IDENTITY & ACCESS -->
-            <div id="sec-identity" class="admin-section active">
-                <h1 style="margin-top:0;">Identity & Access</h1>
-                <p style="color: #8b949e; margin-bottom: 25px;">Manage users, roles, and ecosystem registrations.</p>
-
+            <!-- IDENTIY: REGISTER -->
+            <div id="sec-register" class="admin-section active">
+                <h1 style="margin-top:0; color: #c9d1d9;">Register New Collaborator</h1>
+                <p style="color: #8b949e; margin-bottom: 25px;">Provision a new corporate identity in the ecosystem.</p>
                 <div class="card">
-                    <h3>➕ Register New Collaborator</h3>
                     <!-- SEU FORMULÁRIO createUserForm ORIGINAL VEM AQUI -->
                 </div>
+            </div>
 
+            <!-- IDENTITY: USERS -->
+            <div id="sec-users" class="admin-section">
+                <h1 style="margin-top:0; color: #c9d1d9;">Users Registered</h1>
+                <p style="color: #8b949e; margin-bottom: 25px;">Manage roles, 2FA status, and access.</p>
                 <div class="card">
-                    <h3>👥 Users Registered</h3>
                     <!-- SUA TABELA DE USUÁRIOS ORIGINAL VEM AQUI -->
                 </div>
+            </div>
 
+            <!-- IDENTITY: DELETE ADMIN -->
+            <div id="sec-deladmin" class="admin-section">
+                <h1 style="margin-top:0; color: #f85149;">Delete My Administrator Account</h1>
+                <p style="color: #8b949e; margin-bottom: 25px;">Permanently remove your own access from the cluster.</p>
                 <div class="card card-danger">
-                    <h3 style="color: #f85149;">🗑️ Delete My Administrator Account</h3>
                     <!-- SUA DIV DE AUTODELEÇÃO ORIGINAL VEM AQUI -->
                 </div>
             </div>
 
-            <!-- SECTION: SESSION MANAGEMENT -->
-            <div id="sec-sessions" class="admin-section">
-                <h1 style="margin-top:0;">Session Management</h1>
-
+            <!-- SESSIONS: WORKSPACES -->
+            <div id="sec-workspaces" class="admin-section">
+                <h1 style="margin-top:0; color: #c9d1d9;">Active Workspaces</h1>
+                <p style="color: #8b949e; margin-bottom: 25px;">Monitor active session consumption and kill running
+                    containers.</p>
                 <div class="card">
-                    <h3>⚡ Active Workspaces (Kill Switch)</h3>
                     <!-- SUA TABELA DE WORKSPACES ORIGINAL VEM AQUI -->
                 </div>
+            </div>
 
+            <!-- SESSIONS: FILE SPY -->
+            <div id="sec-filespy" class="admin-section">
+                <h1 style="margin-top:0; color: #c9d1d9;">File Spy (Volume Audit)</h1>
+                <p style="color: #8b949e; margin-bottom: 25px;">Inspect temporary files in user persistent volumes.</p>
                 <div class="card">
-                    <h3>🕵️‍♂️ File Spy (Volume Audit)</h3>
                     <!-- SUA DIV DE AUDITORIA DE ARQUIVOS ORIGINAL VEM AQUI -->
                 </div>
             </div>
 
-            <!-- SECTION: INFRASTRUCTURE -->
-            <div id="sec-infra" class="admin-section">
-                <h1 style="margin-top:0;">Cluster Infrastructure</h1>
-
+            <!-- INFRASTRUCTURE: NODES -->
+            <div id="sec-nodes" class="admin-section">
+                <h1 style="margin-top:0; color: #c9d1d9;">Swarm Nodes</h1>
+                <p style="color: #8b949e; margin-bottom: 25px;">Real-time monitoring of cluster capacity.</p>
                 <div class="card">
-                    <h3>🖥️ Swarm Nodes</h3>
                     <!-- SUA TABELA DE NODES ORIGINAL VEM AQUI -->
                 </div>
             </div>
 
-            <!-- SECTION: DATA GOVERNANCE -->
-            <div id="sec-data" class="admin-section">
-                <h1 style="margin-top:0;">Data Governance</h1>
-
+            <!-- DATA GOVERNANCE: CATALOG -->
+            <div id="sec-catalog" class="admin-section">
+                <h1 style="margin-top:0; color: #c9d1d9;">Data Catalog Governance</h1>
+                <p style="color: #8b949e; margin-bottom: 25px;">Manage raw and processed layers in MinIO.</p>
                 <div class="card">
-                    <h3>🗄️ Data Catalog (MinIO)</h3>
-                    <!-- SEU FORMULÁRIO uploadCatalogForm E LISTAGEM ORIGINAL VÊM AQUI -->
+                    <!-- SEU FORMULÁRIO E LISTAGEM ORIGINAL DO CATALOG VÊM AQUI -->
                 </div>
             </div>
 
-            <!-- SECTION: DANGER ZONE -->
-            <div id="sec-danger" class="admin-section">
-                <h1 style="margin-top:0; color: #da3633;">Danger Zone</h1>
-
+            <!-- DANGER ZONE: DESTROY -->
+            <div id="sec-destroy" class="admin-section">
+                <h1 style="margin-top:0; color: #f85149;">Critical Self-Destruction</h1>
+                <p style="color: #8b949e; margin-bottom: 25px;">Kill all running workspaces across the entire cluster
+                    instantly.</p>
                 <div class="card card-danger">
-                    <h3 style="color: #f85149;">⚠️ Critical Self-Destruction</h3>
                     <!-- SUA DIV DE DESTRUIÇÃO GLOBAL ORIGINAL VEM AQUI -->
                 </div>
             </div>
@@ -229,12 +278,13 @@
     <script>
 
         function showSection(targetSection) {
-            // Esconde todas as seções
+            // Esconde todo o conteúdo
             document.querySelectorAll('.admin-section').forEach(sec => sec.classList.remove('active'));
-            // Remove 'active' de todos os itens do menu lateral
-            document.querySelectorAll('.sidebar-menu li').forEach(li => li.classList.remove('active'));
 
-            // Exibe a seção alvo e marca o menu como ativo
+            // Remove a seleção "acesa" de todos os sub-itens do menu
+            document.querySelectorAll('.menu-item').forEach(li => li.classList.remove('active'));
+
+            // Ativa o conteúdo específico e "acende" o sub-item no menu lateral
             document.getElementById('sec-' + targetSection).classList.add('active');
             document.getElementById('nav-' + targetSection).classList.add('active');
         }
