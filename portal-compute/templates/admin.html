@@ -17,6 +17,13 @@
             overflow: hidden;
         }
 
+        /* Aplica o border-box globalmente para os cards respeitarem o padding */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
         .admin-layout {
             display: flex;
             height: 100vh;
@@ -118,7 +125,6 @@
             background: #0d1117;
         }
 
-        /* Removido o max-width para preencher toda a tela */
         .admin-section {
             display: none;
             width: 100%;
@@ -146,6 +152,8 @@
             padding: 25px;
             border-radius: 8px;
             border: 1px solid #30363d;
+            width: 100%;
+            /* Força o preenchimento até o final da tela */
         }
 
         .card-danger {
@@ -158,6 +166,7 @@
             grid-template-columns: repeat(4, 1fr);
             gap: 20px;
             margin-bottom: 25px;
+            width: 100%;
         }
 
         .kpi-card {
@@ -244,16 +253,16 @@
                 <div class="card">
                     <form id="createUserForm" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                         <input type="text" id="username" placeholder="Username (e.g. carlos.silva)" required
-                            style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                            style="width: 100%; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
                         <input type="password" id="password" placeholder="Temporary Password (Min. 8 chars)" required
-                            style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                            style="width: 100%; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
                         <input type="text" id="full_name" placeholder="Full Name" required
-                            style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                            style="width: 100%; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
                         <input type="email" id="email" placeholder="Corporate Email" required
-                            style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                            style="width: 100%; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
 
                         <select id="roleSelect" required
-                            style="grid-column: span 2; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                            style="width: 100%; grid-column: span 2; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
                             <option value="common">👤 Standard Profile (Workspace and Data Catalog Access)</option>
                             <option value="admin">👑 Administrator / DBA Profile (Full Infrastructure Control)</option>
                         </select>
@@ -291,6 +300,14 @@
                 </div>
 
                 <div class="card">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="margin: 0; color: #58a6ff;">Ecosystem Users</h3>
+                        <button onclick="downloadCSV()"
+                            style="background: #238636; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; transition: background 0.2s;">📥
+                            Baixar .csv</button>
+                    </div>
+
                     <table style="width: 100%; border-collapse: collapse; text-align: left;">
                         <thead>
                             <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
@@ -324,7 +341,7 @@
                         To delete your own account, type the exact phrase: <code id="expectedPhraseLabel"
                             style="color: #58a6ff; background: #0d1117; padding: 2px 6px; border-radius: 4px;">DELETE ACCOUNT [your-username]</code>
                     </p>
-                    <div style="display: flex; gap: 10px; align-items: center;">
+                    <div style="display: flex; gap: 10px; align-items: center; width: 100%;">
                         <input type="text" id="selfDeleteInput" placeholder="Enter the exact confirmation phrase"
                             style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
                         <button onclick="executarAutodelecao()"
@@ -364,7 +381,7 @@
                 <h1 style="margin-top:0; color: #c9d1d9;">File Spy (Volume Audit)</h1>
                 <p style="color: #8b949e; margin-bottom: 25px;">Inspect temporary files in user persistent volumes.</p>
                 <div class="card">
-                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px; width: 100%;">
                         <input type="text" id="auditUsername" placeholder="Enter username (e.g. carlos.silva)"
                             style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
                         <button onclick="auditarArquivos()"
@@ -405,7 +422,7 @@
                 <h1 style="margin-top:0; color: #c9d1d9;">Data Catalog Governance</h1>
                 <p style="color: #8b949e; margin-bottom: 25px;">Manage raw and processed layers in MinIO.</p>
                 <div class="card">
-                    <form id="uploadCatalogForm" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <form id="uploadCatalogForm" style="display: flex; gap: 10px; margin-bottom: 20px; width: 100%;">
                         <input type="text" id="uploadBucket" placeholder="Bucket Name (e.g. analise-dados)" required
                             style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
                         <input type="file" id="uploadFile" required
@@ -427,7 +444,7 @@
                 <p style="color: #8b949e; margin-bottom: 25px;">Kill all running workspaces across the entire cluster
                     instantly.</p>
                 <div class="card card-danger">
-                    <div style="display: flex; gap: 10px; align-items: center;">
+                    <div style="display: flex; gap: 10px; align-items: center; width: 100%;">
                         <input type="text" id="confirmDestroyUser" placeholder="Type your username to confirm"
                             style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
                         <button onclick="executarAutodestruicao()"
@@ -463,6 +480,36 @@
         function logoutAdmin() {
             sessionStorage.removeItem('access_token');
             window.location.href = '/';
+        }
+
+        // Gera e baixa o arquivo CSV
+        function downloadCSV() {
+            if (!allUsers || allUsers.length === 0) {
+                alert('No users to download.');
+                return;
+            }
+
+            const headers = ['ID', 'Username', 'Email', 'Name', 'Role', '2FA Status'];
+
+            const rows = allUsers.map(u => [
+                u.id,
+                u.username,
+                u.email || 'N/A',
+                u.full_name,
+                u.role,
+                u.is_2fa_verified ? 'Verified' : 'Pending'
+            ]);
+
+            const csvContent = headers.join(',') + '\n' + rows.map(r => r.map(cell => `"${cell}"`).join(',')).join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'arenalake_users.csv');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
         }
 
         // Modified to store active sessions in a Set and trigger table re-render
@@ -575,12 +622,15 @@
             sortedUsers.forEach(u => {
                 let actionBtn = '';
                 if (u.role !== 'admin') {
+                    // Botões dispostos horizontalmente com display: flex
                     actionBtn = `
-                        <button onclick="resetarSenha(${u.id}, '${u.username}')" style="background: #1f6feb; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer; margin-right: 5px;">🔑 Reset Password</button>
-                        <button onclick="deletarUsuario(${u.id}, '${u.username}')" style="background: #da3633; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">🗑️ Delete</button>
+                        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                            <button onclick="resetarSenha(${u.id}, '${u.username}')" style="background: #1f6feb; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.85em; cursor: pointer; white-space: nowrap;">🔑 Reset Password</button>
+                            <button onclick="deletarUsuario(${u.id}, '${u.username}')" style="background: #da3633; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.85em; cursor: pointer; white-space: nowrap;">🗑️ Delete</button>
+                        </div>
                     `;
                 } else {
-                    actionBtn = `<span style="color: #8b949e; font-size: 0.8em; font-style: italic;">Protected</span>`;
+                    actionBtn = `<div style="display: flex; justify-content: flex-end;"><span style="color: #8b949e; font-size: 0.8em; font-style: italic; padding: 6px 0;">Protected</span></div>`;
                 }
 
                 // Online/Offline status dot
