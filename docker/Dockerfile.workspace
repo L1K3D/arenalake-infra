@@ -37,3 +37,23 @@ RUN pip3 install --no-cache-dir pandas boto3 s3fs pyspark==3.5.6 dotenv ipykerne
 # Switch back to 'coder' user for security best practices
 # Running services as non-root reduces security risks and potential container breakouts
 USER coder
+
+# 1. Mudamos para root temporariamente para configurar permissões
+USER root
+
+# 2. Instalamos o 'sudo' e permitimos que o usuário 'coder' o utilize sem senha
+RUN apt-get update && apt-get install -y sudo && \
+    echo "coder ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/coder && \
+    chmod 0440 /etc/sudoers.d/coder
+
+# 3. Criamos um script que toma posse da pasta do projeto e depois inicia o VSCode
+RUN echo '#!/bin/bash\n\
+sudo chown -R coder:coder /home/coder/project\n\
+exec /usr/bin/entrypoint.sh "$@"\n' > /usr/local/bin/fix-perms.sh && \
+    chmod +x /usr/local/bin/fix-perms.sh
+
+# 4. Voltamos para o usuário seguro do VSCode
+USER coder
+
+# 5. Definimos nosso script como o ponto de partida do container
+ENTRYPOINT ["/usr/local/bin/fix-perms.sh"]
