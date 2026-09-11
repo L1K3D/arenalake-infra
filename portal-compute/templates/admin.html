@@ -17,7 +17,6 @@
             overflow: hidden;
         }
 
-        /* Aplica o border-box globalmente para os cards respeitarem o padding */
         *,
         *::before,
         *::after {
@@ -27,6 +26,7 @@
         .admin-layout {
             display: flex;
             height: 100vh;
+            width: 100vw;
         }
 
         /* Sidebar Styling */
@@ -123,11 +123,15 @@
             padding: 40px;
             overflow-y: auto;
             background: #0d1117;
+            width: calc(100vw - 280px);
+            /* Força a ocupar exatamente o espaço restante */
         }
 
+        /* BRUTE FORCE PARA ESTICAR AS SEÇÕES */
         .admin-section {
             display: none;
-            width: 100%;
+            width: 100% !important;
+            max-width: none !important;
         }
 
         .admin-section.active {
@@ -152,8 +156,9 @@
             padding: 25px;
             border-radius: 8px;
             border: 1px solid #30363d;
-            width: 100%;
-            /* Força o preenchimento até o final da tela */
+            width: 100% !important;
+            max-width: none !important;
+            /* Ignora o dashboard.css */
         }
 
         .card-danger {
@@ -251,7 +256,8 @@
                 <h1 style="margin-top:0; color: #c9d1d9;">Register New Collaborator</h1>
                 <p style="color: #8b949e; margin-bottom: 25px;">Provision a new corporate identity in the ecosystem.</p>
                 <div class="card">
-                    <form id="createUserForm" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <form id="createUserForm"
+                        style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%;">
                         <input type="text" id="username" placeholder="Username (e.g. carlos.silva)" required
                             style="width: 100%; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
                         <input type="password" id="password" placeholder="Temporary Password (Min. 8 chars)" required
@@ -345,7 +351,7 @@
                         <input type="text" id="selfDeleteInput" placeholder="Enter the exact confirmation phrase"
                             style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
                         <button onclick="executarAutodelecao()"
-                            style="padding: 10px 20px; background: #da3633; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Delete
+                            style="padding: 10px 20px; background: #da3633; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap;">Delete
                             My Account</button>
                     </div>
                 </div>
@@ -385,11 +391,11 @@
                         <input type="text" id="auditUsername" placeholder="Enter username (e.g. carlos.silva)"
                             style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
                         <button onclick="auditarArquivos()"
-                            style="padding: 10px 20px; background: #1f6feb; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Inspect
+                            style="padding: 10px 20px; background: #1f6feb; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap;">Inspect
                             Volume</button>
                     </div>
                     <pre id="auditOutput"
-                        style="background: #0d1117; padding: 15px; border-radius: 6px; border: 1px solid #30363d; color: #58a6ff; max-height: 200px; overflow-y: auto; font-size: 0.85em; display: none;"></pre>
+                        style="background: #0d1117; padding: 15px; border-radius: 6px; border: 1px solid #30363d; color: #58a6ff; max-height: 200px; overflow-y: auto; font-size: 0.85em; display: none; width: 100%;"></pre>
                 </div>
             </div>
 
@@ -428,11 +434,11 @@
                         <input type="file" id="uploadFile" required
                             style="flex: 1; padding: 8px; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; border-radius: 4px;">
                         <button type="submit"
-                            style="padding: 10px 20px; background: #238636; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">📤
+                            style="padding: 10px 20px; background: #238636; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap;">📤
                             Upload File</button>
                     </form>
 
-                    <div id="catalogContainer" style="color: #c9d1d9; font-size: 0.9em;">
+                    <div id="catalogContainer" style="color: #c9d1d9; font-size: 0.9em; width: 100%;">
                         <p style="color: #8b949e;">Loading bucket structure...</p>
                     </div>
                 </div>
@@ -448,7 +454,7 @@
                         <input type="text" id="confirmDestroyUser" placeholder="Type your username to confirm"
                             style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
                         <button onclick="executarAutodestruicao()"
-                            style="padding: 10px 20px; background: #da3633; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">🚨
+                            style="padding: 10px 20px; background: #da3633; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap;">🚨
                             Run Self-Destruction</button>
                     </div>
                 </div>
@@ -512,7 +518,6 @@
             document.body.removeChild(a);
         }
 
-        // Modified to store active sessions in a Set and trigger table re-render
         async function carregarWorkspaces() {
             try {
                 const res = await fetch('/api/admin/workspaces', {
@@ -521,10 +526,7 @@
                 const data = await res.json();
 
                 if (data.status === 'success') {
-                    // Update global state of active sessions
                     activeUsernames = new Set(data.workspaces.map(w => w.username));
-
-                    // Re-render users table to update KPIs and online dots
                     renderUserTable();
 
                     const tbody = document.getElementById('workspaceTableBody');
@@ -576,10 +578,9 @@
             }
         }
 
-        // Sorting logic handler
         function sortUsers(col) {
             if (currentSortCol === col) {
-                currentSortAsc = !currentSortAsc; // toggle order
+                currentSortAsc = !currentSortAsc;
             } else {
                 currentSortCol = col;
                 currentSortAsc = true;
@@ -587,11 +588,9 @@
             renderUserTable();
         }
 
-        // Logic to build the table, compute KPIs and apply sorting
         function renderUserTable() {
             if (!allUsers || allUsers.length === 0) return;
 
-            // Clone and Sort Array
             let sortedUsers = [...allUsers].sort((a, b) => {
                 let valA = a[currentSortCol] || '';
                 let valB = b[currentSortCol] || '';
@@ -604,7 +603,6 @@
                 return 0;
             });
 
-            // Update KPIs
             const total = sortedUsers.length;
             const admins = sortedUsers.filter(u => u.role === 'admin').length;
             const common = sortedUsers.filter(u => u.role === 'common').length;
@@ -615,14 +613,12 @@
             document.getElementById('kpi-common').innerText = `${common} (${Math.round((common / total) * 100)}%)`;
             document.getElementById('kpi-online').innerText = onlineCount;
 
-            // Render Table Rows
             const tbody = document.getElementById('userTableBody');
             tbody.innerHTML = '';
 
             sortedUsers.forEach(u => {
                 let actionBtn = '';
                 if (u.role !== 'admin') {
-                    // Botões dispostos horizontalmente com display: flex
                     actionBtn = `
                         <div style="display: flex; gap: 8px; justify-content: flex-end;">
                             <button onclick="resetarSenha(${u.id}, '${u.username}')" style="background: #1f6feb; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.85em; cursor: pointer; white-space: nowrap;">🔑 Reset Password</button>
@@ -633,7 +629,6 @@
                     actionBtn = `<div style="display: flex; justify-content: flex-end;"><span style="color: #8b949e; font-size: 0.8em; font-style: italic; padding: 6px 0;">Protected</span></div>`;
                 }
 
-                // Online/Offline status dot
                 const isOnline = activeUsernames.has(u.username);
                 const statusDot = isOnline
                     ? '<span style="color: #2ea043; margin-right: 8px; font-size: 1.2em;" title="Online">●</span>'
@@ -987,11 +982,9 @@
             }
         }
 
-        // Initialize Admin Dashboard
         async function init() {
             carregarDataCatalog();
             carregarClusterNodes();
-            // Call workspaces first to populate active sessions, then load users to render KPIs accurately
             await carregarWorkspaces();
             await carregarUsuarios();
             setInterval(carregarWorkspaces, 10000);
