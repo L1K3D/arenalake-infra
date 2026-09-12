@@ -742,7 +742,7 @@ async def admin_cluster_nodes(current_user: User = Depends(get_current_user), db
         import socket
         import httpx
         # Usa o DNS do Docker Swarm para achar os IPs dos agentes
-        _, _, ips = socket.gethostbyname_ex("tasks.telemetry-agent")
+        _, _, ips = socket.gethostbyname_ex("tasks.arenalake-prod_telemetry-agent")
         for ip in ips:
             try:
                 # Timeout de 2s garante que a UI não trave se um nó cair
@@ -936,7 +936,7 @@ async def admin_hardware_telemetry_advanced(current_user: User = Depends(get_cur
     
     # 1. Pede ao DNS interno do Docker Swarm os IPs de todos os containers "telemetry-agent" ativos
     try:
-        _, _, ips = socket.gethostbyname_ex("tasks.telemetry-agent")
+        _, _, ips = socket.gethostbyname_ex("tasks.arenalake-prod_telemetry-agent")
     except Exception:
         ips = [] # Caso o agente não esteja rodando ainda
 
