@@ -32,9 +32,6 @@ qrcode[pil]==7.4.2
 pydantic
 sqlalchemy
 
-typing
-jose
-
 httpx
 
 paramiko==3.4.0
