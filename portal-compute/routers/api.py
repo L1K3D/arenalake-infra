@@ -727,7 +727,6 @@ async def admin_kill_workspace(username: str, current_user: User = Depends(get_c
         raise HTTPException(status_code=500, detail=f"Erro ao encerrar sessão: {str(e)}")
 
 @router.get("/admin/cluster/nodes")
-@router.get("/admin/cluster/nodes")
 async def admin_cluster_nodes(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Return Swarm node roles, readiness, CPU capacity, memory capacity, and real-time telemetry."""
     if current_user.role != "admin":
@@ -736,24 +735,32 @@ async def admin_cluster_nodes(current_user: User = Depends(get_current_user), db
     if not docker_client:
         return JSONResponse(content={"status": "success", "nodes": []})
     
-    # 1. Buscar a telemetria ao vivo perguntando aos agentes
-    telemetry_map = {}
+    # 1. Buscar a telemetria mapeando pelo Node ID real (e não pelo hostname do container)
+    telemetry_by_node = {}
     try:
-        import socket
-        import httpx
-        # Usa o DNS do Docker Swarm para achar os IPs dos agentes
-        _, _, ips = socket.gethostbyname_ex("tasks.arenalake-prod_telemetry-agent")
-        for ip in ips:
-            try:
-                # Timeout de 2s garante que a UI não trave se um nó cair
-                response = httpx.get(f"http://{ip}:5000/metrics", timeout=2.0)
-                if response.status_code == 200:
-                    data = response.json()
-                    telemetry_map[data.get("hostname")] = data
-            except Exception:
-                continue
-    except Exception:
-        pass # Falha silenciosa se o serviço de telemetria não estiver no ar
+        # Usa o SDK do Docker para descobrir exatamente onde cada agente está sem depender de DNS
+        for svc in docker_client.services.list():
+            if "telemetry-agent" in svc.name:
+                for task in svc.tasks(filters={"desired-state": "running"}):
+                    node_id = task.get("NodeID")
+                    
+                    task_ip = None
+                    for network in task.get("NetworksAttachments", []):
+                        for addr in network.get("Addresses", []):
+                            task_ip = addr.split("/")[0]
+                            break
+                        if task_ip: break
+                        
+                    if node_id and task_ip:
+                        try:
+                            # Aumentei o timeout pra 3s para garantir a resposta via rede Tailscale
+                            response = httpx.get(f"http://{task_ip}:5000/metrics", timeout=3.0)
+                            if response.status_code == 200:
+                                telemetry_by_node[node_id] = response.json()
+                        except Exception as e:
+                            print(f"Falha ao conectar na telemetria {task_ip}: {e}")
+    except Exception as e:
+        print(f"Erro ao orquestrar tarefas de telemetria: {e}")
         
     nodes_data = []
     try:
@@ -769,7 +776,6 @@ async def admin_cluster_nodes(current_user: User = Depends(get_current_user), db
             total_cpus = resources.get("NanoCPUs", 0) / 1e9
             total_mem = resources.get("MemoryBytes", 0) / (1024**3)
             
-            # Base Swarm Data
             node_info = {
                 "id": node.id,
                 "hostname": hostname,
@@ -779,8 +785,8 @@ async def admin_cluster_nodes(current_user: User = Depends(get_current_user), db
                 "memory_gb": round(total_mem, 1)
             }
             
-            # 2. Injeta os dados pesados de Hardware se a telemetria respondeu
-            t_data = telemetry_map.get(hostname)
+            # 2. Cruza os dados pesados usando o ID do Nó Físico (Infalível)
+            t_data = telemetry_by_node.get(node.id)
             if t_data:
                 node_info["cpu_percent"] = t_data.get("cpu_percent", 0.0)
                 node_info["marca_cpu"] = t_data.get("marca_cpu", "Desconhecido")
@@ -933,34 +939,37 @@ async def admin_hardware_telemetry_advanced(current_user: User = Depends(get_cur
         raise HTTPException(status_code=403, detail="Acesso negado.")
     
     cluster_nodes = []
+    import httpx
     
-    # 1. Pede ao DNS interno do Docker Swarm os IPs de todos os containers "telemetry-agent" ativos
+    # 1. Pega os IPs mapeando via Docker SDK (Resolve problemas de DNS do Swarm)
     try:
-        _, _, ips = socket.gethostbyname_ex("tasks.arenalake-prod_telemetry-agent")
-    except Exception:
-        ips = [] # Caso o agente não esteja rodando ainda
-
-    # 2. Faz um "ping" em cada IP coletando o hardware real
-    for ip in ips:
-        try:
-            # Requisita a métrica de hardware do Worker (timeout curto para não travar)
-            response = httpx.get(f"http://{ip}:5000/metrics", timeout=3.0)
-            if response.status_code == 200:
-                cluster_nodes.append(response.json())
-        except Exception:
-            continue
+        from core.docker_mgr import client as docker_client
+        for svc in docker_client.services.list():
+            if "telemetry-agent" in svc.name:
+                for task in svc.tasks(filters={"desired-state": "running"}):
+                    for network in task.get("NetworksAttachments", []):
+                        for addr in network.get("Addresses", []):
+                            ip = addr.split("/")[0]
+                            try:
+                                response = httpx.get(f"http://{ip}:5000/metrics", timeout=3.0)
+                                if response.status_code == 200:
+                                    cluster_nodes.append(response.json())
+                            except Exception:
+                                pass
+    except Exception as e:
+        print(f"Erro na telemetria avançada: {e}")
 
     # 3. Consolida os totais para os Gráficos do Painel (Chart.js)
     totais = {
-        "cpus_intel": sum(1 for n in cluster_nodes if n["marca_cpu"] == "Intel"),
-        "cpus_amd": sum(1 for n in cluster_nodes if n["marca_cpu"] == "AMD"),
-        "cpus_qualcomm": sum(1 for n in cluster_nodes if n["marca_cpu"] == "Qualcomm"),
-        "cpus_outros": sum(1 for n in cluster_nodes if n["marca_cpu"] not in ["Intel", "AMD", "Qualcomm"]),
-        "ram_total": sum(n["ram_gb"] for n in cluster_nodes),
-        "ram_usada": sum(n["ram_usada_gb"] for n in cluster_nodes),
-        "disk_total": sum(n["disk_gb"] for n in cluster_nodes),
-        "disk_usado": sum(n["disk_usado_gb"] for n in cluster_nodes),
-        "cores_total": sum(n["cores"] for n in cluster_nodes)
+        "cpus_intel": sum(1 for n in cluster_nodes if n.get("marca_cpu") == "Intel"),
+        "cpus_amd": sum(1 for n in cluster_nodes if n.get("marca_cpu") == "AMD"),
+        "cpus_qualcomm": sum(1 for n in cluster_nodes if n.get("marca_cpu") == "Qualcomm"),
+        "cpus_outros": sum(1 for n in cluster_nodes if n.get("marca_cpu") not in ["Intel", "AMD", "Qualcomm"]),
+        "ram_total": sum(n.get("ram_gb", 0) for n in cluster_nodes),
+        "ram_usada": sum(n.get("ram_usada_gb", 0) for n in cluster_nodes),
+        "disk_total": sum(n.get("disk_gb", 0) for n in cluster_nodes),
+        "disk_usado": sum(n.get("disk_usado_gb", 0) for n in cluster_nodes),
+        "cores_total": sum(n.get("cores", 0) for n in cluster_nodes)
     }
 
     return JSONResponse(content={"status": "success", "nodes": cluster_nodes, "totais": totais})
