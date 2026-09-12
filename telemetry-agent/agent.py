@@ -32,6 +32,8 @@ def get_metrics():
     mem = psutil.virtual_memory()
     disk = psutil.disk_usage('/')
     
+    cpu_usage = psutil.cpu_percent(interval=0.5)
+    
     marca_cpu, modelo_cpu = identificar_cpu()
     cores_fisicos = psutil.cpu_count(logical=False) or 1
     threads = psutil.cpu_count(logical=True) or 1
@@ -46,6 +48,7 @@ def get_metrics():
         "modelo_cpu": modelo_cpu,
         "cores": cores_fisicos,
         "threads": threads,
+        "cpu_percent": cpu_usage, # <--- NOVO: Enviando para a API
         "ram_gb": round(mem.total / (1024**3), 1),
         "ram_usada_gb": round(mem.used / (1024**3), 1),
         "disk_gb": round(disk.total / (1024**3), 1),
