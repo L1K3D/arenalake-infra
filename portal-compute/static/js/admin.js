@@ -639,11 +639,129 @@ async function resetarSenha(userId, username) {
     }
 }
 
+async function carregarTailscale() {
+    try {
+        const res = await fetch('/api/admin/tailscale/status', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+
+        if (data.status === 'success') {
+            const tbody = document.getElementById('tailscaleTableBody');
+            const select = document.getElementById('ts-terminal-select');
+
+            tbody.innerHTML = '';
+            select.innerHTML = '<option value="">Selecione um Servidor...</option>';
+
+            data.network.forEach(node => {
+                // Popula a Tabela
+                const statusColor = node.status === 'Connected' ? '#2ea043' : '#8b949e';
+
+                tbody.innerHTML += `
+                    <tr style="border-bottom: 1px solid #21262d;">
+                        <td style="padding: 15px 10px;">
+                            <div style="color: #c9d1d9; font-weight: bold;">${node.hostname} ${node.is_self ? '<span style="font-size: 0.7em; background: #30363d; padding: 2px 6px; border-radius: 10px; margin-left: 5px;">This Node</span>' : ''}</div>
+                            <div style="font-size: 0.8em; margin-top: 5px;">
+                                <span style="background: #1f6feb; padding: 2px 6px; border-radius: 4px; color: white;">tag:servers</span>
+                            </div>
+                        </td>
+                        <td style="padding: 15px 10px; font-family: monospace; color: #58a6ff;">
+                            ${node.ip} ⌵
+                        </td>
+                        <td style="padding: 15px 10px; color: #8b949e; font-size: 0.9em;">
+                            v${node.version}<br>${node.os}
+                        </td>
+                        <td style="padding: 15px 10px; color: ${statusColor};">
+                            ● ${node.status}
+                        </td>
+                    </tr>
+                `;
+
+                // Popula o Dropdown do Terminal
+                if (node.status === 'Connected') {
+                    select.innerHTML += `<option value="${node.ip}">${node.hostname} (${node.ip})</option>`;
+                }
+            });
+        }
+    } catch (e) {
+        console.error('Erro ao carregar rede Tailscale', e);
+    }
+}
+
+// Ações dos Botões (Rascunhos para a próxima fase)
+function addTailscaleNode() {
+    const link = document.getElementById('ts-add-link').value;
+    if (!link) return alert("Cole o link primeiro!");
+    window.open(link, '_blank');
+}
+
+let currentTerm = null;
+let currentWs = null;
+
+function openWebTerminal() {
+    const ip = document.getElementById('ts-terminal-select').value;
+    if (!ip) return alert("Selecione um servidor na lista!");
+
+    document.getElementById('terminal-container').style.display = 'block';
+    document.getElementById('terminal-title').innerText = `Root Shell ➔ root@${ip}`;
+
+    const screen = document.getElementById('terminal-screen');
+    screen.innerHTML = ''; // Limpa o canvas
+
+    // Inicializa a interface gráfica do Terminal
+    currentTerm = new Terminal({
+        cursorBlink: true,
+        fontFamily: 'Consolas, monospace',
+        theme: { background: '#0d1117' }
+    });
+    const fitAddon = new FitAddon.FitAddon();
+    currentTerm.loadAddon(fitAddon);
+    currentTerm.open(screen);
+    fitAddon.fit();
+
+    // Inicia o WebSocket apontando para o FastAPI
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    currentWs = new WebSocket(`${wsProtocol}//${window.location.host}/api/admin/terminal/${ip}?token=${token}`);
+
+    currentWs.onopen = () => {
+        currentTerm.write(`\r\n[ ArenaLake Web Terminal ] Conectando via SSH em ${ip}...\r\n`);
+    };
+
+    // Imprime na tela tudo que o servidor responder
+    currentWs.onmessage = (event) => {
+        currentTerm.write(event.data);
+    };
+
+    // Envia para o servidor tudo que o usuário digitar
+    currentTerm.onData(data => {
+        if (currentWs.readyState === WebSocket.OPEN) {
+            currentWs.send(data);
+        }
+    });
+
+    currentWs.onclose = () => {
+        currentTerm.write('\r\n\r\n[!] Conexão Encerrada.\r\n');
+    };
+}
+
+function closeWebTerminal() {
+    if (currentWs) {
+        currentWs.close();
+        currentWs = null;
+    }
+    if (currentTerm) {
+        currentTerm.dispose();
+        currentTerm = null;
+    }
+    document.getElementById('terminal-container').style.display = 'none';
+}
+
 async function init() {
     carregarDataCatalog();
     await carregarWorkspaces();
     await carregarUsuarios();
     await carregarClusterNodes();
+    await carregarTailscale();
 
     // Atualiza as sessões e o monitoramento de Nodes em TEMPO REAL (a cada 10 seg)
     setInterval(() => {
