@@ -727,6 +727,7 @@ async def admin_kill_workspace(username: str, current_user: User = Depends(get_c
         raise HTTPException(status_code=500, detail=f"Erro ao encerrar sessão: {str(e)}")
 
 @router.get("/admin/cluster/nodes")
+@router.get("/admin/cluster/nodes")
 async def admin_cluster_nodes(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Return Swarm node roles, readiness, CPU capacity, memory capacity, and real-time telemetry."""
     if current_user.role != "admin":
@@ -735,23 +736,24 @@ async def admin_cluster_nodes(current_user: User = Depends(get_current_user), db
     if not docker_client:
         return JSONResponse(content={"status": "success", "nodes": []})
     
-    # 1. Buscar a telemetria ao vivo perguntando aos agentes em todo o cluster
+    # 1. Buscar a telemetria ao vivo perguntando aos agentes
     telemetry_map = {}
     try:
-        # Pega os IPs de todos os agentes de telemetria usando o DNS interno do Docker
+        import socket
+        import httpx
+        # Usa o DNS do Docker Swarm para achar os IPs dos agentes
         _, _, ips = socket.gethostbyname_ex("tasks.telemetry-agent")
         for ip in ips:
             try:
-                # Pergunta a cada agente o seu consumo (timeout curto de 2s para não travar a UI)
+                # Timeout de 2s garante que a UI não trave se um nó cair
                 response = httpx.get(f"http://{ip}:5000/metrics", timeout=2.0)
                 if response.status_code == 200:
                     data = response.json()
-                    # Mapeia pelo hostname para depois cruzar com o nó do Swarm
                     telemetry_map[data.get("hostname")] = data
             except Exception:
                 continue
     except Exception:
-        pass # Se o serviço telemetry-agent estiver fora do ar, o bloco de erro falha silenciosamente
+        pass # Falha silenciosa se o serviço de telemetria não estiver no ar
         
     nodes_data = []
     try:
@@ -767,7 +769,7 @@ async def admin_cluster_nodes(current_user: User = Depends(get_current_user), db
             total_cpus = resources.get("NanoCPUs", 0) / 1e9
             total_mem = resources.get("MemoryBytes", 0) / (1024**3)
             
-            # Dados básicos do Docker Swarm
+            # Base Swarm Data
             node_info = {
                 "id": node.id,
                 "hostname": hostname,
@@ -777,12 +779,15 @@ async def admin_cluster_nodes(current_user: User = Depends(get_current_user), db
                 "memory_gb": round(total_mem, 1)
             }
             
-            # 2. Injetar a telemetria viva se ela existir para este nó
+            # 2. Injeta os dados pesados de Hardware se a telemetria respondeu
             t_data = telemetry_map.get(hostname)
             if t_data:
                 node_info["cpu_percent"] = t_data.get("cpu_percent", 0.0)
+                node_info["marca_cpu"] = t_data.get("marca_cpu", "Desconhecido")
+                node_info["modelo_cpu"] = t_data.get("modelo_cpu", "Desconhecido")
+                node_info["disk_gb"] = t_data.get("disk_gb", 0)
+                node_info["disk_usado_gb"] = t_data.get("disk_usado_gb", 0)
                 
-                # Calcula a % de RAM usada
                 ram_total = t_data.get("ram_gb", 1)
                 ram_usada = t_data.get("ram_usada_gb", 0)
                 if ram_total > 0:

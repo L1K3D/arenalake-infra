@@ -273,17 +273,29 @@ async function carregarClusterNodes() {
             let totalRam = 0;
             let activeNodes = 0;
 
+            // Counters para os gráficos das Marcas de Processador
+            let countIntel = 0;
+            let countAmd = 0;
+            let countOutros = 0;
+
             data.nodes.forEach(n => {
                 totalCpus += n.cpus;
                 totalRam += n.memory_gb;
                 if (n.status === 'ready') activeNodes++;
 
-                // VERIFICAÇÃO REAL: O dado existe no JSON?
+                // Checa se o agente no Worker mandou a telemetria rica
                 const hasTelemetry = n.cpu_percent !== undefined && n.ram_percent !== undefined;
 
-                let cpuDisplay, ramDisplay, cpuBar, ramBar;
+                let cpuDisplay, ramDisplay, cpuBar, ramBar, storageDisplay, cpuModelStr;
 
                 if (hasTelemetry) {
+                    // Contabiliza arquiteturas apenas de nós responsivos
+                    if (n.marca_cpu === 'Intel') countIntel++;
+                    else if (n.marca_cpu === 'AMD') countAmd++;
+                    else countOutros++;
+
+                    cpuModelStr = `<div style="font-size: 0.8em; color: #8b949e; margin-top: 4px; line-height: 1.2;">💻 ${n.marca_cpu} <br>${n.modelo_cpu}</div>`;
+
                     const cpuUsed = ((n.cpu_percent / 100) * n.cpus).toFixed(1);
                     const ramUsed = ((n.ram_percent / 100) * n.memory_gb).toFixed(1);
 
@@ -295,55 +307,79 @@ async function carregarClusterNodes() {
 
                     ramDisplay = `<span><span style="color: #c9d1d9;">${ramUsed}</span> / ${n.memory_gb} GB</span><span>${n.ram_percent}%</span>`;
                     ramBar = `<div class="progress-fill ${ramColor}" style="width: ${n.ram_percent}%;"></div>`;
+
+                    // Cálculo da barra de Storage
+                    const diskPercent = n.disk_gb > 0 ? ((n.disk_usado_gb / n.disk_gb) * 100).toFixed(1) : 0;
+                    const diskColor = diskPercent > 85 ? 'fill-danger' : (diskPercent > 65 ? 'fill-warning' : 'fill-normal');
+                    storageDisplay = `
+                        <div class="resource-container">
+                            <div class="resource-header">
+                                <span><span style="color: #c9d1d9;">${n.disk_usado_gb}</span> / ${n.disk_gb} GB</span>
+                                <span>${diskPercent}%</span>
+                            </div>
+                            <div class="progress-bg">
+                                <div class="progress-fill ${diskColor}" style="width: ${diskPercent}%;"></div>
+                            </div>
+                        </div>
+                    `;
                 } else {
-                    // MODO OFFLINE / SEM TELEMETRIA
+                    cpuModelStr = `<div style="font-size: 0.8em; color: #da3633; margin-top: 4px; font-style: italic;">CPU Info Unavailable</div>`;
+
                     cpuDisplay = `<span><span style="color: #da3633; font-style: italic;">Offline / No Data</span> / ${n.cpus} Cores</span><span style="color: #8b949e;">--%</span>`;
                     cpuBar = `<div class="progress-fill" style="width: 0%; background: #30363d;"></div>`;
 
                     ramDisplay = `<span><span style="color: #da3633; font-style: italic;">Offline / No Data</span> / ${n.memory_gb} GB</span><span style="color: #8b949e;">--%</span>`;
                     ramBar = `<div class="progress-fill" style="width: 0%; background: #30363d;"></div>`;
+
+                    storageDisplay = `
+                        <div class="resource-container">
+                            <div class="resource-header">
+                                <span><span style="color: #da3633; font-style: italic;">Offline / No Data</span></span>
+                                <span style="color: #8b949e;">--%</span>
+                            </div>
+                            <div class="progress-bg">
+                                <div class="progress-fill" style="width: 0%; background: #30363d;"></div>
+                            </div>
+                        </div>
+                    `;
                 }
 
                 tbody.innerHTML += `
                     <tr style="border-bottom: 1px solid #21262d;">
                         <td style="padding: 15px 10px;">
                             <div style="font-family: monospace; color: #58a6ff; font-weight: bold; font-size: 1.1em; margin-bottom: 5px;">${n.hostname}</div>
-                            <span style="background: ${n.role === 'MASTER' ? '#8957e5' : '#1f6feb'}; padding: 3px 8px; border-radius: 4px; font-size: 0.75em; color: white;">${n.role}</span>
+                            <span style="background: ${n.role === 'MANAGER' ? '#8957e5' : '#1f6feb'}; padding: 3px 8px; border-radius: 4px; font-size: 0.75em; color: white;">${n.role}</span>
+                            ${cpuModelStr}
                         </td>
                         <td style="padding: 15px 10px;">
                             ${n.status === 'ready' ? '<span style="color: #2ea043; font-weight: bold;">🟢 Ready</span>' : '<span style="color: #da3633; font-weight: bold;">🔴 Down</span>'}
                         </td>
                         <td style="padding: 15px 10px;">
                             <div class="resource-container">
-                                <div class="resource-header">
-                                    ${cpuDisplay}
-                                </div>
-                                <div class="progress-bg">
-                                    ${cpuBar}
-                                </div>
+                                <div class="resource-header">${cpuDisplay}</div>
+                                <div class="progress-bg">${cpuBar}</div>
                             </div>
                         </td>
                         <td style="padding: 15px 10px;">
                             <div class="resource-container">
-                                <div class="resource-header">
-                                    ${ramDisplay}
-                                </div>
-                                <div class="progress-bg">
-                                    ${ramBar}
-                                </div>
+                                <div class="resource-header">${ramDisplay}</div>
+                                <div class="progress-bg">${ramBar}</div>
                             </div>
+                        </td>
+                        <td style="padding: 15px 10px;">
+                            ${storageDisplay}
                         </td>
                     </tr>
                 `;
             });
 
-            // Atualiza os KPIs do Cluster no topo
+            // --- Preenche os KPIs Superiores ---
             document.getElementById('kpi-nodes-count').innerText = `${activeNodes} / ${data.nodes.length}`;
             document.getElementById('kpi-total-cpu').innerText = totalCpus;
             document.getElementById('kpi-total-ram').innerText = `${totalRam.toFixed(1)} GB`;
 
             const healthEl = document.getElementById('kpi-cluster-health');
-            if (activeNodes === data.nodes.length) {
+            if (activeNodes === data.nodes.length && activeNodes > 0) {
                 healthEl.innerText = "Healthy";
                 healthEl.style.color = "#2ea043";
             } else if (activeNodes > 0) {
@@ -353,6 +389,16 @@ async function carregarClusterNodes() {
                 healthEl.innerText = "Critical";
                 healthEl.style.color = "#da3633";
             }
+
+            // --- Preenche os KPIs de Arquitetura de Processador ---
+            const totalCpusWithTelemetry = countIntel + countAmd + countOutros;
+            const intelPct = totalCpusWithTelemetry > 0 ? Math.round((countIntel / totalCpusWithTelemetry) * 100) : 0;
+            const amdPct = totalCpusWithTelemetry > 0 ? Math.round((countAmd / totalCpusWithTelemetry) * 100) : 0;
+            const outrosPct = totalCpusWithTelemetry > 0 ? Math.round((countOutros / totalCpusWithTelemetry) * 100) : 0;
+
+            document.getElementById('kpi-cpu-intel').innerHTML = `Intel: ${countIntel} <span style="font-size: 0.6em; color: #8b949e;">(${intelPct}%)</span>`;
+            document.getElementById('kpi-cpu-amd').innerHTML = `AMD: ${countAmd} <span style="font-size: 0.6em; color: #8b949e;">(${amdPct}%)</span>`;
+            document.getElementById('kpi-cpu-outros').innerHTML = `Outros: ${countOutros} <span style="font-size: 0.6em; color: #8b949e;">(${outrosPct}%)</span>`;
         }
     } catch (e) {
         console.error('Error on load cluster nodes', e);
