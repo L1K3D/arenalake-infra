@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import time
+import socket
 
 
 STACK_NAME = "arenalake-prod"
@@ -128,6 +129,41 @@ def rebuild_images():
     )
     print("[+] Local images rebuilt successfully.")
     
+def rebuild_remote_agents():
+    """Connect to Swarm worker nodes via Tailscale SSH to rebuild the agent image."""
+    print("\n[*] Updating Telemetry Agents across all Swarm nodes via Tailscale SSH...")
+    try:
+        # Pede ao Swarm a lista de hostnames de todos os nós conectados
+        result = subprocess.run(
+            ["docker", "node", "ls", "--format", "{{.Hostname}}"],
+            capture_output=True, text=True, check=True
+        )
+        nodes = result.stdout.splitlines()
+        local_hostname = socket.gethostname()
+
+        for node in nodes:
+            # Se o nó for a própria máquina rodando o script (Manager)
+            if node == local_hostname or node == "arenalakeserver":
+                print(f"[*] Construindo agente localmente no Manager ({node})...")
+                run_command(["python3", "helpers/build_worker_agent.py"])
+            else:
+                # Se for um Worker, conecta via SSH pela rede Tailscale e roda o script
+                print(f"[*] Acessando Worker ({node}) via SSH para construir o agente...")
+                ssh_command = [
+                    "ssh",
+                    "-o", "StrictHostKeyChecking=no", # Ignora o prompt de "yes/no" do SSH
+                    "-o", "ConnectTimeout=10",        # Não trava o script se o worker estiver offline
+                    f"root@{node}",
+                    "cd /opt/arenalake-prod && python3 helpers/build_worker_agent.py"
+                ]
+                try:
+                    run_command(ssh_command)
+                except subprocess.CalledProcessError:
+                    print(f"[!] AVISO: Falha ao compilar no nó {node}. Ele pode estar offline ou bloqueando o SSH.")
+                    
+    except Exception as e:
+        print(f"[ERROR] Falha na orquestração dos agentes remotos: {e}")
+    
 def cleanup_docker():
     """Remove stopped containers, dangling images, and build cache to free up disk space."""
     print("[*] Cleaning up old Docker images and build cache...")
@@ -194,6 +230,7 @@ def main():
     restart_docker()
     check_swarm()
     rebuild_images()
+    rebuild_remote_agents()
     cleanup_docker()
     deploy_stack()
 
