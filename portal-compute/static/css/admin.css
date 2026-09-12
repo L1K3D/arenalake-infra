@@ -1,0 +1,246 @@
+/* portal-compute/static/css/admin.css */
+
+html,
+body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background: #0d1117 !important;
+    color: #c9d1d9 !important;
+    font-family: sans-serif;
+    overflow: hidden;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+.admin-layout {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* Sidebar Styling */
+.sidebar {
+    width: 280px;
+    background: #161b22;
+    border-right: 1px solid #30363d;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid #30363d;
+}
+
+.sidebar-header h2 {
+    margin: 0;
+    font-size: 1.2em;
+    color: #58a6ff;
+}
+
+.sidebar-header p {
+    margin: 5px 0 0 0;
+    font-size: 0.85em;
+    color: #8b949e;
+}
+
+.sidebar-menu {
+    list-style: none;
+    padding: 0 0 20px 0;
+    margin: 0;
+    flex-grow: 1;
+}
+
+.menu-header {
+    color: #8b949e;
+    font-size: 0.75em;
+    text-transform: uppercase;
+    font-weight: bold;
+    padding: 25px 20px 10px 20px;
+    letter-spacing: 0.05em;
+    pointer-events: none;
+}
+
+.menu-item {
+    padding: 10px 20px 10px 30px;
+    cursor: pointer;
+    color: #c9d1d9;
+    transition: all 0.2s;
+    font-size: 0.9em;
+    opacity: 0.7;
+}
+
+.menu-item:hover {
+    background: #21262d;
+    opacity: 1;
+}
+
+.menu-item.active {
+    background: #1f6feb;
+    color: #ffffff;
+    font-weight: bold;
+    border-left: 4px solid #79c0ff;
+    opacity: 1;
+}
+
+.menu-item.danger-item:hover {
+    background: #da363320;
+    color: #ff7b72;
+    opacity: 1;
+}
+
+.menu-item.danger-item.active {
+    background: #da3633;
+    color: white;
+    border-left-color: #ff7b72;
+}
+
+.sidebar-footer {
+    padding: 20px;
+    border-top: 1px solid #30363d;
+}
+
+.sidebar-footer button {
+    width: 100%;
+}
+
+/* Main Content Styling */
+.main-content {
+    flex-grow: 1;
+    padding: 40px;
+    overflow-y: auto;
+    background: #0d1117;
+    width: calc(100vw - 280px);
+}
+
+/* BRUTE FORCE PARA ESTICAR AS SEÇÕES */
+.admin-section {
+    display: none;
+    width: 100% !important;
+    max-width: none !important;
+}
+
+.admin-section.active {
+    display: block;
+    animation: fadeIn 0.25s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.card {
+    background: #161b22;
+    padding: 25px;
+    border-radius: 8px;
+    border: 1px solid #30363d;
+    width: 100% !important;
+    max-width: none !important;
+}
+
+.card-danger {
+    border-color: #da3633;
+}
+
+/* KPI Styling */
+.kpi-container {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-bottom: 25px;
+    width: 100%;
+}
+
+.kpi-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+}
+
+.kpi-value {
+    font-size: 2em;
+    font-weight: bold;
+    color: #58a6ff;
+    margin-top: 10px;
+}
+
+.kpi-label {
+    color: #8b949e;
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Sortable Tables */
+.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.2s;
+}
+
+.sortable:hover {
+    color: #79c0ff;
+}
+
+/* --- ADICIONE NO FINAL DO admin.css --- */
+
+/* Resource Progress Bars */
+.resource-container {
+    width: 100%;
+    margin-top: 5px;
+}
+
+.resource-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85em;
+    color: #8b949e;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.progress-bg {
+    background: #21262d;
+    border-radius: 4px;
+    height: 10px;
+    width: 100%;
+    overflow: hidden;
+    border: 1px solid #30363d;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.8s ease-in-out, background-color 0.3s;
+}
+
+.fill-normal {
+    background: #2ea043;
+}
+
+/* Verde - OK */
+.fill-warning {
+    background: #d29922;
+}
+
+/* Amarelo - Alerta (>65%) */
+.fill-danger {
+    background: #da3633;
+}

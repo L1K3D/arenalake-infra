@@ -728,13 +728,31 @@ async def admin_kill_workspace(username: str, current_user: User = Depends(get_c
 
 @router.get("/admin/cluster/nodes")
 async def admin_cluster_nodes(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Return Swarm node roles, readiness, CPU capacity, and memory capacity."""
+    """Return Swarm node roles, readiness, CPU capacity, memory capacity, and real-time telemetry."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
     if not docker_client:
         return JSONResponse(content={"status": "success", "nodes": []})
     
+    # 1. Buscar a telemetria ao vivo perguntando aos agentes em todo o cluster
+    telemetry_map = {}
+    try:
+        # Pega os IPs de todos os agentes de telemetria usando o DNS interno do Docker
+        _, _, ips = socket.gethostbyname_ex("tasks.telemetry-agent")
+        for ip in ips:
+            try:
+                # Pergunta a cada agente o seu consumo (timeout curto de 2s para não travar a UI)
+                response = httpx.get(f"http://{ip}:5000/metrics", timeout=2.0)
+                if response.status_code == 200:
+                    data = response.json()
+                    # Mapeia pelo hostname para depois cruzar com o nó do Swarm
+                    telemetry_map[data.get("hostname")] = data
+            except Exception:
+                continue
+    except Exception:
+        pass # Se o serviço telemetry-agent estiver fora do ar, o bloco de erro falha silenciosamente
+        
     nodes_data = []
     try:
         nodes = docker_client.nodes.list()
@@ -749,14 +767,28 @@ async def admin_cluster_nodes(current_user: User = Depends(get_current_user), db
             total_cpus = resources.get("NanoCPUs", 0) / 1e9
             total_mem = resources.get("MemoryBytes", 0) / (1024**3)
             
-            nodes_data.append({
+            # Dados básicos do Docker Swarm
+            node_info = {
                 "id": node.id,
                 "hostname": hostname,
                 "role": papel.upper(),
                 "status": status,
                 "cpus": round(total_cpus, 1),
                 "memory_gb": round(total_mem, 1)
-            })
+            }
+            
+            # 2. Injetar a telemetria viva se ela existir para este nó
+            t_data = telemetry_map.get(hostname)
+            if t_data:
+                node_info["cpu_percent"] = t_data.get("cpu_percent", 0.0)
+                
+                # Calcula a % de RAM usada
+                ram_total = t_data.get("ram_gb", 1)
+                ram_usada = t_data.get("ram_usada_gb", 0)
+                if ram_total > 0:
+                    node_info["ram_percent"] = round((ram_usada / ram_total) * 100, 1)
+            
+            nodes_data.append(node_info)
     except Exception as e:
         print(f"Erro ao ler nós do Swarm: {e}")
     
