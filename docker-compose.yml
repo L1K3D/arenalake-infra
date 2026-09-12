@@ -98,6 +98,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${DATALAKE_STORAGE_PATH}/projects_data:/app/projects_data
       - ${DATALAKE_STORAGE_PATH}/database:/mnt/datalake/prod/database
+      - /root/.ssh:/root/.ssh:ro
     networks:
       - arenalake-net
     deploy:

@@ -4,35 +4,28 @@ import urllib.request
 import json
 import re
 import pandas as pd
-import os
 import io
-import socket
 import httpx
+import paramiko
+import asyncio
 
-from fastapi import APIRouter, UploadFile, File, Form, Request, Depends, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
 from fastapi.responses import JSONResponse
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
-from core.s3_mgr import get_s3_client
-from core.security import get_current_user
-from core.models import User
 from passlib.context import CryptContext
+from jose import jwt
 
 from core.s3_mgr import fetch_catalog_data, upload_file_to_datalake, get_file_details, delete_file_from_datalake
-from core.docker_mgr import (
-    get_workspace_metrics,
-    list_spark_jobs,
-    run_spark_job,
-    get_allocatable_resources,
-    update_workspace_activity,
-    verify_idle_workspaces,
-)
+from core.docker_mgr import get_workspace_metrics, list_spark_jobs, run_spark_job, get_allocatable_resources, update_workspace_activity, verify_idle_workspaces
 from core.database import get_db, SessionLocal
-
 from core.docker_mgr import client as docker_client, shutdown_workspace
+from core.s3_mgr import get_s3_client
+from core.security import get_current_user, SECRET_KEY, ALGORITHM
+from core.models import User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -973,6 +966,110 @@ async def admin_hardware_telemetry_advanced(current_user: User = Depends(get_cur
     }
 
     return JSONResponse(content={"status": "success", "nodes": cluster_nodes, "totais": totais})
+
+@router.get("/admin/tailscale/status")
+async def admin_tailscale_status(current_user: User = Depends(get_current_user)):
+    """Busca o status da rede mesh do Tailscale em tempo real."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
+    
+    try:
+        import subprocess
+        import json
+        # Executa o CLI local do tailscale e captura a saída em JSON
+        result = subprocess.run(
+            ["tailscale", "status", "--json"], 
+            capture_output=True, text=True, check=True
+        )
+        ts_data = json.loads(result.stdout)
+        
+        # Filtra os dados para mandar pro front-end só o que importa
+        peers = []
+        
+        # O "Self" (Manager) vem separado no JSON do Tailscale
+        self_node = ts_data.get("Self", {})
+        if self_node:
+            peers.append({
+                "hostname": self_node.get("HostName"),
+                "ip": self_node.get("TailscaleIPs", [""])[0],
+                "os": self_node.get("OS"),
+                "version": self_node.get("TailscaleVersion", "").split("-")[0],
+                "status": "Connected" if self_node.get("Online") else "Offline",
+                "is_self": True
+            })
+
+        # Adiciona os outros nós (Workers)
+        for pubkey, peer in ts_data.get("Peer", {}).items():
+            peers.append({
+                "hostname": peer.get("HostName"),
+                "ip": peer.get("TailscaleIPs", [""])[0],
+                "os": peer.get("OS"),
+                "version": peer.get("TailscaleVersion", "").split("-")[0],
+                "status": "Connected" if peer.get("Online") else "Offline",
+                "is_self": False
+            })
+
+        return JSONResponse(content={"status": "success", "network": peers})
+    except Exception as e:
+        return JSONResponse(content={"status": "error", "message": f"Erro ao consultar Tailscale: {str(e)}"}, status_code=500)
+
+@router.websocket("/admin/terminal/{ip}")
+async def web_terminal(websocket: WebSocket, ip: str, token: str = Query(...)):
+    """Abre um túnel SSH via WebSocket utilizando paramiko e as chaves do host."""
+    # 1. Validação de segurança via Query String (WebSockets de navegador não enviam Headers)
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("role") != "admin":
+            await websocket.close(code=1008)
+            return
+    except Exception:
+        await websocket.close(code=1008)
+        return
+
+    await websocket.accept()
+    
+    # 2. Prepara o cliente SSH
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    try:
+        # Tenta conectar. Ele usará automaticamente a chave em /root/.ssh/ mapeada no compose
+        ssh.connect(hostname=ip, username="root", timeout=5.0)
+        channel = ssh.invoke_shell()
+        channel.setblocking(False)
+
+        # 3. Tarefa Assíncrona 1: Lê as teclas do Navegador e manda pro SSH
+        async def ws_to_ssh():
+            try:
+                while True:
+                    data = await websocket.receive_text()
+                    channel.send(data)
+            except WebSocketDisconnect:
+                pass
+
+        # 4. Tarefa Assíncrona 2: Lê o retorno do SSH e manda pro Navegador
+        async def ssh_to_ws():
+            try:
+                while not channel.exit_status_ready():
+                    if channel.recv_ready():
+                        data = channel.recv(1024).decode('utf-8', 'replace')
+                        await websocket.send_text(data)
+                    else:
+                        await asyncio.sleep(0.01)
+            except Exception:
+                pass
+
+        # Roda o canal de ida e de volta simultaneamente
+        await asyncio.gather(ws_to_ssh(), ssh_to_ws())
+
+    except Exception as e:
+        await websocket.send_text(f"\r\n[!] Erro de conexão SSH com {ip}: {str(e)}\r\n")
+    finally:
+        ssh.close()
+        try:
+            await websocket.close()
+        except:
+            pass
 
 scheduler.add_job(
     verify_idle_workspaces,

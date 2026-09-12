@@ -7,6 +7,10 @@
     <!-- CSS Originais e Novo -->
     <link rel="stylesheet" href="/static/css/dashboard.css">
     <link rel="stylesheet" href="/static/css/admin.css">
+    <!-- Terminal Xterm.js e Addon de Redimensionamento -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
 </head>
 
 <body>
@@ -32,6 +36,7 @@
 
                 <li class="menu-header">🖥️ Infrastructure</li>
                 <li id="nav-nodes" class="menu-item" onclick="showSection('nodes')">Swarm Nodes</li>
+                <li id="nav-tailscale" class="menu-item" onclick="showSection('sec-tailscale')">Tailscale Network</li>
 
                 <li class="menu-header">🗄️ Data Governance</li>
                 <li id="nav-catalog" class="menu-item" onclick="showSection('catalog')">Data Catalog (MinIO)</li>
@@ -259,6 +264,77 @@
                             </tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- INFRASTRUCTURE: TAILSCALE -->
+            <div id="sec-tailscale" class="admin-section" style="display: none;">
+                <h1 style="margin-top:0; color: #c9d1d9;">Tailscale Network</h1>
+                <p style="color: #8b949e; margin-bottom: 25px;">Gerencie conexões VPN e acesse o prompt dos nós do
+                    cluster.</p>
+
+                <!-- Barra de Ações Superiores (Add Node & Web Terminal) -->
+                <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+
+                    <!-- Bloco: Add New -->
+                    <div class="card" style="flex: 1; display: flex; align-items: center; padding: 15px;">
+                        <input type="text" id="ts-add-link"
+                            placeholder="Cole o link de autenticação do Tailscale aqui..."
+                            style="flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: white; margin-right: 10px;">
+                        <button onclick="addTailscaleNode()"
+                            style="background: #2ea043; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                            Adicionar Node ➔
+                        </button>
+                    </div>
+
+                    <!-- Bloco: Web Terminal Connection -->
+                    <div class="card" style="flex: 1; display: flex; align-items: center; padding: 15px;">
+                        <select id="ts-terminal-select"
+                            style="flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: white; margin-right: 10px;">
+                            <option value="">Selecione um Servidor...</option>
+                        </select>
+                        <button onclick="openWebTerminal()"
+                            style="background: #1f6feb; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                            Conectar SSH ➔
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tabela de Máquinas -->
+                <div class="card">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                        <thead>
+                            <tr
+                                style="border-bottom: 1px solid #30363d; color: #8b949e; font-size: 0.85em; text-transform: uppercase;">
+                                <th style="padding: 15px 10px;">Machine</th>
+                                <th style="padding: 15px 10px;">Addresses</th>
+                                <th style="padding: 15px 10px;">Version / OS</th>
+                                <th style="padding: 15px 10px;">Last Seen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tailscaleTableBody">
+                            <tr>
+                                <td colspan="4" style="padding: 15px; text-align: center; color: #8b949e;">Carregando
+                                    rede Tailscale...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Container do Web Terminal (Escondido por padrão) -->
+                <div id="terminal-container" class="card"
+                    style="display: none; margin-top: 20px; padding: 0; background: #000; overflow: hidden; border: 1px solid #30363d;">
+                    <div
+                        style="background: #161b22; padding: 10px; color: #c9d1d9; font-family: monospace; display: flex; justify-content: space-between;">
+                        <span id="terminal-title">Root Shell</span>
+                        <button onclick="closeWebTerminal()"
+                            style="background: transparent; border: none; color: #da3633; cursor: pointer; font-weight: bold;">✖
+                            Fechar</button>
+                    </div>
+                    <div id="terminal-screen"
+                        style="height: 400px; padding: 10px; color: #00ff00; font-family: monospace; overflow-y: auto;">
+                        <!-- O console do Xterm.js será injetado aqui -->
+                    </div>
                 </div>
             </div>
 
