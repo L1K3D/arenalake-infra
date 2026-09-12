@@ -36,3 +36,5 @@ typing
 jose
 
 httpx
+
+paramiko==3.4.0
