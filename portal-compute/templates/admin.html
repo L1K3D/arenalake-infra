@@ -200,7 +200,6 @@
             </div>
 
             <!-- INFRASTRUCTURE: NODES -->
-            <!-- INFRASTRUCTURE: NODES -->
             <div id="sec-nodes" class="admin-section">
                 <h1 style="margin-top:0; color: #c9d1d9;">Swarm Nodes Telemetry</h1>
                 <p style="color: #8b949e; margin-bottom: 25px;">Real-time monitoring of cluster capacity and resource
@@ -226,19 +225,36 @@
                     </div>
                 </div>
 
+                <!-- CPU Architecture Breakdown KPIs -->
+                <div class="kpi-container" style="grid-template-columns: repeat(3, 1fr);">
+                    <div class="kpi-card">
+                        <div class="kpi-label" style="color: #0071c5;">🟦 Arquitetura Intel</div>
+                        <div class="kpi-value" id="kpi-cpu-intel">-</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label" style="color: #ed1c24;">🟥 Arquitetura AMD</div>
+                        <div class="kpi-value" id="kpi-cpu-amd">-</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label" style="color: #8b949e;">⬜ Outros / ARM</div>
+                        <div class="kpi-value" id="kpi-cpu-outros">-</div>
+                    </div>
+                </div>
+
                 <div class="card">
                     <table style="width: 100%; border-collapse: collapse; text-align: left;">
                         <thead>
                             <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
-                                <th style="padding: 10px; width: 20%;">Node / Role</th>
+                                <th style="padding: 10px; width: 20%;">Node / Role / CPU Info</th>
                                 <th style="padding: 10px; width: 10%;">Status</th>
-                                <th style="padding: 10px; width: 35%;">CPU Consumption</th>
-                                <th style="padding: 10px; width: 35%;">RAM Consumption</th>
+                                <th style="padding: 10px; width: 25%;">CPU Consumption</th>
+                                <th style="padding: 10px; width: 25%;">RAM Consumption</th>
+                                <th style="padding: 10px; width: 20%;">Storage (Disk)</th>
                             </tr>
                         </thead>
                         <tbody id="nodesTableBody">
                             <tr>
-                                <td colspan="4" style="padding: 15px; text-align: center; color: #8b949e;">Analyzing
+                                <td colspan="5" style="padding: 15px; text-align: center; color: #8b949e;">Analyzing
                                     cluster telemetry...</td>
                             </tr>
                         </tbody>
