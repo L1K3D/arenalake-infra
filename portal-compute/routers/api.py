@@ -969,19 +969,24 @@ async def admin_hardware_telemetry_advanced(current_user: User = Depends(get_cur
 
 @router.get("/admin/tailscale/status")
 async def admin_tailscale_status(current_user: User = Depends(get_current_user)):
-    """Busca o status da rede mesh do Tailscale em tempo real."""
+    """Busca o status da rede mesh do Tailscale em tempo real via SSH."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
     try:
-        import subprocess
-        import json
-        # Executa o CLI local do tailscale e captura a saída em JSON
-        result = subprocess.run(
-            ["tailscale", "status", "--json"], 
-            capture_output=True, text=True, check=True
-        )
-        ts_data = json.loads(result.stdout)
+        # Conecta via SSH no host Manager para rodar o comando Tailscale nativo
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        
+        # Conecta no próprio servidor host usando a chave do root
+        ssh.connect(hostname="arenalakeserver", username="root", timeout=5.0)
+        
+        # Executa o comando e captura a saída
+        stdin, stdout, stderr = ssh.exec_command("tailscale status --json")
+        ts_output = stdout.read().decode('utf-8')
+        ssh.close()
+
+        ts_data = json.loads(ts_output)
         
         # Filtra os dados para mandar pro front-end só o que importa
         peers = []
