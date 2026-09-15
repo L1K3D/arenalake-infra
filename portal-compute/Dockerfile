@@ -25,3 +25,6 @@ COPY . .
 # - --host 0.0.0.0 makes the server accessible from outside the container
 # - --port 8000 exposes the API on port 8000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+RUN apt-get update && apt-get install -y curl \
+    && curl -fsSL https://tailscale.com/install.sh | sh
