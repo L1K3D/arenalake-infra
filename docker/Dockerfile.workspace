@@ -46,13 +46,16 @@ RUN apt-get update && apt-get install -y sudo && \
     echo "coder ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/coder && \
     chmod 0440 /etc/sudoers.d/coder
 
-# 3. O Pulo do Gato: Sequestramos o executável original do code-server.
-# Renomeamos o original e colocamos nosso script de permissão no lugar dele!
-RUN mv /usr/bin/code-server /usr/bin/code-server-bin && \
-    echo '#!/bin/bash\n\
-    sudo chown -R coder:coder /home/coder/project\n\
-    exec /usr/bin/code-server-bin "$@"\n' > /usr/bin/code-server && \
-    chmod +x /usr/bin/code-server
+# 3. Cria o script de inicialização customizado (FORMA CORRIGIDA)
+RUN { \
+    echo '#!/bin/bash'; \
+    echo 'sudo chown -R coder:coder /home/coder/project'; \
+    echo 'if [ ! -z "$ARENALAKE_USER" ]; then'; \
+    echo '    echo "export PS1=\"${ARENALAKE_USER}@workspace:\w\$ \"" >> /home/coder/.bashrc'; \
+    echo 'fi'; \
+    echo 'exec /usr/bin/code-server "$@"'; \
+    } > /usr/bin/entrypoint-arena.sh \
+    && chmod +x /usr/bin/entrypoint-arena.sh
 
 # 4. Volta para o usuário seguro do VSCode
 USER coder

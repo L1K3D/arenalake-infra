@@ -78,7 +78,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
     # Call code-server's entrypoint explicitly; the base image does not expose
     # it as a Docker ENTRYPOINT when the service command is overridden.
     startup_vscode_cmd = [
-        "/usr/bin/entrypoint.sh",
+        "/usr/bin/entrypoint-arena.sh",
         "--bind-addr", "0.0.0.0:8080",
         "--auth", "none",
         "--user-data-dir", "/home/coder/project/.vscode-data/data",
@@ -96,6 +96,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
             f"MINIO_SECRET_KEY={minio_sk}",
             f"WORKSPACE_RAM={spark_ram}",
             f"WORKSPACE_CORES={spark_cores}",
+            f"ARENALAKE_USER={usuario}",
         ],
         mounts=[Mount(target="/home/coder/project", source=vol_name, type="volume")],
         networks=[network_name],
