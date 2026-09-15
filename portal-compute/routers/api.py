@@ -8,6 +8,7 @@ import io
 import httpx
 import paramiko
 import asyncio
+import subprocess
 
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
 from fastapi.responses import JSONResponse
@@ -974,25 +975,25 @@ async def admin_tailscale_status(current_user: User = Depends(get_current_user))
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
     try:
-        # Conecta via SSH no host Manager para rodar o comando Tailscale nativo
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        # Executa o comando diretamente no host local, sem SSH
+        result = subprocess.run(
+            ["/usr/bin/tailscale", "status", "--json"], 
+            capture_output=True, 
+            text=True, 
+            timeout=5
+        )
         
-        # Conecta no próprio servidor host usando a chave do root
-        ssh.connect(hostname="arenalakeserver", username="root", timeout=5.0)
-        
-        # Executa o comando e captura a saída
-        stdin, stdout, stderr = ssh.exec_command("tailscale status --json")
-        ts_output = stdout.read().decode('utf-8')
-        ssh.close()
+        if result.returncode != 0:
+            raise Exception(f"Falha ao executar Tailscale: {result.stderr}")
 
-        ts_data = json.loads(ts_output)
+        ts_data = json.loads(result.stdout)
         
         # Filtra os dados para mandar pro front-end só o que importa
         peers = []
         
         # O "Self" (Manager) vem separado no JSON do Tailscale
         self_node = ts_data.get("Self", {})
+        
         if self_node:
             peers.append({
                 "hostname": self_node.get("HostName"),
