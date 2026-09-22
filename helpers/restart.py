@@ -155,8 +155,6 @@ def rebuild_images():
             "-f",
             COMPOSE_FILE,
             "build",
-            "--no-cache",
-            "--pull",
         ]
     )
     print("[+] Local images rebuilt successfully.")
