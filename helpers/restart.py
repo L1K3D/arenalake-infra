@@ -59,6 +59,38 @@ def check_swarm():
         sys.exit(1)
 
 
+def cleanup_orphaned_workspaces():
+    """Remove stranded user workspaces and the network to prevent FailedPrecondition errors."""
+    print("[*] Cleaning up orphaned user workspaces...")
+    try:
+        # Pega a lista de serviços ativos
+        result = subprocess.run(
+            ["docker", "service", "ls", "--format", "{{.Name}}"],
+            capture_output=True, text=True, check=True
+        )
+        services = result.stdout.splitlines()
+        
+        # Filtra apenas as workspaces dinâmicas criadas pela API
+        orphans = [s for s in services if s.startswith("vscode-") or s.startswith("spark-worker-")]
+
+        if orphans:
+            for orphan in orphans:
+                run_command(["docker", "service", "rm", orphan])
+            print(f"[+] Removed {len(orphans)} orphaned services.")
+            time.sleep(3) # Dá um fôlego pro Swarm desvincular as redes
+        else:
+            print("[+] No orphaned workspaces found.")
+
+        # Força a limpeza da rede caso ela tenha travado em execuções anteriores
+        print(f"[*] Ensuring network {STACK_NAME}_arenalake-net is clear...")
+        subprocess.run(
+            ["docker", "network", "rm", f"{STACK_NAME}_arenalake-net"],
+            capture_output=True, check=False
+        )
+    except Exception as e:
+        print(f"[ERROR] Failed to clean up orphaned workspaces: {e}")
+
+
 def restart_docker():
     """Restart the Docker daemon using the host's service manager."""
     print("[*] Restarting Docker daemon...")
@@ -128,12 +160,12 @@ def rebuild_images():
         ]
     )
     print("[+] Local images rebuilt successfully.")
-    
-def rebuild_remote_agents():
-    """Connect to Swarm worker nodes via Tailscale SSH to rebuild the agent image."""
-    print("\n[*] Updating Telemetry Agents across all Swarm nodes via Tailscale SSH...")
+
+
+def distribute_workspace_image():
+    """Distribute the newly built workspace image to all Swarm workers via Tailscale."""
+    print("\n[*] Distributing workspace image to Swarm worker nodes...")
     try:
-        # Pede ao Swarm a lista de hostnames de todos os nós conectados
         result = subprocess.run(
             ["docker", "node", "ls", "--format", "{{.Hostname}}"],
             capture_output=True, text=True, check=True
@@ -142,17 +174,53 @@ def rebuild_remote_agents():
         local_hostname = socket.gethostname()
 
         for node in nodes:
-            # Se o nó for a própria máquina rodando o script (Manager)
+            if node != local_hostname and node != "arenalakeserver":
+                print(f"[*] Sending image to Worker ({node})... This may take a minute.")
+                
+                # Executa o pipe do Docker Save pro SSH de forma nativa e segura em Python
+                save_proc = subprocess.Popen(
+                    ["docker", "save", "arenalake-workspace:latest"],
+                    stdout=subprocess.PIPE
+                )
+                ssh_proc = subprocess.Popen(
+                    ["ssh", "-o", "StrictHostKeyChecking=no", f"root@{node}", "docker load"],
+                    stdin=save_proc.stdout,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE
+                )
+                
+                save_proc.stdout.close()
+                stdout, stderr = ssh_proc.communicate()
+
+                if ssh_proc.returncode == 0:
+                    print(f"[+] Image loaded successfully on {node}.")
+                else:
+                    print(f"[!] Warning: Failed to send image to {node}: {stderr.decode().strip()}")
+    except Exception as e:
+        print(f"[ERROR] Failed to distribute workspace image: {e}")
+
+
+def rebuild_remote_agents():
+    """Connect to Swarm worker nodes via Tailscale SSH to rebuild the agent image."""
+    print("\n[*] Updating Telemetry Agents across all Swarm nodes via Tailscale SSH...")
+    try:
+        result = subprocess.run(
+            ["docker", "node", "ls", "--format", "{{.Hostname}}"],
+            capture_output=True, text=True, check=True
+        )
+        nodes = result.stdout.splitlines()
+        local_hostname = socket.gethostname()
+
+        for node in nodes:
             if node == local_hostname or node == "arenalakeserver":
                 print(f"[*] Construindo agente localmente no Manager ({node})...")
                 run_command(["python3", "helpers/build_worker_agent.py"])
             else:
-                # Se for um Worker, conecta via SSH pela rede Tailscale e roda o script
                 print(f"[*] Acessando Worker ({node}) via SSH para construir o agente...")
                 ssh_command = [
                     "ssh",
-                    "-o", "StrictHostKeyChecking=no", # Ignora o prompt de "yes/no" do SSH
-                    "-o", "ConnectTimeout=10",        # Não trava o script se o worker estiver offline
+                    "-o", "StrictHostKeyChecking=no",
+                    "-o", "ConnectTimeout=10",
                     f"root@{node}",
                     "cd /opt/arenalake-prod && python3 helpers/build_worker_agent.py"
                 ]
@@ -164,6 +232,7 @@ def rebuild_remote_agents():
     except Exception as e:
         print(f"[ERROR] Falha na orquestração dos agentes remotos: {e}")
     
+
 def cleanup_docker():
     """Remove stopped containers, dangling images, and build cache to free up disk space."""
     print("[*] Cleaning up old Docker images and build cache...")
@@ -172,7 +241,6 @@ def cleanup_docker():
 
 def deploy_stack():
     """Deploy the rebuilt images and external services through Swarm."""
-    
     if os.path.isfile(".env"):
         with open(".env", "r") as f:
             for line in f:
@@ -226,10 +294,12 @@ def main():
     print("=" * 60)
 
     check_swarm()
+    cleanup_orphaned_workspaces()
     remove_stack()
     restart_docker()
     check_swarm()
     rebuild_images()
+    distribute_workspace_image()
     rebuild_remote_agents()
     cleanup_docker()
     deploy_stack()
