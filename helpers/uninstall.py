@@ -90,6 +90,50 @@ def clean_configs():
     else:
         print("[-] .env file not found. Skipping.")
 
+def cleanup_nfs():
+    """Remove partilhas do Master e desmonta/limpa pontos de montagem dos Workers."""
+    print("\n============================================================")
+    print(" STEP 4: DISTRIBUTED STORAGE CLEANUP (NFS)")
+    print("============================================================")
+    
+    # 1. Limpeza no lado do Master (/etc/exports)
+    if os.path.exists("/etc/exports"):
+        try:
+            with open("/etc/exports", "r") as f:
+                lines = f.readlines()
+            
+            with open("/etc/exports", "w") as f:
+                for line in lines:
+                    # Remove a linha se for a partilha gerada pelo nosso script
+                    if "100.64.0.0/10" not in line and "arenalake" not in line.lower():
+                        f.write(line)
+                        
+            subprocess.run(["exportfs", "-a"], check=False, stderr=subprocess.DEVNULL)
+            print("[+] Master NFS exports cleaned (/etc/exports).")
+        except Exception as e:
+            print(f"[-] Failed to clean /etc/exports: {e}")
+
+    # 2. Limpeza no lado do Worker (/etc/fstab)
+    if os.path.exists("/etc/fstab"):
+        try:
+            with open("/etc/fstab", "r") as f:
+                lines = f.readlines()
+            
+            cleaned_lines = []
+            for line in lines:
+                # Identifica se é uma montagem NFS do ArenaLake via Tailscale
+                if "nfs" in line and ("100." in line or "arenalake" in line.lower()):
+                    mount_point = line.split()[1]
+                    print(f"[*] Force unmounting {mount_point}...")
+                    subprocess.run(["umount", "-f", mount_point], check=False, stderr=subprocess.DEVNULL)
+                    continue # Pula a escrita desta linha no novo fstab
+                cleaned_lines.append(line)
+                
+            with open("/etc/fstab", "w") as f:
+                f.writelines(cleaned_lines)
+            print("[+] Worker NFS mounts cleaned (/etc/fstab).")
+        except Exception as e:
+            print(f"[-] Failed to clean /etc/fstab: {e}")
 
 def handle_data_volume():
     """Optionally remove the physical DataLake storage directory."""
@@ -163,6 +207,7 @@ def main():
     remove_docker_stack()
     leave_swarm()
     clean_configs()
+    cleanup_nfs()
     handle_data_volume()
     handle_tailscale()
 

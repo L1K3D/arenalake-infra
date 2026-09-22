@@ -112,22 +112,40 @@ def test_connection(ip):
     result = subprocess.run(["ping", "-c", "2", "-W", "2", ip], capture_output=True)
     return result.returncode == 0
 
+def mount_nfs_datalake(master_ip):
+    """Instala o cliente NFS e monta o HD do Master via VPN do Tailscale."""
+    print("\n============================================================")
+    print(" STEP 3: DISTRIBUTED STORAGE (NFS)")
+    print("============================================================")
+    print("[*] This worker needs to mount the Master's storage disk to sync data.")
+    
+    datalake_path = ""
+    while not datalake_path.startswith("/"):
+        datalake_path = input("What is the absolute DataLake path configured on the Master? (e.g., /mnt/hd/arenalake): ").strip()
 
-def provision_storage():
-    """Mirror the essential folders required by the worker container runtime."""
-    current_project_dir = PROJECT_ROOT
-    datalake_path = os.path.join(current_project_dir, "datalake_data")
-
-    print(f"[*] Mirroring the worker's essential directories ({datalake_path})...")
-    os.makedirs(datalake_path, exist_ok=True)
-    os.chmod(datalake_path, 0o755)
-
-    subfolders = ["minio_data", "spark_jobs", "projects_data", "database"]
-    for folder in subfolders:
-        folder_path = os.path.join(datalake_path, folder)
-        os.makedirs(folder_path, exist_ok=True)
-        os.chmod(folder_path, 0o777)
-        print(f"[+] Mirrored subfolder: {folder}")
+    print(f"[*] Installing NFS Client and mounting {master_ip}:{datalake_path}...")
+    try:
+        subprocess.run(["apt-get", "update"], stdout=subprocess.DEVNULL)
+        subprocess.run(["apt-get", "install", "-y", "nfs-common"], check=True, stdout=subprocess.DEVNULL)
+        
+        # Cria a mesma estrutura de pastas localmente
+        os.makedirs(datalake_path, exist_ok=True)
+        
+        # Monta a partilha na rede
+        subprocess.run(["mount", "-t", "nfs", f"{master_ip}:{datalake_path}", datalake_path], check=True)
+        
+        # Adiciona ao fstab para montar automaticamente caso o Worker seja reiniciado
+        fstab_entry = f"{master_ip}:{datalake_path} {datalake_path} nfs defaults 0 0\n"
+        with open("/etc/fstab", "r") as f:
+            fstab = f.read()
+        if f"{master_ip}:{datalake_path}" not in fstab:
+            with open("/etc/fstab", "a") as f:
+                f.write(fstab_entry)
+                
+        print(f"[+] Distributed storage mounted successfully at {datalake_path}!")
+    except Exception as e:
+        print(f"[ERROR] Failed to mount NFS storage. Check if the Master is online: {e}")
+        sys.exit(1)
         
 def build_local_agent():
     """Build the telemetry agent image locally so Swarm can deploy it on this node."""
@@ -248,6 +266,8 @@ def main():
     try:
         join_cmd = ["docker", "swarm", "join", "--token", token, f"{master_ip}:2377"]
         subprocess.run(join_cmd, check=True, stdout=subprocess.DEVNULL)
+
+        mount_nfs_datalake(master_ip)
 
         print("\n" + "=" * 60)
         print("  Worker successfully joined the cluster! 🚀")

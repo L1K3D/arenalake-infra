@@ -159,76 +159,53 @@ def rebuild_images():
     )
     print("[+] Local images rebuilt successfully.")
 
-
-def distribute_workspace_image():
-    """Distribute the newly built workspace image to all Swarm workers via Tailscale."""
-    print("\n[*] Distributing workspace image to Swarm worker nodes...")
+def get_active_worker_nodes():
+    """Verifica dinamicamente o Swarm em busca de nós do tipo Worker que estejam ativos."""
     try:
         result = subprocess.run(
-            ["docker", "node", "ls", "--format", "{{.Hostname}}"],
+            ["docker", "node", "ls", "-f", "role=worker", "--format", "{{.Hostname}} {{.Status}}"],
             capture_output=True, text=True, check=True
         )
-        nodes = result.stdout.splitlines()
-        local_hostname = socket.gethostname()
+        nodes = []
+        for line in result.stdout.splitlines():
+            parts = line.split()
+            if len(parts) >= 2 and parts[1] == "Ready":
+                nodes.append(parts[0])
+        return nodes
+    except Exception:
+        return []
 
-        for node in nodes:
-            if node != local_hostname and node != "arenalakeserver":
-                print(f"[*] Sending image to Worker ({node})... This may take a minute.")
-                
-                # Executa o pipe do Docker Save pro SSH de forma nativa e segura em Python
-                save_proc = subprocess.Popen(
-                    ["docker", "save", "arenalake-workspace:latest"],
-                    stdout=subprocess.PIPE
-                )
+def distribute_images():
+    """Distribui as imagens compiladas apenas se existirem Workers ativos no cluster."""
+    workers = get_active_worker_nodes()
+    
+    if not workers:
+        print("\n[*] Nenhum Worker ativo detectado no cluster (Single-Node). Pulando distribuição de imagens.")
+        return
+
+    images_to_distribute = ["arenalake-workspace:latest", "arenalake-telemetry:latest"]
+    print(f"\n[*] Distribuindo imagens para {len(workers)} worker(s) ativo(s)...")
+    
+    for node in workers:
+        for image in images_to_distribute:
+            print(f"[*] Enviando {image} para o Worker ({node})...")
+            try:
+                save_proc = subprocess.Popen(["docker", "save", image], stdout=subprocess.PIPE)
                 ssh_proc = subprocess.Popen(
-                    ["ssh", "-o", "StrictHostKeyChecking=no", f"root@{node}", "docker load"],
+                    ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10", f"root@{node}", "docker load"],
                     stdin=save_proc.stdout,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE
                 )
-                
                 save_proc.stdout.close()
                 stdout, stderr = ssh_proc.communicate()
 
                 if ssh_proc.returncode == 0:
-                    print(f"[+] Image loaded successfully on {node}.")
+                    print(f"[+] {image} carregada com sucesso em {node}.")
                 else:
-                    print(f"[!] Warning: Failed to send image to {node}: {stderr.decode().strip()}")
-    except Exception as e:
-        print(f"[ERROR] Failed to distribute workspace image: {e}")
-
-
-def rebuild_remote_agents():
-    """Connect to Swarm worker nodes via Tailscale SSH to rebuild the agent image."""
-    print("\n[*] Updating Telemetry Agents across all Swarm nodes via Tailscale SSH...")
-    try:
-        result = subprocess.run(
-            ["docker", "node", "ls", "--format", "{{.Hostname}}"],
-            capture_output=True, text=True, check=True
-        )
-        nodes = result.stdout.splitlines()
-        local_hostname = socket.gethostname()
-
-        for node in nodes:
-            if node == local_hostname or node == "arenalakeserver":
-                print(f"[*] Construindo agente localmente no Manager ({node})...")
-                run_command(["python3", "helpers/build_worker_agent.py"])
-            else:
-                print(f"[*] Acessando Worker ({node}) via SSH para construir o agente...")
-                ssh_command = [
-                    "ssh",
-                    "-o", "StrictHostKeyChecking=no",
-                    "-o", "ConnectTimeout=10",
-                    f"root@{node}",
-                    "cd /opt/arenalake-prod && python3 helpers/build_worker_agent.py"
-                ]
-                try:
-                    run_command(ssh_command)
-                except subprocess.CalledProcessError:
-                    print(f"[!] AVISO: Falha ao compilar no nó {node}. Ele pode estar offline ou bloqueando o SSH.")
-                    
-    except Exception as e:
-        print(f"[ERROR] Falha na orquestração dos agentes remotos: {e}")
+                    print(f"[!] Aviso: Falha ao enviar {image} para {node}: {stderr.decode().strip()}")
+            except Exception as e:
+                print(f"[ERROR] Falha na distribuição da imagem {image}: {e}")
     
 
 def cleanup_docker():
@@ -297,8 +274,7 @@ def main():
     restart_docker()
     check_swarm()
     rebuild_images()
-    distribute_workspace_image()
-    rebuild_remote_agents()
+    distribute_images()
     cleanup_docker()
     deploy_stack()
 
