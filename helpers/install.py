@@ -181,6 +181,93 @@ def check_telemetry_folder():
         print("[ERROR] The 'telemetry-agent' directory was not found.")
         print("Ensure the full repository is downloaded.")
         sys.exit(1)
+        
+def configure_storage():
+    """Lista os discos disponíveis, permite a escolha e define uma quota."""
+    print("\n============================================================")
+    print(" STEP 1.5: STORAGE CONFIGURATION")
+    print("============================================================")
+    print("[*] Mapping available storage devices...")
+
+    # Usa o comando 'df' do Linux para listar partições reais
+    result = subprocess.run(["df", "-h", "--output=target,avail,pcent"], capture_output=True, text=True)
+    lines = result.stdout.strip().split("\n")[1:]
+    mounts = []
+    for line in lines:
+        parts = line.split()
+        if len(parts) >= 3 and not parts[0].startswith(('/run', '/sys', '/dev', '/proc', '/snap', '/boot')):
+            mounts.append({"path": parts[0], "free": parts[1], "pcent": parts[2]})
+
+    print("\nAvailable Partitions:")
+    for i, m in enumerate(mounts):
+        print(f" [{i+1}] {m['path']} (Free: {m['free']} / Used: {m['pcent']})")
+    print(f" [{len(mounts)+1}] Type a custom absolute path...")
+
+    choice = 0
+    while True:
+        try:
+            choice = int(input(f"\nSelect a storage location [1-{len(mounts)+1}]: ").strip())
+            if 1 <= choice <= len(mounts) + 1:
+                break
+        except ValueError:
+            pass
+        print(f"{YELLOW}[ERROR]{RESET} Invalid choice.")
+
+    if choice <= len(mounts):
+        base_path = mounts[choice-1]["path"]
+        datalake_path = os.path.join(base_path, "arenalake_data")
+    else:
+        datalake_path = input("Enter the absolute path (e.g., /mnt/dados/arenalake): ").strip()
+
+    # Validação da Quota (Mínimo 5GB)
+    quota_gb = 0
+    while quota_gb < 5:
+        try:
+            quota_gb = int(input("How many GBs do you want to allocate? (Minimum 5): ").strip())
+            if quota_gb < 5:
+                print(f"{YELLOW}[ERROR]{RESET} You must allocate at least 5GB.")
+        except ValueError:
+            print(f"{YELLOW}[ERROR]{RESET} Please enter a valid number.")
+
+    # Valida se o disco realmente tem esse espaço
+    os.makedirs(datalake_path, exist_ok=True)
+    total, used, free = shutil.disk_usage(datalake_path)
+    free_gb = free / (1024**3)
+    
+    if free_gb < quota_gb:
+        print(f"\n{YELLOW}[WARNING]{RESET} The selected disk only has {free_gb:.1f}GB free, but you requested {quota_gb}GB.")
+        resp = input("Do you want to continue anyway? (Y/N) [Default: N]: ").strip().lower()
+        if resp != 'y':
+            print("[*] Please free up some space or choose another disk and run the script again.")
+            sys.exit(1)
+
+    print(f"\n[+] Storage securely configured at: {datalake_path} (Quota: {quota_gb}GB)")
+    return datalake_path, quota_gb
+
+def setup_nfs_server(datalake_path):
+    """Instala o servidor NFS e exporta o DataLake exclusivamente para a rede Tailscale."""
+    print("\n[*] Configuring NFS Server for distributed storage...")
+    try:
+        subprocess.run(["apt-get", "update"], stdout=subprocess.DEVNULL)
+        subprocess.run(["apt-get", "install", "-y", "nfs-kernel-server"], check=True, stdout=subprocess.DEVNULL)
+        
+        # Exporta a pasta apenas para a sub-rede do Tailscale (100.x.x.x), 
+        # garantindo que ninguém fora da VPN aceda aos dados.
+        export_line = f"{datalake_path} 100.64.0.0/10(rw,sync,no_subtree_check,no_root_squash)\n"
+        
+        with open("/etc/exports", "r") as f:
+            exports = f.read()
+            
+        if datalake_path not in exports:
+            with open("/etc/exports", "a") as f:
+                f.write(export_line)
+        
+        subprocess.run(["exportfs", "-a"], check=True)
+        subprocess.run(["systemctl", "restart", "nfs-kernel-server"], check=True)
+        print("[+] NFS Server configured. DataLake is now securely shared over the VPN!")
+    except Exception as e:
+        print(f"[ERROR] Failed to configure NFS Server: {e}")
+        sys.exit(1)
 
 def main():
     check_root()
@@ -280,8 +367,7 @@ def main():
     print("============================================================")
 
     # Dynamic local directory plus all mandatory subfolders needed by the platform.
-    current_project_dir = PROJECT_ROOT
-    datalake_path = os.path.join(current_project_dir, "datalake_data")
+    datalake_path, datalake_quota = configure_storage()
 
     print(f"[*] Provisioning storage directories in {datalake_path}...")
     os.makedirs(datalake_path, exist_ok=True)
@@ -293,12 +379,15 @@ def main():
         os.makedirs(folder_path, exist_ok=True)
         os.chmod(folder_path, 0o777)
         print(f"[+] Subfolder configured: {folder}")
+        
+    setup_nfs_server(datalake_path)
 
     print("[*] Generating the environment file (.env)...")
     env_content = f"""# --- DataLake Configurations ---
 MINIO_ACCESS_KEY={minio_user}
 MINIO_SECRET_KEY={minio_pass}
 DATALAKE_STORAGE_PATH={datalake_path}
+DATALAKE_QUOTA_GB={datalake_quota}
 
 # --- Core Security & Database ---
 DATABASE_URL=sqlite:////mnt/datalake/prod/database/arenalake_{safe_company_name}_core.db
