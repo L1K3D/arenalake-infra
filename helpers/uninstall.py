@@ -143,32 +143,22 @@ def handle_data_volume():
 
     # This path matches the dynamic storage layout used by the current architecture.
     current_project_dir = PROJECT_ROOT
-    datalake_path = os.path.join(current_project_dir, "datalake_data")
+    datalake_path = os.path.join(PROJECT_ROOT, "datalake_data")
 
     if os.path.exists(datalake_path):
-        print(f"We detected the physical storage folder at: {datalake_path}")
-        print("This folder contains database files, MinIO data, workspace content, and jobs.")
-        print(
-            "\n⚠️  If you delete it, ALL COMPANY DATA WILL BE LOST FOREVER."
-        )
-
-        resp = (
-            input(
-                "Do you want to permanently DELETE the physical DataLake data? (Y/N) [Default: N]: "
-            )
-            .strip()
-            .lower()
-        )
+        # Encontra onde os dados estão guardados de verdade
+        real_path = os.path.realpath(datalake_path)
+        print(f"We detected the storage folder at: {datalake_path} (Physical: {real_path})")
+        
+        resp = input("Do you want to permanently DELETE the physical DataLake data? (Y/N) [Default: N]: ").strip().lower()
         if resp == "y":
-            print(f"[*] Deleting {datalake_path}...")
-            shutil.rmtree(datalake_path)
+            print(f"[*] Deleting data...")
+            shutil.rmtree(real_path) # Apaga os dados reais
+            if os.path.islink(datalake_path):
+                os.remove(datalake_path) # Apaga o atalho
             print("[+] Data deleted successfully. There is no undo.")
         else:
-            print(
-                "[*] Physical data kept. The system was removed, but the data remains on disk."
-            )
-    else:
-        print(f"[-] Directory {datalake_path} not found. Skipping.")
+            print("[*] Physical data kept.")
 
 
 def handle_tailscale():

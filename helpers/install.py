@@ -183,13 +183,22 @@ def check_telemetry_folder():
         sys.exit(1)
         
 def configure_storage():
-    """Lista os discos disponíveis, permite a escolha e define uma quota."""
+    """Lista discos e cria o DataLake na raiz do projeto (nativamente ou via Symlink)."""
     print("\n============================================================")
     print(" STEP 1.5: STORAGE CONFIGURATION")
     print("============================================================")
     print("[*] Mapping available storage devices...")
 
-    # Usa o comando 'df' do Linux para listar partições reais
+    # Caminho ideal para o usuário (sempre dentro do projeto)
+    project_datalake = os.path.join(PROJECT_ROOT, "datalake_data")
+
+    # Limpa atalhos antigos se existirem de instalações passadas
+    if os.path.exists(project_datalake) or os.path.islink(project_datalake):
+        if os.path.islink(project_datalake) or os.path.isfile(project_datalake):
+            os.remove(project_datalake)
+        else:
+            shutil.rmtree(project_datalake)
+
     result = subprocess.run(["df", "-h", "--output=target,avail,pcent"], capture_output=True, text=True)
     lines = result.stdout.strip().split("\n")[1:]
     mounts = []
@@ -201,25 +210,19 @@ def configure_storage():
     print("\nAvailable Partitions:")
     for i, m in enumerate(mounts):
         print(f" [{i+1}] {m['path']} (Free: {m['free']} / Used: {m['pcent']})")
-    print(f" [{len(mounts)+1}] Type a custom absolute path...")
 
     choice = 0
     while True:
         try:
-            choice = int(input(f"\nSelect a storage location [1-{len(mounts)+1}]: ").strip())
-            if 1 <= choice <= len(mounts) + 1:
+            choice = int(input(f"\nSelect a storage location [1-{len(mounts)}]: ").strip())
+            if 1 <= choice <= len(mounts):
                 break
         except ValueError:
             pass
         print(f"{YELLOW}[ERROR]{RESET} Invalid choice.")
 
-    if choice <= len(mounts):
-        base_path = mounts[choice-1]["path"]
-        datalake_path = os.path.join(base_path, "arenalake_data")
-    else:
-        datalake_path = input("Enter the absolute path (e.g., /mnt/dados/arenalake): ").strip()
-
-    # Validação da Quota (Mínimo 5GB)
+    base_path = mounts[choice-1]["path"]
+    
     quota_gb = 0
     while quota_gb < 5:
         try:
@@ -229,42 +232,44 @@ def configure_storage():
         except ValueError:
             print(f"{YELLOW}[ERROR]{RESET} Please enter a valid number.")
 
-    # Valida se o disco realmente tem esse espaço
-    os.makedirs(datalake_path, exist_ok=True)
-    total, used, free = shutil.disk_usage(datalake_path)
-    free_gb = free / (1024**3)
-    
-    if free_gb < quota_gb:
-        print(f"\n{YELLOW}[WARNING]{RESET} The selected disk only has {free_gb:.1f}GB free, but you requested {quota_gb}GB.")
-        resp = input("Do you want to continue anyway? (Y/N) [Default: N]: ").strip().lower()
-        if resp != 'y':
-            print("[*] Please free up some space or choose another disk and run the script again.")
-            sys.exit(1)
+    # Verifica onde a pasta do projeto está fisicamente
+    project_partition = subprocess.run(["df", "--output=target", PROJECT_ROOT], capture_output=True, text=True).stdout.strip().split("\n")[-1]
 
-    print(f"\n[+] Storage securely configured at: {datalake_path} (Quota: {quota_gb}GB)")
-    return datalake_path, quota_gb
+    if base_path == project_partition:
+        # O disco escolhido é o mesmo do projeto. Cria a pasta diretamente.
+        os.makedirs(project_datalake, exist_ok=True)
+    else:
+        # O disco escolhido é outro HD. Cria lá e faz o atalho (symlink) no projeto.
+        physical_path = os.path.join(base_path, "arenalake_data")
+        os.makedirs(physical_path, exist_ok=True)
+        os.symlink(physical_path, project_datalake)
 
+    print(f"\n[+] Storage configured successfully! Access it at: {project_datalake} (Quota: {quota_gb}GB)")
+    return project_datalake, quota_gb
+        
 def setup_nfs_server(datalake_path):
-    """Instala o servidor NFS e exporta o DataLake exclusivamente para a rede Tailscale."""
+    """Instala o servidor NFS e exporta o DataLake físico para a VPN."""
     print("\n[*] Configuring NFS Server for distributed storage...")
     try:
         subprocess.run(["apt-get", "update"], stdout=subprocess.DEVNULL)
         subprocess.run(["apt-get", "install", "-y", "nfs-kernel-server"], check=True, stdout=subprocess.DEVNULL)
         
-        # Exporta a pasta apenas para a sub-rede do Tailscale (100.x.x.x), 
-        # garantindo que ninguém fora da VPN aceda aos dados.
-        export_line = f"{datalake_path} 100.64.0.0/10(rw,sync,no_subtree_check,no_root_squash)\n"
+        # Descobre o caminho físico real (resolve o atalho, se existir)
+        real_physical_path = os.path.realpath(datalake_path)
+        
+        export_line = f"{real_physical_path} 100.64.0.0/10(rw,sync,no_subtree_check,no_root_squash)\n"
         
         with open("/etc/exports", "r") as f:
             exports = f.read()
             
-        if datalake_path not in exports:
+        if real_physical_path not in exports:
             with open("/etc/exports", "a") as f:
                 f.write(export_line)
         
         subprocess.run(["exportfs", "-a"], check=True)
         subprocess.run(["systemctl", "restart", "nfs-kernel-server"], check=True)
         print("[+] NFS Server configured. DataLake is now securely shared over the VPN!")
+        print(f"{CYAN} 💡 TIP FOR WORKERS:{RESET} When asked for the absolute path on workers, use: {real_physical_path}")
     except Exception as e:
         print(f"[ERROR] Failed to configure NFS Server: {e}")
         sys.exit(1)
