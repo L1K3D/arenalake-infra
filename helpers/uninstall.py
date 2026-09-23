@@ -142,7 +142,6 @@ def handle_data_volume():
     print("============================================================")
 
     # This path matches the dynamic storage layout used by the current architecture.
-    current_project_dir = PROJECT_ROOT
     datalake_path = os.path.join(PROJECT_ROOT, "datalake_data")
 
     if os.path.exists(datalake_path):
@@ -152,19 +151,28 @@ def handle_data_volume():
         
         resp = input("Do you want to permanently DELETE the physical DataLake data? (Y/N) [Default: N]: ").strip().lower()
         if resp == "y":
-            print(f"[*] Deleting data...")
-            shutil.rmtree(real_path) # Apaga os dados reais
-            if os.path.islink(datalake_path):
-                os.remove(datalake_path) # Apaga o atalho
-
+            print(f"[*] Unmounting and deleting data...")
+            
+            # 1. PRIMEIRO: Forçar a desmontagem para libertar o recurso no Kernel
             try:
                 subprocess.run(["umount", "-f", datalake_path], stderr=subprocess.DEVNULL)
+                subprocess.run(["umount", "-f", real_path], stderr=subprocess.DEVNULL)
+                # Tenta remover resquícios do serviço do GlusterFS se ainda existirem
                 subprocess.run(["gluster", "volume", "stop", "datalake", "force"], stderr=subprocess.DEVNULL)
                 subprocess.run(["gluster", "volume", "delete", "datalake"], stderr=subprocess.DEVNULL)
                 shutil.rmtree("/var/lib/glusterd/vols/datalake", ignore_errors=True)
-                print("[+] GlusterFS cluster state and volumes cleaned successfully.")
-            except Exception as e:
-                print(f"[-] GlusterFS cleanup notice: {e}")
+            except Exception:
+                pass
+                
+            # 2. SEGUNDO: Apagar fisicamente os dados agora que o disco está solto
+            shutil.rmtree(real_path, ignore_errors=True)
+            
+            # 3. Remover o atalho (symlink) se existir
+            if os.path.islink(datalake_path):
+                try:
+                    os.remove(datalake_path)
+                except OSError:
+                    pass
             
             print("[+] Data deleted successfully. There is no undo.")
         else:
