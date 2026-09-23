@@ -386,14 +386,15 @@ def main():
     os.makedirs(datalake_path, exist_ok=True)
     os.chmod(datalake_path, 0o755)
 
+    setup_glusterfs_master(datalake_path)
+
+    # 2. Depois cria as subpastas dentro do volume de rede já montado
     subfolders = ["minio_data", "spark_jobs", "projects_data", "database"]
     for folder in subfolders:
         folder_path = os.path.join(datalake_path, folder)
         os.makedirs(folder_path, exist_ok=True)
         os.chmod(folder_path, 0o777)
         print(f"[+] Subfolder configured: {folder}")
-        
-    setup_glusterfs_master(datalake_path)
 
     print("[*] Generating the environment file (.env)...")
     env_content = f"""# --- DataLake Configurations ---
