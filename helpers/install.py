@@ -251,18 +251,28 @@ def configure_storage():
     return project_datalake, quota_gb
   
 def setup_glusterfs_master(datalake_path):
-    """Instala o GlusterFS e cria o Volume Distribuído Original."""
+    """Instala o GlusterFS, limpa vestígios anteriores e cria o Volume Distribuído."""
     print("\n[*] Configuring GlusterFS Distributed Storage (State of the Art)...")
     try:
         subprocess.run(["apt-get", "update"], stdout=subprocess.DEVNULL)
         subprocess.run(["apt-get", "install", "-y", "glusterfs-server"], check=True, stdout=subprocess.DEVNULL)
         subprocess.run(["systemctl", "enable", "--now", "glusterd"], check=True)
         
+        # BLINDAGEM: Para e remove qualquer volume ou montagem anterior remanescente
+        subprocess.run(["umount", "-f", datalake_path], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        subprocess.run(["gluster", "volume", "stop", "datalake", "force"], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        subprocess.run(["gluster", "volume", "delete", "datalake"], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        shutil.rmtree("/var/lib/glusterd/vols/datalake", ignore_errors=True)
+        
         master_ip = subprocess.run(["tailscale", "ip", "-4"], capture_output=True, text=True).stdout.strip()
         
         # Cria o "Tijolo" (Brick) físico oculto ao lado da pasta escolhida
         real_physical_path = os.path.realpath(datalake_path)
         brick_path = f"{real_physical_path}_brick"
+        
+        if os.path.exists(brick_path):
+            shutil.rmtree(brick_path, ignore_errors=True)
+            
         os.makedirs(brick_path, exist_ok=True)
         os.makedirs(datalake_path, exist_ok=True)
         
@@ -270,18 +280,24 @@ def setup_glusterfs_master(datalake_path):
         subprocess.run(["gluster", "volume", "create", "datalake", f"{master_ip}:{brick_path}", "force"], check=True, stdout=subprocess.DEVNULL)
         subprocess.run(["gluster", "volume", "start", "datalake"], check=True, stdout=subprocess.DEVNULL)
         
-        # Monta o volume mágico de rede na pasta do projeto
+        # Monta o volume de rede na pasta do projeto
         subprocess.run(["mount", "-t", "glusterfs", "localhost:/datalake", datalake_path], check=True)
         
-        with open("/etc/fstab", "a") as f:
+        # Limpa entrada duplicada no fstab se existir, depois adiciona
+        with open("/etc/fstab", "r") as f:
+            fstab_lines = f.readlines()
+        with open("/etc/fstab", "w") as f:
+            for line in fstab_lines:
+                if "localhost:/datalake" not in line:
+                    f.write(line)
             f.write(f"localhost:/datalake {datalake_path} glusterfs defaults,_netdev 0 0\n")
             
         print("[+] GlusterFS Master Volume created! Ready for HA Replication.")
         print(f"{CYAN} 💡 TIP FOR WORKERS:{RESET} When asked for the physical path, type: {real_physical_path}")
     except Exception as e:
         print(f"[ERROR] Failed to configure GlusterFS: {e}")
-        sys.exit(1) 
-
+        sys.exit(1)  
+  
 def main():
     check_root()
     check_compose_file()
