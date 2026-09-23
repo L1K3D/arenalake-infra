@@ -192,12 +192,15 @@ def configure_storage():
     # Caminho ideal para o usuário (sempre dentro do projeto)
     project_datalake = os.path.join(PROJECT_ROOT, "datalake_data")
 
-    # Limpa atalhos antigos se existirem de instalações passadas
+    # TRATAMENTO ROBUSTO: Remove qualquer arquivo, pasta ou link residual anterior
     if os.path.exists(project_datalake) or os.path.islink(project_datalake):
-        if os.path.islink(project_datalake) or os.path.isfile(project_datalake):
-            os.remove(project_datalake)
-        else:
-            shutil.rmtree(project_datalake)
+        try:
+            if os.path.islink(project_datalake) or os.path.isfile(project_datalake):
+                os.remove(project_datalake)
+            else:
+                shutil.rmtree(project_datalake)
+        except Exception as e:
+            print(f"[WARNING] Could not clean old path: {e}")
 
     result = subprocess.run(["df", "-h", "--output=target,avail,pcent"], capture_output=True, text=True)
     lines = result.stdout.strip().split("\n")[1:]
