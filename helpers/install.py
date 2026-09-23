@@ -247,32 +247,37 @@ def configure_storage():
     print(f"\n[+] Storage configured successfully! Access it at: {project_datalake} (Quota: {quota_gb}GB)")
     return project_datalake, quota_gb
         
-def setup_nfs_server(datalake_path):
-    """Instala o servidor NFS e exporta o DataLake físico para a VPN."""
-    print("\n[*] Configuring NFS Server for distributed storage...")
+def setup_glusterfs_master(datalake_path):
+    """Instala o GlusterFS e cria o Volume Distribuído Original."""
+    print("\n[*] Configuring GlusterFS Distributed Storage (State of the Art)...")
     try:
         subprocess.run(["apt-get", "update"], stdout=subprocess.DEVNULL)
-        subprocess.run(["apt-get", "install", "-y", "nfs-kernel-server"], check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(["apt-get", "install", "-y", "glusterfs-server"], check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(["systemctl", "enable", "--now", "glusterd"], check=True)
         
-        # Descobre o caminho físico real (resolve o atalho, se existir)
+        master_ip = subprocess.run(["tailscale", "ip", "-4"], capture_output=True, text=True).stdout.strip()
+        
+        # Cria o "Tijolo" (Brick) físico oculto ao lado da pasta escolhida
         real_physical_path = os.path.realpath(datalake_path)
+        brick_path = f"{real_physical_path}_brick"
+        os.makedirs(brick_path, exist_ok=True)
+        os.makedirs(datalake_path, exist_ok=True)
         
-        export_line = f"{real_physical_path} 100.64.0.0/10(rw,sync,no_subtree_check,no_root_squash)\n"
+        # Força a criação do volume no Master e inicia
+        subprocess.run(["gluster", "volume", "create", "datalake", f"{master_ip}:{brick_path}", "force"], check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(["gluster", "volume", "start", "datalake"], check=True, stdout=subprocess.DEVNULL)
         
-        with open("/etc/exports", "r") as f:
-            exports = f.read()
+        # Monta o volume mágico de rede na pasta do projeto
+        subprocess.run(["mount", "-t", "glusterfs", "localhost:/datalake", datalake_path], check=True)
+        
+        with open("/etc/fstab", "a") as f:
+            f.write(f"localhost:/datalake {datalake_path} glusterfs defaults,_netdev 0 0\n")
             
-        if real_physical_path not in exports:
-            with open("/etc/exports", "a") as f:
-                f.write(export_line)
-        
-        subprocess.run(["exportfs", "-a"], check=True)
-        subprocess.run(["systemctl", "restart", "nfs-kernel-server"], check=True)
-        print("[+] NFS Server configured. DataLake is now securely shared over the VPN!")
-        print(f"{CYAN} 💡 TIP FOR WORKERS:{RESET} When asked for the absolute path on workers, use: {real_physical_path}")
+        print("[+] GlusterFS Master Volume created! Ready for HA Replication.")
+        print(f"{CYAN} 💡 TIP FOR WORKERS:{RESET} When asked for the physical path, type: {real_physical_path}")
     except Exception as e:
-        print(f"[ERROR] Failed to configure NFS Server: {e}")
-        sys.exit(1)
+        print(f"[ERROR] Failed to configure GlusterFS: {e}")
+        sys.exit(1) 
 
 def main():
     check_root()
@@ -385,7 +390,7 @@ def main():
         os.chmod(folder_path, 0o777)
         print(f"[+] Subfolder configured: {folder}")
         
-    setup_nfs_server(datalake_path)
+    setup_glusterfs_master(datalake_path)
 
     print("[*] Generating the environment file (.env)...")
     env_content = f"""# --- DataLake Configurations ---
@@ -395,7 +400,7 @@ DATALAKE_STORAGE_PATH={datalake_path}
 DATALAKE_QUOTA_GB={datalake_quota}
 
 # --- Core Security & Database ---
-DATABASE_URL=sqlite:////mnt/datalake/prod/database/arenalake_{safe_company_name}_core.db
+DATABASE_URL=postgresql://${dba_user}:${dba_pass}@postgres:5432/arenalake_core
 JWT_SECRET_KEY={jwt_secret}
 DBA_USERNAME={dba_user}
 DBA_PASSWORD={dba_pass}

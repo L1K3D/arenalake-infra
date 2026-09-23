@@ -21,7 +21,6 @@ def install_dependencies():
     """Install Docker and Tailscale on the worker node if they are not present."""
     print("\n[*] Checking system dependencies (Ubuntu)...")
 
-    # Install Docker if it is missing from the base system.
     if shutil.which("docker") is None:
         print("\n[*] Docker not found. Installing... (This may take a few minutes)")
         try:
@@ -45,7 +44,6 @@ def install_dependencies():
         ).stdout.strip()
         print(f"[+] Docker OK! | {docker_v}")
 
-    # Install Tailscale if it is missing; the worker needs it to reach the cluster network.
     if shutil.which("tailscale") is None:
         print("\n[*] Tailscale not found. Installing...")
         try:
@@ -80,15 +78,9 @@ def check_swarm_status():
     if "Swarm: active" in info or "Swarm: pending" in info:
         print("\n" + "!" * 60)
         print(" WARNING: This machine is already part of an old Swarm cluster!")
-        print(
-            " To add it to ArenaLake, we need to force it to leave the current cluster."
-        )
+        print(" To add it to ArenaLake, we need to force it to leave the current cluster.")
         print("!" * 60)
-        resp = (
-            input("Do you want to leave the old cluster now? (Y/N) [Default: Y]: ")
-            .strip()
-            .lower()
-        )
+        resp = input("Do you want to leave the old cluster now? (Y/N) [Default: Y]: ").strip().lower()
         if resp != "n":
             print("[*] Cleaning old Swarm configuration...")
             subprocess.run(["docker", "swarm", "leave", "--force"], capture_output=True)
@@ -112,41 +104,58 @@ def test_connection(ip):
     result = subprocess.run(["ping", "-c", "2", "-W", "2", ip], capture_output=True)
     return result.returncode == 0
 
-def mount_nfs_datalake(master_ip):
-    """Instala o cliente NFS e monta o HD do Master via VPN do Tailscale."""
-    print("\n============================================================")
-    print(" STEP 3: DISTRIBUTED STORAGE (NFS)")
-    print("============================================================")
-    print("[*] This worker needs to mount the Master's storage disk to sync data.")
-    
-    datalake_path = ""
-    while not datalake_path.startswith("/"):
-        datalake_path = input("What is the absolute DataLake path configured on the Master? (e.g., /mnt/hd/arenalake): ").strip()
 
-    print(f"[*] Installing NFS Client and mounting {master_ip}:{datalake_path}...")
-    try:
-        subprocess.run(["apt-get", "update"], stdout=subprocess.DEVNULL)
-        subprocess.run(["apt-get", "install", "-y", "nfs-common"], check=True, stdout=subprocess.DEVNULL)
+def join_storage_cluster(master_ip, is_manager):
+    """Conecta ao GlusterFS. Workers apenas montam, Managers replicam fisicamente."""
+    print("\n============================================================")
+    print(" STEP 3: DISTRIBUTED STORAGE (GLUSTERFS)")
+    print("============================================================")
+    subprocess.run(["apt-get", "update"], stdout=subprocess.DEVNULL)
+    
+    datalake_path = os.path.join(PROJECT_ROOT, "datalake_data")
+    real_physical_path = ""
+    while not real_physical_path.startswith("/"):
+        real_physical_path = input("What is the absolute physical DataLake path configured on the Master? (e.g., /arenalake_data): ").strip()
         
-        # Cria a mesma estrutura de pastas localmente
-        os.makedirs(datalake_path, exist_ok=True)
-        
-        # Monta a partilha na rede
-        subprocess.run(["mount", "-t", "nfs", f"{master_ip}:{datalake_path}", datalake_path], check=True)
-        
-        # Adiciona ao fstab para montar automaticamente caso o Worker seja reiniciado
-        fstab_entry = f"{master_ip}:{datalake_path} {datalake_path} nfs defaults 0 0\n"
-        with open("/etc/fstab", "r") as f:
-            fstab = f.read()
-        if f"{master_ip}:{datalake_path}" not in fstab:
-            with open("/etc/fstab", "a") as f:
-                f.write(fstab_entry)
-                
-        print(f"[+] Distributed storage mounted successfully at {datalake_path}!")
-    except Exception as e:
-        print(f"[ERROR] Failed to mount NFS storage. Check if the Master is online: {e}")
-        sys.exit(1)
-        
+    os.makedirs(datalake_path, exist_ok=True)
+
+    if not is_manager:
+        print("[*] Worker Node: Installing GlusterFS Client...")
+        subprocess.run(["apt-get", "install", "-y", "glusterfs-client"], check=True, stdout=subprocess.DEVNULL)
+        print(f"[*] Mounting DataLake as a Compute Client...")
+        subprocess.run(["mount", "-t", "glusterfs", f"{master_ip}:/datalake", datalake_path], check=True)
+        fstab_entry = f"{master_ip}:/datalake {datalake_path} glusterfs defaults,_netdev 0 0\n"
+    else:
+        print("[*] Manager Node: Installing GlusterFS Server & Replicating Data...")
+        subprocess.run(["apt-get", "install", "-y", "glusterfs-server"], check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(["systemctl", "enable", "--now", "glusterd"], check=True)
+
+        worker_ip = subprocess.run(["tailscale", "ip", "-4"], capture_output=True, text=True).stdout.strip()
+        brick_path = f"{real_physical_path}_brick"
+        os.makedirs(brick_path, exist_ok=True)
+
+        print(f"[*] Peering with Master ({master_ip})...")
+        subprocess.run(["gluster", "peer", "probe", master_ip], check=True)
+        time.sleep(5) # Aguarda o handshake da VPN
+
+        # Calcula quantas réplicas já existem e adiciona este nó
+        info = subprocess.run("gluster volume info datalake | grep -c '^Brick[0-9]*:'", shell=True, capture_output=True, text=True)
+        try:
+            new_replicas = int(info.stdout.strip()) + 1
+        except ValueError:
+            new_replicas = 2 # Fallback seguro
+
+        print(f"[*] Upgrading cluster resilience to Replica {new_replicas}...")
+        subprocess.run(["gluster", "volume", "add-brick", "datalake", "replica", str(new_replicas), f"{worker_ip}:{brick_path}", "force"], check=True, stdout=subprocess.DEVNULL)
+
+        subprocess.run(["mount", "-t", "glusterfs", "localhost:/datalake", datalake_path], check=True)
+        fstab_entry = f"localhost:/datalake {datalake_path} glusterfs defaults,_netdev 0 0\n"
+
+    with open("/etc/fstab", "a") as f:
+        f.write(fstab_entry)
+    print("[+] Storage Cluster configured successfully!")
+     
+
 def build_local_agent():
     """Build the telemetry agent image locally so Swarm can deploy it on this node."""
     print("\n[*] Building the Telemetry Agent image locally for this worker...")
@@ -168,6 +177,7 @@ def build_local_agent():
         print(f"\n[ERROR] Directory {agent_dir} not found.")
         print("Please ensure you cloned the full ArenaLake repository to this worker.")
         sys.exit(1)
+
 
 def build_local_workspace():
     """Build the workspace image locally so user services can run on this worker."""
@@ -191,23 +201,25 @@ def build_local_workspace():
                 PROJECT_ROOT,
             ],
             check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
         )
         print("[+] Workspace image built successfully!")
     except subprocess.CalledProcessError:
         print("\n[ERROR] Failed to build the Workspace image.")
         sys.exit(1)
 
+
 def main():
     check_root()
 
     print("=" * 60)
-    print("      ArenaLake - Worker Node Installer")
+    print("      ArenaLake - Worker Node Installer (HA Ready)")
     print("=" * 60)
     print("Welcome! We are adding this machine to your cluster.\n")
 
     install_dependencies()
     check_swarm_status()
-    provision_storage()
     build_local_workspace()
     build_local_agent()
 
@@ -232,13 +244,20 @@ def main():
         sys.exit(1)
 
     print("\n============================================================")
-    print(" STEP 2: CLUSTER CONNECTION (SWARM)")
+    print(" STEP 2: CLUSTER CONNECTION (SWARM HA)")
     print("============================================================")
+    print("[*] Docker Swarm supports High Availability (HA).")
+    print(" - [W]orker: Runs heavy compute workloads (Spark, Jupyter) but hosts no data.")
+    print(" - [M]anager: Holds a full REPLICA of the DataLake and takes over if Master dies.")
+    print("   (Note: To survive a Master failure, you need a total of 3 or 5 Managers in the cluster)")
+    
+    node_role = input("\nWill this node be a [W]orker or a [M]anager? [Default: W]: ").strip().lower()
+    is_manager = (node_role == 'm')
+    role_name = "manager" if is_manager else "worker"
 
-    print("Go to the terminal on your MASTER server and run the commands below")
+    print("\nGo to the terminal on your current MASTER server and run the commands below")
     print("to get the access credentials.\n")
 
-    # Capture the master IP first and validate the route before joining the cluster.
     master_ip = ""
     while not master_ip:
         print("On the MASTER, run: tailscale ip -4")
@@ -250,36 +269,33 @@ def main():
             if not test_connection(master_ip):
                 print(f"[ERROR] The IP {master_ip} is unreachable.")
                 print("Check whether the master is running and connected to Tailscale.")
-                master_ip = ""  # Force the user to enter a valid IP again
+                master_ip = ""
             else:
                 print("[+] VPN network route verified successfully!")
 
-    # Retrieve the worker join token from the master.
-    print("\nOn the MASTER, run: docker swarm join-token worker -q")
+    print(f"\nOn the MASTER, run: docker swarm join-token {role_name} -q")
     raw_token = ""
     while not raw_token:
         raw_token = input("Paste the generated token here: ").strip()
 
     token = extract_token(raw_token)
 
-    print("\n[*] Joining the ArenaLake cluster...")
+    print(f"\n[*] Joining the ArenaLake cluster as a {role_name.upper()}...")
     try:
         join_cmd = ["docker", "swarm", "join", "--token", token, f"{master_ip}:2377"]
         subprocess.run(join_cmd, check=True, stdout=subprocess.DEVNULL)
 
-        mount_nfs_datalake(master_ip)
+        # Chama a função correta que lida com o GlusterFS baseada no papel escolhido
+        join_storage_cluster(master_ip, is_manager)
 
         print("\n" + "=" * 60)
-        print("  Worker successfully joined the cluster! 🚀")
+        print(f"  Node successfully joined the HA cluster as a {role_name.upper()}! 🚀")
         print("  The master can now distribute workloads to this machine.")
         print("=" * 60)
 
     except subprocess.CalledProcessError:
         print("\n[ERROR] Failed to join the cluster.")
-        print(
-            "Port 2377 on the master may be blocked by the firewall. Open it and try again."
-        )
-
+        print("Port 2377 on the master may be blocked by the firewall. Open it and try again.")
 
 if __name__ == "__main__":
     main()
