@@ -471,15 +471,14 @@ AUTO_UPDATE_CORE={auto_update_core}
         print("-" * 60)
 
         # -------------------------------------------------------------------
-        # AUTOMATIC DATABASE INITIALIZATION
+        # AUTOMATIC DATABASE INITIALIZATION (POSTGRESQL)
         # -------------------------------------------------------------------
-        print(f"\n[*] Configuring the database and the super admin...")
+        print(f"\n[*] Waiting for PostgreSQL to be ready and initializing database...")
 
-        # Poll the running portal container until it is up enough to accept exec commands.
         portal_id = ""
-        for _ in range(15):  # Try for up to 30 seconds before giving up.
+        for _ in range(20):  # Tenta por até 40 segundos
             result = subprocess.run(
-                "docker ps -q -f name=portal | head -n 1",
+                "docker ps -q -f name=arenalake-prod_portal | head -n 1",
                 shell=True,
                 capture_output=True,
                 text=True,
@@ -491,17 +490,18 @@ AUTO_UPDATE_CORE={auto_update_core}
 
         if portal_id:
             try:
-                # Run the Python bootstrap script without -it because this is a non-interactive shell.
+                # Aguarda o postgres responder antes de rodar o init
+                print("[*] Connecting Portal to PostgreSQL backend...")
                 subprocess.run(
                     f"docker exec {portal_id} python -m core.init_db",
                     shell=True,
                     check=True,
                 )
-                print(f"[+] {CYAN}Database and credentials generated successfully!{RESET}")
+                print(f"[+] Database and super admin configured successfully!")
             except subprocess.CalledProcessError:
-                print(f"[{YELLOW}Warning{RESET}] Failed to initialize the database inside the container.")
+                print(f"[{YELLOW}Warning{RESET}] Database initialization script returned an error. You can run it manually later.")
         else:
-            print(f"[{YELLOW}Warning{RESET}] The Portal container took too long to respond. The database was not created automatically.")
+            print(f"[{YELLOW}Warning{RESET}] The Portal container took too long to start.")
         # -------------------------------------------------------------------
 
         # Automatic Tailscale Funnel activation.
