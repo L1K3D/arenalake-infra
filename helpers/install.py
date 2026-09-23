@@ -181,9 +181,9 @@ def check_telemetry_folder():
         print("[ERROR] The 'telemetry-agent' directory was not found.")
         print("Ensure the full repository is downloaded.")
         sys.exit(1)
-        
+
 def configure_storage():
-    """Lista discos e cria o DataLake na raiz do projeto (nativamente ou via Symlink)."""
+    """Lista discos e cria o DataLake na raiz do projeto de forma 100% blindada contra conflitos."""
     print("\n============================================================")
     print(" STEP 1.5: STORAGE CONFIGURATION")
     print("============================================================")
@@ -192,11 +192,11 @@ def configure_storage():
     # Caminho ideal para o usuário (sempre dentro do projeto)
     project_datalake = os.path.join(PROJECT_ROOT, "datalake_data")
 
-    # TRATAMENTO ROBUSTO: Remove qualquer arquivo, pasta ou link residual anterior
-    if os.path.exists(project_datalake) or os.path.islink(project_datalake):
+    # Limpeza agressiva e segura usando lexists/unlink (pega até links quebrados)
+    if os.path.lexists(project_datalake):
         try:
             if os.path.islink(project_datalake) or os.path.isfile(project_datalake):
-                os.remove(project_datalake)
+                os.unlink(project_datalake)
             else:
                 shutil.rmtree(project_datalake)
         except Exception as e:
@@ -235,28 +235,21 @@ def configure_storage():
         except ValueError:
             print(f"{YELLOW}[ERROR]{RESET} Please enter a valid number.")
 
-        # Verifica onde a pasta do projeto está fisicamente
-        project_partition = subprocess.run(["df", "--output=target", PROJECT_ROOT], capture_output=True, text=True).stdout.strip().split("\n")[-1]
+    # Verifica onde a pasta do projeto está fisicamente
+    project_partition = subprocess.run(["df", "--output=target", PROJECT_ROOT], capture_output=True, text=True).stdout.strip().split("\n")[-1]
 
-        # Garante limpeza caso o diretório/link já exista por resquício anterior
-        if os.path.exists(project_datalake) or os.path.islink(project_datalake):
-            if os.path.islink(project_datalake) or os.path.isfile(project_datalake):
-                os.remove(project_datalake)
-            else:
-                shutil.rmtree(project_datalake)
-
-        if base_path == project_partition:
-            # O disco escolhido é o mesmo do projeto. Cria a pasta diretamente.
-            os.makedirs(project_datalake, exist_ok=True)
-        else:
-            # O disco escolhido é outro HD. Cria lá e faz o atalho (symlink) no projeto.
-            physical_path = os.path.join(base_path, "arenalake_data")
-            os.makedirs(physical_path, exist_ok=True)
-            os.symlink(physical_path, project_datalake)
+    if base_path == project_partition:
+        # O disco escolhido é o mesmo do projeto. Cria a pasta diretamente.
+        os.makedirs(project_datalake, exist_ok=True)
+    else:
+        # O disco escolhido é outro HD. Cria lá e faz o atalho (symlink) no projeto.
+        physical_path = os.path.join(base_path, "arenalake_data")
+        os.makedirs(physical_path, exist_ok=True)
+        os.symlink(physical_path, project_datalake)
 
     print(f"\n[+] Storage configured successfully! Access it at: {project_datalake} (Quota: {quota_gb}GB)")
     return project_datalake, quota_gb
-        
+  
 def setup_glusterfs_master(datalake_path):
     """Instala o GlusterFS e cria o Volume Distribuído Original."""
     print("\n[*] Configuring GlusterFS Distributed Storage (State of the Art)...")
