@@ -296,8 +296,8 @@ def setup_glusterfs_master(datalake_path):
         print(f"{CYAN} 💡 TIP FOR WORKERS:{RESET} When asked for the physical path, type: {real_physical_path}")
     except Exception as e:
         print(f"[ERROR] Failed to configure GlusterFS: {e}")
-        sys.exit(1)  
-  
+        sys.exit(1)
+
 def main():
     check_root()
     check_compose_file()
