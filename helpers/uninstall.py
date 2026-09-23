@@ -156,6 +156,16 @@ def handle_data_volume():
             shutil.rmtree(real_path) # Apaga os dados reais
             if os.path.islink(datalake_path):
                 os.remove(datalake_path) # Apaga o atalho
+
+            try:
+                subprocess.run(["umount", "-f", datalake_path], stderr=subprocess.DEVNULL)
+                subprocess.run(["gluster", "volume", "stop", "datalake", "force"], stderr=subprocess.DEVNULL)
+                subprocess.run(["gluster", "volume", "delete", "datalake"], stderr=subprocess.DEVNULL)
+                shutil.rmtree("/var/lib/glusterd/vols/datalake", ignore_errors=True)
+                print("[+] GlusterFS cluster state and volumes cleaned successfully.")
+            except Exception as e:
+                print(f"[-] GlusterFS cleanup notice: {e}")
+            
             print("[+] Data deleted successfully. There is no undo.")
         else:
             print("[*] Physical data kept.")
