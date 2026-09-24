@@ -219,7 +219,7 @@ def main():
         else: os.chmod(folder_path, 0o777)
         print(f"    [+] Created: {folder}")
 
-    env_content = f"""MINIO_ACCESS_KEY={minio_user}\nMINIO_SECRET_KEY={minio_pass}\nDATALAKE_STORAGE_PATH={datalake_path}\nDATALAKE_QUOTA_GB={datalake_quota}\nDATABASE_URL=postgresql://${dba_user}:${dba_pass}@postgres:5432/arenalake_core\nJWT_SECRET_KEY={jwt_secret}\nDBA_USERNAME={dba_user}\nDBA_PASSWORD={dba_pass}\nSPARK_MASTER_URL=spark://spark-master:7077\nPORTAL_PORT=8088\nTRAEFIK_WEB_PORT=80\nMINIO_API_PORT=9000\nMINIO_CONSOLE_PORT=9001\nSPARK_UI_PORT=8080\nTRAEFIK_DASH_PORT=8089\nWORKSPACE_NETWORK={workspace_network}\nWORKSPACE_IMAGE=arenalake-workspace:latest\nTAILSCALE_BASE_URL={tailscale_url}\nAUTO_UPDATE_WORKSPACE={auto_update_ws}\nAUTO_UPDATE_CORE={auto_update_core}\n"""
+    env_content = f"""MINIO_ACCESS_KEY={minio_user}\nMINIO_SECRET_KEY={minio_pass}\nDATALAKE_STORAGE_PATH={datalake_path}\nDATALAKE_QUOTA_GB={datalake_quota}\nDATABASE_URL=postgresql://{dba_user}:{dba_pass}@postgres:5432/arenalake_core\nJWT_SECRET_KEY={jwt_secret}\nDBA_USERNAME={dba_user}\nDBA_PASSWORD={dba_pass}\nSPARK_MASTER_URL=spark://spark-master:7077\nPORTAL_PORT=8088\nTRAEFIK_WEB_PORT=80\nMINIO_API_PORT=9000\nMINIO_CONSOLE_PORT=9001\nSPARK_UI_PORT=8080\nTRAEFIK_DASH_PORT=8089\nWORKSPACE_NETWORK={workspace_network}\nWORKSPACE_IMAGE=arenalake-workspace:latest\nTAILSCALE_BASE_URL={tailscale_url}\nAUTO_UPDATE_WORKSPACE={auto_update_ws}\nAUTO_UPDATE_CORE={auto_update_core}\n"""
     with open(".env", "w") as f: f.write(env_content)
     os.chmod(".env", 0o600)
 
