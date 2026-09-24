@@ -52,7 +52,7 @@ services:
   # MinIO provides the S3-compatible data lake used to store datasets,
   # uploaded files, and bucketized artifacts managed by the portal.
   minio:
-    image: quay.io/minio/minio:RELEASE.2024-08-29T01-40-52Z
+    image: cgr.dev/chainguard/minio:latest
     command: server /data --console-address ":9001"
     environment:
       - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
