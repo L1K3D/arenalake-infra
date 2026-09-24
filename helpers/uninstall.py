@@ -104,7 +104,6 @@ def cleanup_nfs():
             
             with open("/etc/exports", "w") as f:
                 for line in lines:
-                    # Remove a linha se for a partilha gerada pelo nosso script
                     if "100.64.0.0/10" not in line and "arenalake" not in line.lower():
                         f.write(line)
                         
@@ -121,12 +120,11 @@ def cleanup_nfs():
             
             cleaned_lines = []
             for line in lines:
-                # Identifica se é uma montagem NFS do ArenaLake via Tailscale
                 if "nfs" in line and ("100." in line or "arenalake" in line.lower()):
                     mount_point = line.split()[1]
                     print(f"[*] Force unmounting {mount_point}...")
                     subprocess.run(["umount", "-f", mount_point], check=False, stderr=subprocess.DEVNULL)
-                    continue # Pula a escrita desta linha no novo fstab
+                    continue 
                 cleaned_lines.append(line)
                 
             with open("/etc/fstab", "w") as f:
@@ -136,27 +134,32 @@ def cleanup_nfs():
             print(f"[-] Failed to clean /etc/fstab: {e}")
 
 def handle_data_volume():
-    """Optionally remove the physical DataLake storage directory."""
+    """Optionally remove the physical DataLake storage directory and leftover bricks."""
     print("\n============================================================")
     print(" STEP 4: DATALAKE DATA (MAXIMUM ATTENTION)")
     print("============================================================")
 
-    # This path matches the dynamic storage layout used by the current architecture.
     datalake_path = os.path.join(PROJECT_ROOT, "datalake_data")
+    brick_path_hardcoded = os.path.join(PROJECT_ROOT, "datalake_data_brick")
 
-    if os.path.exists(datalake_path):
-        # Encontra onde os dados estão guardados de verdade
-        real_path = os.path.realpath(datalake_path)
-        print(f"We detected the storage folder at: {datalake_path} (Physical: {real_path})")
+    # Verifica se existe o caminho principal ou restos do brick
+    if os.path.exists(datalake_path) or os.path.exists(brick_path_hardcoded):
+        print(f"We detected ArenaLake storage folders on this server.")
         
         resp = input("Do you want to permanently DELETE the physical DataLake data? (Y/N) [Default: N]: ").strip().lower()
         if resp == "y":
             print(f"[*] Unmounting and deleting data...")
             
+            real_path = None
+            if os.path.exists(datalake_path):
+                real_path = os.path.realpath(datalake_path)
+
             # 1. PRIMEIRO: Forçar a desmontagem para libertar o recurso no Kernel
             try:
                 subprocess.run(["umount", "-f", datalake_path], stderr=subprocess.DEVNULL)
-                subprocess.run(["umount", "-f", real_path], stderr=subprocess.DEVNULL)
+                if real_path:
+                    subprocess.run(["umount", "-f", real_path], stderr=subprocess.DEVNULL)
+                
                 # Tenta remover resquícios do serviço do GlusterFS se ainda existirem
                 subprocess.run(["gluster", "volume", "stop", "datalake", "force"], stderr=subprocess.DEVNULL)
                 subprocess.run(["gluster", "volume", "delete", "datalake"], stderr=subprocess.DEVNULL)
@@ -165,7 +168,14 @@ def handle_data_volume():
                 pass
                 
             # 2. SEGUNDO: Apagar fisicamente os dados agora que o disco está solto
-            shutil.rmtree(real_path, ignore_errors=True)
+            if real_path and os.path.exists(real_path):
+                shutil.rmtree(real_path, ignore_errors=True)
+            
+            # Limpeza do brick fantasma (tanto no diretório principal quanto na origem do symlink)
+            brick_path_dynamic = f"{real_path}_brick" if real_path else ""
+            for b_path in [brick_path_hardcoded, brick_path_dynamic]:
+                if b_path and os.path.exists(b_path):
+                    shutil.rmtree(b_path, ignore_errors=True)
             
             # 3. Remover o atalho (symlink) se existir
             if os.path.islink(datalake_path):
@@ -177,6 +187,8 @@ def handle_data_volume():
             print("[+] Data deleted successfully. There is no undo.")
         else:
             print("[*] Physical data kept.")
+    else:
+        print("[-] No local DataLake storage detected.")
 
 
 def handle_tailscale():
