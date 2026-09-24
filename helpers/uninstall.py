@@ -142,7 +142,6 @@ def handle_data_volume():
     datalake_path = os.path.join(PROJECT_ROOT, "datalake_data")
     brick_path_hardcoded = os.path.join(PROJECT_ROOT, "datalake_data_brick")
 
-    # Verifica se existe o caminho principal ou restos do brick
     if os.path.exists(datalake_path) or os.path.exists(brick_path_hardcoded):
         print(f"We detected ArenaLake storage folders on this server.")
         
@@ -154,30 +153,25 @@ def handle_data_volume():
             if os.path.exists(datalake_path):
                 real_path = os.path.realpath(datalake_path)
 
-            # 1. PRIMEIRO: Forçar a desmontagem para libertar o recurso no Kernel
             try:
                 subprocess.run(["umount", "-f", datalake_path], stderr=subprocess.DEVNULL)
                 if real_path:
                     subprocess.run(["umount", "-f", real_path], stderr=subprocess.DEVNULL)
                 
-                # Tenta remover resquícios do serviço do GlusterFS se ainda existirem
                 subprocess.run(["gluster", "volume", "stop", "datalake", "force"], stderr=subprocess.DEVNULL)
                 subprocess.run(["gluster", "volume", "delete", "datalake"], stderr=subprocess.DEVNULL)
                 shutil.rmtree("/var/lib/glusterd/vols/datalake", ignore_errors=True)
             except Exception:
                 pass
                 
-            # 2. SEGUNDO: Apagar fisicamente os dados agora que o disco está solto
             if real_path and os.path.exists(real_path):
                 shutil.rmtree(real_path, ignore_errors=True)
             
-            # Limpeza do brick fantasma (tanto no diretório principal quanto na origem do symlink)
             brick_path_dynamic = f"{real_path}_brick" if real_path else ""
             for b_path in [brick_path_hardcoded, brick_path_dynamic]:
                 if b_path and os.path.exists(b_path):
                     shutil.rmtree(b_path, ignore_errors=True)
             
-            # 3. Remover o atalho (symlink) se existir
             if os.path.islink(datalake_path):
                 try:
                     os.remove(datalake_path)
@@ -189,7 +183,6 @@ def handle_data_volume():
             print("[*] Physical data kept.")
     else:
         print("[-] No local DataLake storage detected.")
-
 
 def handle_tailscale():
     """Optionally disconnect the server from the Tailscale VPN network."""

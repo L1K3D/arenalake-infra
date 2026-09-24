@@ -18,7 +18,7 @@ os.chdir(PROJECT_ROOT)
 
 
 def run_live(command, description="Executing"):
-    """Executa um comando pesado e exibe os logs em tempo real para o usuário não achar que travou."""
+    """Executa um comando e exibe os logs em tempo real para não parecer que o script travou."""
     print(f"\n[*] {description}...")
     try:
         process = subprocess.Popen(
@@ -30,7 +30,6 @@ def run_live(command, description="Executing"):
             bufsize=1
         )
         
-        # Imprime cada linha gerada pelo processo em tempo real
         for line in process.stdout:
             print(f"    {line.strip()}")
             
@@ -134,13 +133,12 @@ def get_tailscale_url():
 
 def configure_storage():
     print("\n============================================================")
-    print(" STEP 1.5: STORAGE CONFIGURATION (NATIVE LOCAL BIND)")
+    print(" STEP 1.5: STORAGE CONFIGURATION")
     print("============================================================")
     print("[*] Mapping available storage devices...")
 
     project_datalake = os.path.join(PROJECT_ROOT, "datalake_data")
 
-    # Limpeza agressiva e segura usando lexists/unlink (pega até links quebrados)
     if os.path.lexists(project_datalake):
         try:
             if os.path.islink(project_datalake) or os.path.isfile(project_datalake):
@@ -188,8 +186,54 @@ def configure_storage():
         os.makedirs(physical_path, exist_ok=True)
         os.symlink(physical_path, project_datalake)
 
-    print(f"\n[+] Native Storage configured successfully! Access it at: {project_datalake} (Quota: {quota_gb}GB)")
+    print(f"\n[+] Storage configured successfully! Access it at: {project_datalake} (Quota: {quota_gb}GB)")
     return project_datalake, quota_gb
+
+
+def setup_glusterfs_master(datalake_path):
+    """Instala o GlusterFS, limpa vestígios anteriores e cria o Volume Distribuído."""
+    print("\n============================================================")
+    print(" STEP 1.6: CONFIGURING GLUSTERFS (HIGH AVAILABILITY)")
+    print("============================================================")
+    
+    run_live("apt-get update && apt-get install -y glusterfs-server", "Installing GlusterFS Server")
+    run_live("systemctl enable --now glusterd", "Starting GlusterFS Daemon")
+    
+    try:
+        # BLINDAGEM: Para e remove qualquer volume ou montagem anterior remanescente
+        subprocess.run(["umount", "-f", datalake_path], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        subprocess.run(["gluster", "volume", "stop", "datalake", "force"], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        subprocess.run(["gluster", "volume", "delete", "datalake"], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        shutil.rmtree("/var/lib/glusterd/vols/datalake", ignore_errors=True)
+        
+        master_ip = subprocess.run(["tailscale", "ip", "-4"], capture_output=True, text=True).stdout.strip()
+        
+        real_physical_path = os.path.realpath(datalake_path)
+        brick_path = f"{real_physical_path}_brick"
+        
+        if os.path.exists(brick_path):
+            shutil.rmtree(brick_path, ignore_errors=True)
+            
+        os.makedirs(brick_path, exist_ok=True)
+        os.makedirs(datalake_path, exist_ok=True)
+        
+        subprocess.run(["gluster", "volume", "create", "datalake", f"{master_ip}:{brick_path}", "force"], check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(["gluster", "volume", "start", "datalake"], check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(["mount", "-t", "glusterfs", "localhost:/datalake", datalake_path], check=True)
+        
+        with open("/etc/fstab", "r") as f:
+            fstab_lines = f.readlines()
+        with open("/etc/fstab", "w") as f:
+            for line in fstab_lines:
+                if "localhost:/datalake" not in line:
+                    f.write(line)
+            f.write(f"localhost:/datalake {datalake_path} glusterfs defaults,_netdev 0 0\n")
+            
+        print("[+] GlusterFS Master Volume created! Ready for HA Replication.")
+        print(f"{CYAN} 💡 TIP FOR WORKERS:{RESET} When asked for the physical path, type: {real_physical_path}")
+    except Exception as e:
+        print(f"[ERROR] Failed to configure GlusterFS: {e}")
+        sys.exit(1)
 
 
 def main():
@@ -264,24 +308,24 @@ def main():
 
     datalake_path, datalake_quota = configure_storage()
 
-    print(f"[*] Provisioning native local directories in {datalake_path}...")
     os.makedirs(datalake_path, exist_ok=True)
     os.chmod(datalake_path, 0o755)
 
+    setup_glusterfs_master(datalake_path)
+
+    print(f"\n[*] Provisioning directories in {datalake_path}...")
     subfolders = ["minio_data", "spark_jobs", "projects_data", "database"]
     for folder in subfolders:
         folder_path = os.path.join(datalake_path, folder)
         os.makedirs(folder_path, exist_ok=True)
         
         if folder == "database":
-            # O Postgres exige segurança máxima e UID 70 (postgres no alpine)
             os.chmod(folder_path, 0o700)
             try:
                 os.chown(folder_path, 70, 70)
             except PermissionError:
                 pass
         else:
-            # Permissão total para as restantes pastas
             os.chmod(folder_path, 0o777)
             
         print(f"    [+] Created: {folder}")
@@ -328,7 +372,6 @@ AUTO_UPDATE_CORE={auto_update_core}
 
     print("\n[*] Building local Portal and Workspace Builder images (Native BuildKit output)...")
     try:
-        # Deixamos o output nativo do Docker Compose porque ele já é colorido e detalhado
         subprocess.run(["docker", "compose", "build"], check=True)
         print("[+] Images built successfully!")
     except subprocess.CalledProcessError:
@@ -346,12 +389,11 @@ AUTO_UPDATE_CORE={auto_update_core}
     try:
         subprocess.run(["docker", "stack", "deploy", "-c", "docker-compose.yml", "arenalake-prod"], check=True, stdout=subprocess.DEVNULL)
 
-        # --- PROGRESS BAR / POLLING (Database & Portal) ---
         print(f"\n[*] Waiting for PostgreSQL and Portal to initialize", end="")
         sys.stdout.flush()
         
         portal_id = ""
-        for _ in range(40): # Aguarda até 80 segundos
+        for _ in range(40):
             print(".", end="")
             sys.stdout.flush()
             result = subprocess.run("docker ps -q -f name=arenalake-prod_portal | head -n 1", shell=True, capture_output=True, text=True)
@@ -360,7 +402,7 @@ AUTO_UPDATE_CORE={auto_update_core}
                 break
             time.sleep(2)
         
-        print() # Quebra de linha após a barra de progresso
+        print()
 
         if portal_id:
             run_live(f"docker exec {portal_id} python -m core.init_db", "Initializing Super Admin & Core Database")
@@ -368,7 +410,6 @@ AUTO_UPDATE_CORE={auto_update_core}
         else:
             print(f"[{YELLOW}Warning{RESET}] The Portal container took too long to start.")
         
-        # --- TAILSCALE FUNNEL ---
         print(f"\n[*] Configuring public exposure (Tailscale Funnel for port 8088)...")
         funnel_result = subprocess.run(["tailscale", "funnel", "--bg", "http://127.0.0.1:8088"], capture_output=True, text=True)
         funnel_output = funnel_result.stdout + funnel_result.stderr
