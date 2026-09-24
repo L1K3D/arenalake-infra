@@ -43,13 +43,9 @@ def remove_docker_stack(stack_name="arenalake-prod"):
             stderr=subprocess.DEVNULL,
         )
 
-        print(
-            "[*] Waiting for the containers to finish shutting down (this may take a few seconds)..."
-        )
+        print("[*] Waiting for the containers to finish shutting down (this may take a few seconds)...")
         while True:
-            result = subprocess.run(
-                ["docker", "stack", "ls"], capture_output=True, text=True
-            )
+            result = subprocess.run(["docker", "stack", "ls"], capture_output=True, text=True)
             if stack_name not in result.stdout:
                 break
             time.sleep(2)
@@ -89,6 +85,11 @@ def clean_configs():
         print("[+] .env file (credentials and variables) removed.")
     else:
         print("[-] .env file not found. Skipping.")
+        
+    # Remove a rotina de backup (Rsync) se o nó for um Manager
+    if os.path.exists("/etc/cron.d/arenalake_replication"):
+        os.remove("/etc/cron.d/arenalake_replication")
+        print("[+] Async replication backup job removed.")
 
 def cleanup_nfs():
     """Remove partilhas do Master e desmonta/limpa pontos de montagem dos Workers."""
@@ -136,41 +137,28 @@ def cleanup_nfs():
 def handle_data_volume():
     """Optionally remove the physical DataLake storage directory and leftover bricks."""
     print("\n============================================================")
-    print(" STEP 4: DATALAKE DATA (MAXIMUM ATTENTION)")
+    print(" STEP 5: DATALAKE DATA (MAXIMUM ATTENTION)")
     print("============================================================")
 
     datalake_path = os.path.join(PROJECT_ROOT, "datalake_data")
-    brick_path_hardcoded = os.path.join(PROJECT_ROOT, "datalake_data_brick")
 
-    if os.path.exists(datalake_path) or os.path.exists(brick_path_hardcoded):
+    if os.path.exists(datalake_path):
         print(f"We detected ArenaLake storage folders on this server.")
         
         resp = input("Do you want to permanently DELETE the physical DataLake data? (Y/N) [Default: N]: ").strip().lower()
         if resp == "y":
             print(f"[*] Unmounting and deleting data...")
             
-            real_path = None
-            if os.path.exists(datalake_path):
-                real_path = os.path.realpath(datalake_path)
+            real_path = os.path.realpath(datalake_path)
 
             try:
                 subprocess.run(["umount", "-f", datalake_path], stderr=subprocess.DEVNULL)
-                if real_path:
-                    subprocess.run(["umount", "-f", real_path], stderr=subprocess.DEVNULL)
-                
-                subprocess.run(["gluster", "volume", "stop", "datalake", "force"], stderr=subprocess.DEVNULL)
-                subprocess.run(["gluster", "volume", "delete", "datalake"], stderr=subprocess.DEVNULL)
-                shutil.rmtree("/var/lib/glusterd/vols/datalake", ignore_errors=True)
+                subprocess.run(["umount", "-f", real_path], stderr=subprocess.DEVNULL)
             except Exception:
                 pass
                 
-            if real_path and os.path.exists(real_path):
+            if os.path.exists(real_path):
                 shutil.rmtree(real_path, ignore_errors=True)
-            
-            brick_path_dynamic = f"{real_path}_brick" if real_path else ""
-            for b_path in [brick_path_hardcoded, brick_path_dynamic]:
-                if b_path and os.path.exists(b_path):
-                    shutil.rmtree(b_path, ignore_errors=True)
             
             if os.path.islink(datalake_path):
                 try:
@@ -187,7 +175,7 @@ def handle_data_volume():
 def handle_tailscale():
     """Optionally disconnect the server from the Tailscale VPN network."""
     print("\n============================================================")
-    print(" STEP 5: REMOTE ACCESS (TAILSCALE)")
+    print(" STEP 6: REMOTE ACCESS (TAILSCALE)")
     print("============================================================")
     print("Tailscale is still connecting this server to your VPN account.")
     resp = (
