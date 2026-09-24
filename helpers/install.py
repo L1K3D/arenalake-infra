@@ -196,7 +196,8 @@ def setup_glusterfs_master(datalake_path):
     print(" STEP 1.6: CONFIGURING GLUSTERFS (HIGH AVAILABILITY)")
     print("============================================================")
     
-    run_live("apt-get update && apt-get install -y glusterfs-server", "Installing GlusterFS Server")
+    # Truque ninja: Impede o apt-get de fazer perguntas e não instala dependências inúteis
+    run_live("DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends glusterfs-server", "Installing GlusterFS Server (Turbo Mode)")
     run_live("systemctl enable --now glusterd", "Starting GlusterFS Daemon")
     
     try:
@@ -246,6 +247,12 @@ def main():
     print("=" * 60)
 
     check_existing_install()
+
+    # TRUQUE NINJA: Lança o update dos repositórios em background sem bloquear o ecrã.
+    # Enquanto o utilizador responde às perguntas, o Linux já está a tratar da lista de pacotes.
+    print(f"\n{CYAN}[*] Firing up background system update to save time later...{RESET}")
+    update_proc = subprocess.Popen(["apt-get", "update"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
     install_dependencies()
     check_ports_available()
     jwt_secret = secrets.token_hex(32)
@@ -310,6 +317,9 @@ def main():
 
     os.makedirs(datalake_path, exist_ok=True)
     os.chmod(datalake_path, 0o755)
+
+    # Garante que o update em background já terminou antes de avançar para o Gluster
+    update_proc.wait()
 
     setup_glusterfs_master(datalake_path)
 
