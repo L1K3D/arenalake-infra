@@ -52,8 +52,8 @@ services:
   # MinIO provides the S3-compatible data lake used to store datasets,
   # uploaded files, and bucketized artifacts managed by the portal.
   minio:
-    image: quay.io/minio/minio:latest
-    command: server /data --console-address ":9001"
+    image: bitnami/minio:latest
+    user: root
     environment:
       - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
       - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
@@ -70,19 +70,19 @@ services:
           - node.role == manager
 
   postgres:
-      image: postgres:15-alpine
-      environment:
-        POSTGRES_USER: ${DBA_USERNAME}
-        POSTGRES_PASSWORD: ${DBA_PASSWORD}
-        POSTGRES_DB: arenalake_core
-      volumes:
-        - ${DATALAKE_STORAGE_PATH}/database:/var/lib/postgresql/data
-      networks:
-        - arenalake-net
-      deploy:
-        placement:
-          constraints:
-            - node.role == manager
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${DBA_USERNAME}
+      POSTGRES_PASSWORD: ${DBA_PASSWORD}
+      POSTGRES_DB: arenalake_core
+    volumes:
+      - ${DATALAKE_STORAGE_PATH}/database:/var/lib/postgresql/data
+    networks:
+      - arenalake-net
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
 
   # Builds the reusable workspace base image used for per-user development
   # containers and project runtime isolation inside the platform.
