@@ -224,6 +224,8 @@ def deploy_stack():
                     key, value = line.split("=", 1)
                     os.environ[key] = value
 
+    prepare_datalake_permissions()
+
     run_command(
         [
             "docker",
@@ -249,6 +251,17 @@ def parse_args():
     )
     return parser.parse_args()
 
+def prepare_datalake_permissions():
+    """Ensure MinIO directory has correct permissions for Chainguard nonroot user."""
+    print("[*] Verifying DataLake security permissions...")
+    datalake_path = os.environ.get("DATALAKE_STORAGE_PATH", os.path.join(PROJECT_ROOT, "datalake_data"))
+    minio_path = os.path.join(datalake_path, "minio_data")
+    
+    os.makedirs(minio_path, exist_ok=True)
+    try:
+        subprocess.run(["chown", "-R", "65532:65532", minio_path], check=False, stderr=subprocess.DEVNULL)
+    except Exception:
+        print("[!] Warning: Failed to adjust MinIO permissions. The container may crash.")
 
 def main():
     args = parse_args()
