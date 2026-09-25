@@ -10,7 +10,7 @@ from core.docker_mgr import list_spark_jobs, run_spark_job, verify_idle_workspac
 from core.security import get_current_user
 from core.models import User
 
-router = APIRouter()
+router = APIRouter(prefix="/api")
 
 scheduler = BackgroundScheduler()
 scheduler.start()

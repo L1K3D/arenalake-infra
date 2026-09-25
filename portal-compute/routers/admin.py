@@ -13,7 +13,7 @@ from core.s3_mgr import fetch_catalog_data, upload_file_to_datalake, delete_file
 from core.security import get_current_user
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-router = APIRouter()
+router = APIRouter(prefix="/api")
 
 class UserCreateRequest(BaseModel):
     username: str

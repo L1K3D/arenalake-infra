@@ -5,7 +5,7 @@ from core.docker_mgr import get_workspace_metrics, update_workspace_activity
 from core.security import get_current_user
 from core.models import User
 
-router = APIRouter()
+router = APIRouter(prefix="/api")
 
 @router.get("/catalog")
 async def get_catalog(current_user: User = Depends(get_current_user)):

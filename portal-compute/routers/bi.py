@@ -7,7 +7,7 @@ from core.s3_mgr import get_s3_client
 from core.security import get_current_user
 from core.models import User
 
-router = APIRouter()
+router = APIRouter(prefix="/api")
 
 class BiColumnsRequest(BaseModel):
     bucket: str
