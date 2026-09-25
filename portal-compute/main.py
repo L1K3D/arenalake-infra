@@ -11,7 +11,9 @@
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from routers import api, ui, auth
+
+# Importação dos submódulos modularizados no lugar do antigo api.py monolítico
+from routers import admin, bi, catalog, jobs, terminal, ui, auth
 
 # Initialize the FastAPI application
 app = FastAPI(
@@ -23,12 +25,14 @@ app = FastAPI(
 # Serves CSS, JavaScript, and other static assets from /static path
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Register API and UI routers
-# - ui.router: handles HTML template rendering (login, setup, dashboard pages)
-# - api.router: handles REST API endpoints (/api/catalog, /api/metrics, etc.)
+# Register API, Authentication, UI, and Modular Routers
 app.include_router(ui.router)
-app.include_router(api.router)
 app.include_router(auth.router)
+app.include_router(catalog.router)
+app.include_router(bi.router)
+app.include_router(jobs.router)
+app.include_router(admin.router)
+app.include_router(terminal.router)
 
 # Entry point for development server
 # Starts Uvicorn ASGI server on 0.0.0.0:8000
