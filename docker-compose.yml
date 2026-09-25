@@ -12,7 +12,7 @@ services:
     environment:
       - DOCKER_API_VERSION=1.41
     command:
-      - "--api.insecure=true"
+      - "--api.insecure=false"
       - "--api.dashboard=true"
       - "--providers.docker=true"
       - "--providers.docker.endpoint=unix:///var/run/docker.sock"
@@ -109,10 +109,9 @@ services:
     environment:
       - HOST_PROJECT_PATH=${PWD}
       - WORKSPACE_NETWORK=${WORKSPACE_NETWORK}
+      - DOCKER_HOST=tcp://dockerproxy:2375
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
       - ${DATALAKE_STORAGE_PATH}/projects_data:/app/projects_data
-      - /root/.ssh:/root/.ssh:ro
       - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock
     networks:
       - arenalake-net
@@ -140,6 +139,26 @@ services:
       - arenalake-net
     deploy:
       mode: global # <--- O SEGREDO MÁGICO: Garante 1 container em CADA máquina do Swarm!
+
+  dockerproxy:
+    image: tecnativa/docker-socket-proxy
+    environment:
+      - SERVICES=1
+      - TASKS=1
+      - NETWORKS=1
+      - NODES=1
+      - CONTAINERS=1
+      # Bloqueia execução remota de código (RCE) e escalonamento de privilégios:
+      - EXEC=0
+      - BUILD=0
+      - AUTH=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - arenalake-net
+    deploy:
+      placement:
+        constraints: [node.role == manager]
 
 networks:
   arenalake-net:

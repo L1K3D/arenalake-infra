@@ -11,7 +11,9 @@ from core.database import SessionLocal
 from core.models import User
 
 # Read the signing secret injected by the installer through the environment.
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "fallback-secret-key")
+SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError("CRITICAL ERROR: Variável JWT_SECRET_KEY não foi configurada no ambiente!")
 ALGORITHM = "HS256"
 # Keep access tokens valid for eight hours unless a shorter custom expiry is used.
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8
