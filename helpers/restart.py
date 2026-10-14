@@ -6,7 +6,7 @@ import shutil
 import subprocess
 import sys
 import time
-import socket
+import concurrent.futures
 
 
 STACK_NAME = "arenalake-prod"
@@ -176,36 +176,47 @@ def get_active_worker_nodes():
         return []
 
 def distribute_images():
-    """Distribui as imagens compiladas apenas se existirem Workers ativos no cluster."""
+    """Distribui as imagens compiladas de forma otimizada e em paralelo."""
     workers = get_active_worker_nodes()
     
     if not workers:
-        print("\n[*] Nenhum Worker ativo detectado no cluster (Single-Node). Pulando distribuição de imagens.")
+        print("\n[*] Nenhum Worker ativo detectado no cluster (Single-Node). Pulando distribuição.")
         return
 
     images_to_distribute = ["arenalake-workspace:latest", "arenalake-telemetry:latest"]
-    print(f"\n[*] Distribuindo imagens para {len(workers)} worker(s) ativo(s)...")
+    print(f"\n[*] Preparando imagens para distribuição (compactando uma única vez)...")
     
-    for node in workers:
-        for image in images_to_distribute:
-            print(f"[*] Enviando {image} para o Worker ({node})...")
-            try:
-                save_proc = subprocess.Popen(["docker", "save", image], stdout=subprocess.PIPE)
-                ssh_proc = subprocess.Popen(
-                    ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10", f"root@{node}", "docker load"],
-                    stdin=save_proc.stdout,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE
-                )
-                save_proc.stdout.close()
-                stdout, stderr = ssh_proc.communicate()
+    # Passo 1: Salvar as imagens no disco do Master apenas UMA vez
+    tar_paths = {}
+    for image in images_to_distribute:
+        safe_name = image.replace(":", "_").replace("/", "_") + ".tar"
+        tar_path = f"/tmp/{safe_name}"
+        print(f"[*] Exportando {image} -> {tar_path}")
+        subprocess.run(["docker", "save", "-o", tar_path, image], check=True)
+        tar_paths[image] = tar_path
 
-                if ssh_proc.returncode == 0:
-                    print(f"[+] {image} carregada com sucesso em {node}.")
-                else:
-                    print(f"[!] Aviso: Falha ao enviar {image} para {node}: {stderr.decode().strip()}")
-            except Exception as e:
-                print(f"[ERROR] Falha na distribuição da imagem {image}: {e}")
+    # Passo 2: Função que envia o tarball para um nó específico
+    def send_to_worker(node):
+        for image, tar_path in tar_paths.items():
+            print(f"[*] [Worker: {node}] Iniciando transferência de {image}...")
+            # Usa 'cat' e pipe pelo SSH para evitar gravar duas vezes no disco do Worker
+            cmd = f"cat {tar_path} | ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 root@{node} 'docker load'"
+            proc = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            
+            if proc.returncode == 0:
+                print(f"[+] [Worker: {node}] {image} recebida com sucesso.")
+            else:
+                print(f"[!] [Worker: {node}] Falha ao enviar {image}: {proc.stderr.strip()}")
+
+    # Passo 3: Disparar o envio para todos os workers SIMULTANEAMENTE
+    print(f"\n[*] Disparando transferências em paralelo para {len(workers)} worker(s)...")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(workers)) as executor:
+        executor.map(send_to_worker, workers)
+
+    # Passo 4: Limpeza do lixo temporário no Master
+    for tar_path in tar_paths.values():
+        if os.path.exists(tar_path):
+            os.remove(tar_path)
     
 
 def cleanup_docker():
@@ -239,7 +250,6 @@ def deploy_stack():
     print("[+] ArenaLake stack deployed.")
     subprocess.run(["docker", "service", "ls"], check=False)
 
-
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Restart Docker, rebuild ArenaLake images, and redeploy the stack."
@@ -248,6 +258,11 @@ def parse_args():
         "--yes",
         action="store_true",
         help="skip the interactive confirmation",
+    )
+    parser.add_argument(
+        "--quick",
+        action="store_true",
+        help="skip Docker restart, image rebuild, and SSH distribution for a lightning-fast deploy",
     )
     return parser.parse_args()
 
@@ -280,16 +295,26 @@ def main():
     print("\n" + "=" * 60)
     print("      ArenaLake - Rebuild and Restart")
     print("=" * 60)
+    
+    if args.quick:
+        print("[*] Quick mode enabled: skipping Docker restart, image rebuild, and SSH distribution.")
+        print("=" * 60)
+        check_swarm()
+        cleanup_orphaned_workspaces()
+        remove_stack()
 
-    check_swarm()
-    cleanup_orphaned_workspaces()
-    remove_stack()
-    restart_docker()
-    check_swarm()
-    rebuild_images()
-    distribute_images()
-    cleanup_docker()
-    deploy_stack()
+    if not args.quick:
+        print("[*] Performing full restart: Docker will be restarted, images rebuilt, and stack redeployed.")
+        print("=" * 60)
+        check_swarm()
+        cleanup_orphaned_workspaces()
+        remove_stack()
+        restart_docker()
+        check_swarm()
+        rebuild_images()
+        distribute_images()
+        cleanup_docker()
+        deploy_stack()
 
     print("\n[+] Restart completed. Existing persistent data was preserved.")
 
