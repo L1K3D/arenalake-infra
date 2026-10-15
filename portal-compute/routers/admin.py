@@ -35,7 +35,7 @@ class UserPasswordResetRequest(BaseModel):
 
 @router.get("/system/resources")
 async def get_system_resources(current_user: User = Depends(get_current_user)):
-    """Return CPU and memory capacity calculated from the Docker Swarm."""[cite: 23]
+    """Return CPU and memory capacity calculated from the Docker Swarm."""
     data = get_allocatable_resources()
     if "error" in data:
         return JSONResponse(
@@ -46,7 +46,7 @@ async def get_system_resources(current_user: User = Depends(get_current_user)):
 
 @router.get("/admin/users")
 async def admin_list_users(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """List all registered users for authenticated administrators."""[cite: 23]
+    """List all registered users for authenticated administrators."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
@@ -67,7 +67,7 @@ async def admin_list_users(current_user: User = Depends(get_current_user), db: S
 
 @router.post("/admin/users")
 async def admin_create_user(req: UserCreateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Create a user with a temporary password and selected access role."""[cite: 23]
+    """Create a user with a temporary password and selected access role."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
@@ -97,7 +97,7 @@ async def admin_create_user(req: UserCreateRequest, current_user: User = Depends
 
 @router.delete("/admin/users/{user_id}")
 async def admin_delete_user(user_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Delete a standard user while protecting administrator accounts."""[cite: 23]
+    """Delete a standard user while protecting administrator accounts."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
@@ -119,7 +119,7 @@ async def admin_delete_user(user_id: int, current_user: User = Depends(get_curre
 
 @router.get("/admin/workspaces")
 async def admin_list_workspaces(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """List active user workspace services and their reserved resources."""[cite: 23]
+    """List active user workspace services and their reserved resources."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
@@ -162,7 +162,7 @@ async def admin_list_workspaces(current_user: User = Depends(get_current_user), 
 
 @router.post("/admin/workspaces/kill/{username}")
 async def admin_kill_workspace(username: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Immediately remove the selected user's VS Code and Spark services."""[cite: 23]
+    """Immediately remove the selected user's VS Code and Spark services."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
@@ -175,7 +175,7 @@ async def admin_kill_workspace(username: str, current_user: User = Depends(get_c
 
 @router.get("/admin/cluster/nodes")
 async def admin_cluster_nodes(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Return Swarm node roles, readiness, CPU capacity, memory capacity, and real-time telemetry."""[cite: 23]
+    """Return Swarm node roles, readiness, CPU capacity, memory capacity, and real-time telemetry."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
@@ -250,7 +250,7 @@ async def admin_cluster_nodes(current_user: User = Depends(get_current_user), db
 
 @router.get("/admin/files/{username}")
 async def admin_inspect_user_files(username: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Inspect a user's persistent volume through a temporary read-only container."""[cite: 23]
+    """Inspect a user's persistent volume through a temporary read-only container."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
@@ -275,7 +275,7 @@ async def admin_inspect_user_files(username: str, current_user: User = Depends(g
 
 @router.post("/admin/danger/destroy")
 async def admin_self_destruct(req: DangerDestroyRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Remove all active workspace and Spark Worker services after confirmation."""[cite: 23]
+    """Remove all active workspace and Spark Worker services after confirmation."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
@@ -299,7 +299,7 @@ async def admin_self_destruct(req: DangerDestroyRequest, current_user: User = De
 
 @router.get("/admin/catalog")
 async def admin_get_catalog(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Return the complete MinIO bucket catalog for administrator auditing."""[cite: 23]
+    """Return the complete MinIO bucket catalog for administrator auditing."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     try:
@@ -310,7 +310,7 @@ async def admin_get_catalog(current_user: User = Depends(get_current_user), db: 
 
 @router.delete("/admin/catalog/file")
 async def admin_delete_catalog_file(bucket: str = Form(...), filename: str = Form(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Delete a dataset or Parquet object from the catalog as an administrator."""[cite: 23]
+    """Delete a dataset or Parquet object from the catalog as an administrator."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     try:
@@ -327,7 +327,7 @@ async def admin_upload_catalog_file(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Upload a dataset or script directly to a MinIO bucket as an administrator."""[cite: 23]
+    """Upload a dataset or script directly to a MinIO bucket as an administrator."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     try:
@@ -339,7 +339,7 @@ async def admin_upload_catalog_file(
 
 @router.delete("/admin/account/self")
 async def admin_self_delete(req: SelfDeleteRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Delete the current administrator account after exact phrase confirmation."""[cite: 23]
+    """Delete the current administrator account after exact phrase confirmation."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
@@ -355,7 +355,7 @@ async def admin_self_delete(req: SelfDeleteRequest, current_user: User = Depends
 
 @router.post("/admin/users/{user_id}/reset-password")
 async def admin_reset_user_password(user_id: int, req: UserPasswordResetRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Reset a user's password and require first-access setup and new 2FA pairing."""[cite: 23]
+    """Reset a user's password and require first-access setup and new 2FA pairing."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
@@ -380,7 +380,7 @@ async def admin_reset_user_password(user_id: int, req: UserPasswordResetRequest,
 
 @router.get("/admin/hardware/telemetry/advanced")
 async def admin_hardware_telemetry_advanced(current_user: User = Depends(get_current_user)):
-    """Varre a rede Swarm buscando os agentes de telemetria em todos os nós (Apenas Admin)"""[cite: 23]
+    """Varre a rede Swarm buscando os agentes de telemetria em todos os nós (Apenas Admin)"""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado.")
     
@@ -418,7 +418,7 @@ async def admin_hardware_telemetry_advanced(current_user: User = Depends(get_cur
 
 @router.get("/admin/tailscale/status")
 async def admin_tailscale_status(current_user: User = Depends(get_current_user)):
-    """Busca o status da rede mesh do Tailscale em tempo real."""[cite: 23]
+    """Busca o status da rede mesh do Tailscale em tempo real."""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
     
