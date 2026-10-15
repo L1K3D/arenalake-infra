@@ -9,7 +9,7 @@ python-multipart
 docker
 
 # Object storage / S3-compatible APIs
-boto3
+boto3<1.43.0
 fsspec
 s3fs
 
