@@ -222,7 +222,9 @@ def distribute_images():
 def cleanup_docker():
     """Remove stopped containers, dangling images, and build cache to free up disk space."""
     print("[*] Cleaning up old Docker images and build cache...")
+    run_command(["docker", "container", "prune", "-f"])
     run_command(["docker", "image", "prune", "-f"])
+    subprocess.run(["docker", "builder", "prune", "-f", "--keep-storage", "3GB"], check=False)
 
 
 def deploy_stack():
