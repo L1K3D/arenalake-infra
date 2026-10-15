@@ -222,7 +222,7 @@ def distribute_images():
 def cleanup_docker():
     """Remove stopped containers, dangling images, and build cache to free up disk space."""
     print("[*] Cleaning up old Docker images and build cache...")
-    run_command(["docker", "system", "prune", "-f"])
+    run_command(["docker", "image", "prune", "-f"])
 
 
 def deploy_stack():
@@ -303,7 +303,7 @@ def main():
         cleanup_orphaned_workspaces()
         remove_stack()
 
-    if not args.quick:
+    elif not args.quick:
         print("[*] Performing full restart: Docker will be restarted, images rebuilt, and stack redeployed.")
         print("=" * 60)
         check_swarm()
@@ -314,7 +314,8 @@ def main():
         rebuild_images()
         distribute_images()
         cleanup_docker()
-        deploy_stack()
+       
+    deploy_stack()
 
     print("\n[+] Restart completed. Existing persistent data was preserved.")
 
