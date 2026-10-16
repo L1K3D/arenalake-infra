@@ -4,11 +4,11 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from core.security import SECRET_KEY, ALGORITHM
 from jose import jwt
 
-router = APIRouter(prefix="/api")
+router = APIRouter()
 
 @router.websocket("/api/admin/terminal/{ip}")
 async def web_terminal(websocket: WebSocket, ip: str, token: str = Query(...)):
-    """Abre um túnel SSH via WebSocket utilizando paramiko e as chaves do host."""[cite: 23]
+    """Abre um túnel SSH via WebSocket utilizando paramiko e as chaves do host."""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         if payload.get("role") != "admin":

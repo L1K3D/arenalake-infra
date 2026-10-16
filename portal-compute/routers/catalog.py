@@ -9,7 +9,7 @@ router = APIRouter(prefix="/api")
 
 @router.get("/catalog")
 async def get_catalog(current_user: User = Depends(get_current_user)):
-    """Return the authenticated user's view of the MinIO data catalog."""[cite: 23]
+    """Return the authenticated user's view of the MinIO data catalog."""
     try:
         return JSONResponse(content={"status": "success", "data": fetch_catalog_data()})
     except Exception as e:
@@ -20,7 +20,7 @@ async def get_catalog(current_user: User = Depends(get_current_user)):
 
 @router.get("/metrics/{usuario}")
 async def get_metrics(usuario: str, current_user: User = Depends(get_current_user)):
-    """Return workspace metrics and refresh the user's activity timestamp."""[cite: 23]
+    """Return workspace metrics and refresh the user's activity timestamp."""
     try:
         metrics = get_workspace_metrics(usuario)
         if metrics.get("status") == "offline":
@@ -41,7 +41,7 @@ async def upload_file(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user)
 ):
-    """Upload an authenticated user's file to the selected data lake bucket."""[cite: 23]
+    """Upload an authenticated user's file to the selected data lake bucket."""
     try:
         upload_file_to_datalake(bucket, file.file, file.filename, usuario)
         return JSONResponse(
@@ -55,7 +55,7 @@ async def upload_file(
 
 @router.get("/preview/{bucket}/{filename:path}")
 async def preview_file(bucket: str, filename: str, current_user: User = Depends(get_current_user)):
-    """Return metadata and preview content for a stored object."""[cite: 23]
+    """Return metadata and preview content for a stored object."""
     try:
         details = get_file_details(bucket, filename)
         return JSONResponse(content={"status": "success", "data": details})

@@ -37,7 +37,7 @@ class FilterRequest(BaseModel):
 
 @router.post("/bi/colunas")
 async def get_bi_columns(req: BiColumnsRequest, current_user: User = Depends(get_current_user)):
-    """Read only the schema of a CSV or Parquet object for BI selectors."""[cite: 23]
+    """Read only the schema of a CSV or Parquet object for BI selectors."""
     try:
         s3_client = get_s3_client()
         obj = s3_client.get_object(Bucket=req.bucket, Key=req.filename)
@@ -58,7 +58,7 @@ async def get_bi_columns(req: BiColumnsRequest, current_user: User = Depends(get
 
 @router.post("/bi/valores_coluna")
 async def valores_coluna_bi(req: FilterRequest, current_user: User = Depends(get_current_user)):
-    """Return sorted, non-null values from one dataset column for filtering."""[cite: 23]
+    """Return sorted, non-null values from one dataset column for filtering."""
     try:
         s3_client = get_s3_client()
         obj = s3_client.get_object(Bucket=req.bucket, Key=req.filename)
@@ -79,7 +79,7 @@ async def valores_coluna_bi(req: FilterRequest, current_user: User = Depends(get
 
 @router.post("/bi/gerar_dados")
 async def gerar_dados_bi(req: VisualRequest, current_user: User = Depends(get_current_user)):
-    """Load a dataset and transform it into the requested visualization payload."""[cite: 23]
+    """Load a dataset and transform it into the requested visualization payload."""
     try:
         s3_client = get_s3_client()
         obj = s3_client.get_object(Bucket=req.bucket, Key=req.filename)

@@ -25,7 +25,7 @@ scheduler.add_job(
 
 @router.get("/jobs")
 async def get_all_jobs(current_user: User = Depends(get_current_user)):
-    """List available Python jobs and schedules held by the process scheduler."""[cite: 23]
+    """List available Python jobs and schedules held by the process scheduler."""
     scripts = list_spark_jobs()
 
     scheduled_jobs = []
@@ -49,7 +49,7 @@ async def get_all_jobs(current_user: User = Depends(get_current_user)):
 
 @router.post("/jobs/run/{job_name}")
 async def execute_job_now(job_name: str, current_user: User = Depends(get_current_user)):
-    """Submit a selected Spark script for immediate asynchronous execution."""[cite: 23]
+    """Submit a selected Spark script for immediate asynchronous execution."""
     success = run_spark_job(job_name, origin="UI Manual")
     if success:
         return JSONResponse(
@@ -69,7 +69,7 @@ async def schedule_job_cron(
     cron_expr: str = Form(...),
     current_user: User = Depends(get_current_user)
 ):
-    """Create or replace an in-memory recurring schedule for a Spark job."""[cite: 23]
+    """Create or replace an in-memory recurring schedule for a Spark job."""
     try:
         trigger = CronTrigger.from_crontab(cron_expr)
         job_id = f"job_{job_name.replace('.py', '')}"
@@ -102,7 +102,7 @@ async def schedule_job_cron(
 
 @router.delete("/jobs/schedule/{job_id}")
 async def remove_scheduled_job(job_id: str, current_user: User = Depends(get_current_user)):
-    """Remove a scheduled Spark job from the process scheduler."""[cite: 23]
+    """Remove a scheduled Spark job from the process scheduler."""
     if scheduler.get_job(job_id):
         scheduler.remove_job(job_id)
         return JSONResponse(
@@ -116,7 +116,7 @@ async def remove_scheduled_job(job_id: str, current_user: User = Depends(get_cur
 
 @router.get("/spark/status")
 async def get_spark_status(current_user: User = Depends(get_current_user)):
-    """Proxy the Spark master status page as a compact JSON payload."""[cite: 23]
+    """Proxy the Spark master status page as a compact JSON payload."""
     try:
         url = "http://spark-master:8080/json/"
         with urllib.request.urlopen(url) as response:
@@ -136,7 +136,7 @@ async def get_spark_status(current_user: User = Depends(get_current_user)):
 
 @router.get("/spark/app/{app_id}/jobs")
 async def get_spark_app_jobs(app_id: str):
-    """Resolve a Spark application's driver and return its job metadata."""[cite: 23]
+    """Resolve a Spark application's driver and return its job metadata."""
     try:
         app_page_url = f"http://spark-master:8080/app/?appId={app_id}"
         req_page = urllib.request.Request(app_page_url)
