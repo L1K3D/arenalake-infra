@@ -447,6 +447,9 @@ async def admin_tailscale_status(current_user: User = Depends(get_current_user))
             })
 
         for pubkey, peer in ts_data.get("Peer", {}).items():
+            if peer.get("HostName") == "funnel-ingress-node":
+                continue
+            
             peers.append({
                 "hostname": peer.get("HostName"),
                 "ip": peer.get("TailscaleIPs", [""])[0],

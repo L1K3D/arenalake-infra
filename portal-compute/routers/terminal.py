@@ -4,7 +4,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from core.security import SECRET_KEY, ALGORITHM
 from jose import jwt
 
-router = APIRouter()
+router = APIRouter(prefix="/api")
 
 @router.websocket("/admin/terminal/{ip}")
 async def web_terminal(websocket: WebSocket, ip: str, token: str = Query(...)):
