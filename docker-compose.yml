@@ -113,7 +113,9 @@ services:
     volumes:
       - ${DATALAKE_STORAGE_PATH}/projects_data:/app/projects_data
       - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock
-      - ~/.ssh:/root/.ssh:ro
+      - /root/.ssh:/root/.ssh:ro
+      - ./routers:/app/routers
+      - ./core:/app/core
     networks:
       - arenalake-net
     deploy:

@@ -118,6 +118,22 @@ def main():
 
     master_ip = input("\nPaste the master Tailscale IP (e.g. 100.105.x.x): ").strip()
     raw_token = input(f"Paste the {role_name} token from the Master: ").strip()
+    
+    print("\nTo allow the Web Terminal to connect to this node, paste the Master's Public SSH Key.")
+    print("You can find it on the Master by running: cat /root/.ssh/id_rsa.pub")
+    master_pub_key = input("Paste the Master Public SSH Key: ").strip()
+
+    if master_pub_key.startswith("ssh-rsa"):
+        os.makedirs("/root/.ssh", exist_ok=True)
+        os.chmod("/root/.ssh", 0o700)
+        auth_keys_path = "/root/.ssh/authorized_keys"
+        
+        with open(auth_keys_path, "a") as f:
+            f.write(f"\n{master_pub_key}\n")
+        os.chmod(auth_keys_path, 0o600)
+        print("[+] Master SSH key authorized for Web Terminal access.")
+    else:
+        print("[!] Invalid SSH key format. Skipping Web Terminal authorization.")
 
     try:
         subprocess.run(["docker", "swarm", "join", "--token", extract_token(raw_token), f"{master_ip}:2377"], check=True, stdout=subprocess.DEVNULL)

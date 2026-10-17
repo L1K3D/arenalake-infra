@@ -149,6 +149,38 @@ def setup_nfs_master(datalake_path):
     run_live("exportfs -a && systemctl restart nfs-kernel-server", "Starting NFS Service")
     print(f"[+] NFS Share created for {real_path} over the Tailscale VPN.")
     print(f"{CYAN} 💡 TIP FOR WORKERS:{RESET} When asked for the physical path, type: {real_path}")
+    
+def setup_ssh_keys():
+    """Gera a chave SSH no Master e a auto-autoriza para o Web Terminal."""
+    print("\n============================================================")
+    print(" STEP 2.5: CONFIGURING SSH WEB TERMINAL")
+    print("============================================================")
+    
+    os.makedirs("/root/.ssh", exist_ok=True)
+    os.chmod("/root/.ssh", 0o700)
+    
+    # Gera a chave se não existir
+    if not os.path.isfile("/root/.ssh/id_rsa"):
+        run_live("ssh-keygen -t rsa -b 4096 -N '' -f /root/.ssh/id_rsa -q", "Generating SSH Keys for Web Terminal")
+    
+    # Auto-autoriza o Master
+    try:
+        with open("/root/.ssh/id_rsa.pub", "r") as pub_key_file:
+            pub_key = pub_key_file.read().strip()
+            
+        auth_keys_path = "/root/.ssh/authorized_keys"
+        auth_content = ""
+        if os.path.exists(auth_keys_path):
+            with open(auth_keys_path, "r") as f:
+                auth_content = f.read()
+                
+        if pub_key not in auth_content:
+            with open(auth_keys_path, "a") as f:
+                f.write(f"\n{pub_key}\n")
+            os.chmod(auth_keys_path, 0o600)
+            print("[+] Master auto-authorized for SSH access.")
+    except Exception as e:
+        print(f"{YELLOW}[WARNING]{RESET} Failed to setup SSH keys: {e}")
 
 def main():
     check_root()
@@ -196,6 +228,7 @@ def main():
     input("\nPress ENTER to generate the authentication link...")
     subprocess.run("tailscale up", shell=True, check=True)
     tailscale_url = get_tailscale_url() or input("Paste the complete server URL (e.g. https://machine.tailnet.ts.net): ").strip()
+    setup_ssh_keys()
 
     print("\n============================================================")
     print(" STEP 3: FINALIZING AND STARTING THE CLUSTER")
