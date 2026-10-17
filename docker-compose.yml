@@ -114,8 +114,8 @@ services:
       - ${DATALAKE_STORAGE_PATH}/projects_data:/app/projects_data
       - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock
       - /root/.ssh:/root/.ssh:ro
-      - ./routers:/app/routers
-      - ./core:/app/core
+      - ./portal-compute/routers:/app/routers
+      - ./portal-compute/core:/app/core
     networks:
       - arenalake-net
     deploy:
