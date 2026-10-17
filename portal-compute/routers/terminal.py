@@ -7,6 +7,7 @@ from jose import jwt
 router = APIRouter()
 
 @router.websocket("/api/admin/terminal/{ip}")
+@router.websocket("/admin/terminal/{ip}")
 async def web_terminal(websocket: WebSocket, ip: str, token: str = Query(...)):
     """Abre um túnel SSH via WebSocket utilizando paramiko e as chaves do host."""
     try:
