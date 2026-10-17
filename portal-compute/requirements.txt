@@ -1,11 +1,9 @@
 # ArenaLake portal dependencies
-
 fastapi
 uvicorn
 python-multipart
 
 # Container management
-
 docker
 
 # Object storage / S3-compatible APIs
@@ -32,10 +30,8 @@ qrcode[pil]==7.4.2
 # ORM / validation
 pydantic
 sqlalchemy
-
 httpx
-
 paramiko==3.4.0
-
 psycopg[binary]
 psycopg2-binary
+websockets>=11.0
