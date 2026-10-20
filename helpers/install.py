@@ -280,7 +280,22 @@ def main():
             if result.stdout.strip(): portal_id = result.stdout.strip(); break
             time.sleep(2)
         
-        if portal_id: run_live(f"docker exec {portal_id} python -m core.init_db", "Initializing Super Admin & Core Database")
+        if portal_id: 
+            print(f"\n[*] Waiting for PostgreSQL overlay network to resolve and initializing database...")
+            db_initialized = False
+            for attempt in range(20):
+                res = subprocess.run(f"docker exec {portal_id} python -m core.init_db", shell=True, capture_output=True, text=True)
+                if res.returncode == 0:
+                    if res.stdout.strip():
+                        for line in res.stdout.strip().split("\n"): print(f"    {line}")
+                    print("    [+] Database successfully initialized.")
+                    db_initialized = True
+                    break
+                time.sleep(3)
+            
+            if not db_initialized:
+                print(f"{YELLOW}[ERROR]{RESET} Failed to initialize database. Postgres resolution timeout.")
+                sys.exit(1)
         
         print(f"\n{CYAN}[*] Exposing Portal securely to the Internet via Tailscale Funnel...{RESET}")
         subprocess.run("tailscale serve reset >/dev/null 2>&1", shell=True)
