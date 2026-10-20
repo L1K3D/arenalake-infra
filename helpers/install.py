@@ -62,6 +62,11 @@ def check_telemetry_folder():
 
 def install_dependencies():
     print("\n[*] Verifying system dependencies (Ubuntu)...")
+    
+    # Previne o erro de concorrência limpando locks residuais e forçando o update síncrono
+    run_live("killall apt apt-get 2>/dev/null || true; rm -f /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock*", "Clearing OS package locks")
+    run_live("apt-get -qq update", "Updating system package lists")
+    
     if shutil.which("docker") is None:
         run_live("curl -fsSL https://get.docker.com | sh", "Installing Docker Engine")
     if shutil.which("tailscale") is None:
@@ -124,17 +129,13 @@ def configure_storage():
     return project_datalake, quota_gb
 
 def setup_nfs_master(datalake_path):
-    """Instala o NFS e partilha a pasta do DataLake apenas para a rede VPN do Tailscale."""
     print("\n============================================================")
     print(" STEP 1.6: CONFIGURING NFS SERVER (STORAGE SHARING)")
     print("============================================================")
     
     run_live("DEBIAN_FRONTEND=noninteractive apt-get install -y nfs-kernel-server", "Installing NFS Server")
     
-    # Resolve the real path if it's a symlink
     real_path = os.path.realpath(datalake_path)
-    
-    # 100.64.0.0/10 é a sub-rede padrão do Tailscale
     exports_line = f"{real_path} 100.64.0.0/10(rw,sync,no_subtree_check,no_root_squash)\n"
     
     exports_content = ""
@@ -151,7 +152,6 @@ def setup_nfs_master(datalake_path):
     print(f"{CYAN} 💡 TIP FOR WORKERS:{RESET} When asked for the physical path, type: {real_path}")
     
 def setup_ssh_keys():
-    """Gera a chave SSH no Master e a auto-autoriza para o Web Terminal."""
     print("\n============================================================")
     print(" STEP 2.5: CONFIGURING SSH WEB TERMINAL")
     print("============================================================")
@@ -159,11 +159,9 @@ def setup_ssh_keys():
     os.makedirs("/root/.ssh", exist_ok=True)
     os.chmod("/root/.ssh", 0o700)
     
-    # Gera a chave se não existir
     if not os.path.isfile("/root/.ssh/id_rsa"):
         run_live("ssh-keygen -t rsa -b 4096 -N '' -f /root/.ssh/id_rsa -q", "Generating SSH Keys for Web Terminal")
     
-    # Auto-autoriza o Master
     try:
         with open("/root/.ssh/id_rsa.pub", "r") as pub_key_file:
             pub_key = pub_key_file.read().strip()
@@ -193,9 +191,7 @@ def main():
 
     check_existing_install()
 
-    print(f"\n{CYAN}[*] Firing up background system update to save time later...{RESET}")
-    update_proc = subprocess.Popen(["apt-get", "update"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
+    # Dependências agora são instaladas e garantidas primeiro de forma síncrona
     install_dependencies()
     check_ports_available()
     jwt_secret = secrets.token_hex(32)
@@ -238,7 +234,6 @@ def main():
     os.makedirs(datalake_path, exist_ok=True)
     os.chmod(datalake_path, 0o755)
 
-    update_proc.wait()
     setup_nfs_master(datalake_path)
 
     print(f"\n[*] Provisioning directories in {datalake_path}...")
@@ -252,7 +247,6 @@ def main():
             except: pass
         elif folder == "minio_data":
             os.chmod(folder_path, 0o775)
-            # Força a propriedade para o usuário seguro da Chainguard (65532)
             try: subprocess.run(["chown", "-R", "65532:65532", folder_path], check=False)
             except: pass
         else: 
@@ -281,7 +275,10 @@ def main():
             time.sleep(2)
         
         if portal_id: run_live(f"docker exec {portal_id} python -m core.init_db", "Initializing Super Admin & Core Database")
-        subprocess.run(["tailscale", "funnel", "--bg", "http://127.0.0.1:8088"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+        print(f"\n{CYAN}[*] Exposing Portal securely to the Internet via Tailscale Funnel...{RESET}")
+        subprocess.run("tailscale serve reset >/dev/null 2>&1", shell=True)
+        subprocess.run("tailscale funnel --bg http://127.0.0.1:8088", shell=True)
 
         print("\n" + "=" * 60)
         print(f"  {raw_company} DataLake installed and running successfully! 🚀")
