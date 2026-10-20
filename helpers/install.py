@@ -15,7 +15,7 @@ RESET = "\033[0m"
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(PROJECT_ROOT)
 
-def run_live(command, description="Executing"):
+def run_live(command, description="Executing", ignore_errors=False):
     print(f"\n[*] {description}...")
     try:
         process = subprocess.Popen(
@@ -24,10 +24,14 @@ def run_live(command, description="Executing"):
         )
         for line in process.stdout: print(f"    {line.strip()}")
         process.wait()
-        if process.returncode != 0: raise subprocess.CalledProcessError(process.returncode, command)
+        if process.returncode != 0 and not ignore_errors: 
+            raise subprocess.CalledProcessError(process.returncode, command)
     except Exception as e:
-        print(f"{YELLOW}[ERROR]{RESET} Failed during: {description} | {e}")
-        sys.exit(1)
+        if ignore_errors:
+            print(f"{YELLOW}[WARNING]{RESET} {description} returned non-zero, but continuing...")
+        else:
+            print(f"{YELLOW}[ERROR]{RESET} Failed during: {description} | {e}")
+            sys.exit(1)
 
 def check_root():
     if os.geteuid() != 0:
@@ -63,8 +67,7 @@ def check_telemetry_folder():
 def install_dependencies():
     print("\n[*] Verifying system dependencies (Ubuntu)...")
     
-    # Previne o erro de concorrência limpando locks residuais e forçando o update síncrono
-    run_live("killall apt apt-get 2>/dev/null || true; rm -f /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock*", "Clearing OS package locks")
+    run_live("killall apt apt-get 2>/dev/null || true; rm -f /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock*", "Clearing OS package locks", ignore_errors=True)
     run_live("apt-get -qq update", "Updating system package lists")
     
     if shutil.which("docker") is None:
@@ -133,7 +136,10 @@ def setup_nfs_master(datalake_path):
     print(" STEP 1.6: CONFIGURING NFS SERVER (STORAGE SHARING)")
     print("============================================================")
     
-    run_live("DEBIAN_FRONTEND=noninteractive apt-get install -y nfs-kernel-server", "Installing NFS Server")
+    run_live("DEBIAN_FRONTEND=noninteractive apt-get install -y nfs-kernel-server rpcbind nfs-common", "Installing NFS Server & Dependencies")
+    run_live("systemctl unmask rpcbind nfs-common nfs-kernel-server || true", "Unmasking NFS services", ignore_errors=True)
+    run_live("systemctl daemon-reload", "Reloading systemd daemons", ignore_errors=True)
+    run_live("systemctl enable --now rpcbind nfs-common || true", "Starting RPCBind and NFS Common", ignore_errors=True)
     
     real_path = os.path.realpath(datalake_path)
     exports_line = f"{real_path} 100.64.0.0/10(rw,sync,no_subtree_check,no_root_squash)\n"
@@ -147,8 +153,9 @@ def setup_nfs_master(datalake_path):
         with open("/etc/exports", "a") as f:
             f.write(exports_line)
             
-    run_live("exportfs -a && systemctl restart nfs-kernel-server", "Starting NFS Service")
-    print(f"[+] NFS Share created for {real_path} over the Tailscale VPN.")
+    run_live("exportfs -a && systemctl restart nfs-kernel-server", "Starting NFS Service", ignore_errors=True)
+    
+    print(f"[+] NFS Share configured for {real_path} over the Tailscale VPN.")
     print(f"{CYAN} 💡 TIP FOR WORKERS:{RESET} When asked for the physical path, type: {real_path}")
     
 def setup_ssh_keys():
@@ -191,7 +198,6 @@ def main():
 
     check_existing_install()
 
-    # Dependências agora são instaladas e garantidas primeiro de forma síncrona
     install_dependencies()
     check_ports_available()
     jwt_secret = secrets.token_hex(32)
@@ -254,7 +260,7 @@ def main():
             
         print(f"    [+] Created: {folder}")
 
-    env_content = f"""MINIO_ACCESS_KEY={minio_user}\nMINIO_SECRET_KEY={minio_pass}\nDATALAKE_STORAGE_PATH={datalake_path}\nDATALAKE_QUOTA_GB={datalake_quota}\nDATABASE_URL=postgresql://{dba_user}:{dba_pass}@postgres:5432/arenalake_core\nJWT_SECRET_KEY={jwt_secret}\nDBA_USERNAME={dba_user}\nDBA_PASSWORD={dba_pass}\nSPARK_MASTER_URL=spark://spark-master:7077\nPORTAL_PORT=8088\nTRAEFIK_WEB_PORT=80\nMINIO_API_PORT=9000\nMINIO_CONSOLE_PORT=9001\nSPARK_UI_PORT=8080\nTRAEFIK_DASH_PORT=8089\nWORKSPACE_NETWORK={workspace_network}\nWORKSPACE_IMAGE=arenalake-workspace:latest\nTAILSCALE_BASE_URL={tailscale_url}\nAUTO_UPDATE_WORKSPACE={auto_update_ws}\nAUTO_UPDATE_CORE={auto_update_core}\n"""
+    env_content = f"MINIO_ACCESS_KEY={minio_user}\nMINIO_SECRET_KEY={minio_pass}\nDATALAKE_STORAGE_PATH={datalake_path}\nDATALAKE_QUOTA_GB={datalake_quota}\nDATABASE_URL=postgresql://{dba_user}:{dba_pass}@postgres:5432/arenalake_core\nJWT_SECRET_KEY={jwt_secret}\nDBA_USERNAME={dba_user}\nDBA_PASSWORD={dba_pass}\nSPARK_MASTER_URL=spark://spark-master:7077\nPORTAL_PORT=8088\nTRAEFIK_WEB_PORT=80\nMINIO_API_PORT=9000\nMINIO_CONSOLE_PORT=9001\nSPARK_UI_PORT=8080\nTRAEFIK_DASH_PORT=8089\nWORKSPACE_NETWORK={workspace_network}\nWORKSPACE_IMAGE=arenalake-workspace:latest\nTAILSCALE_BASE_URL={tailscale_url}\nAUTO_UPDATE_WORKSPACE={auto_update_ws}\nAUTO_UPDATE_CORE={auto_update_core}\n"
     with open(".env", "w") as f: f.write(env_content)
     os.chmod(".env", 0o600)
 
