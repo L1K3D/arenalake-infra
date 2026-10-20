@@ -81,12 +81,6 @@ def cleanup_orphaned_workspaces():
         else:
             print("[+] No orphaned workspaces found.")
 
-        # Força a limpeza da rede caso ela tenha travado em execuções anteriores
-        print(f"[*] Ensuring network {STACK_NAME}_arenalake-net is clear...")
-        subprocess.run(
-            ["docker", "network", "rm", f"{STACK_NAME}_arenalake-net"],
-            capture_output=True, check=False
-        )
     except Exception as e:
         print(f"[ERROR] Failed to clean up orphaned workspaces: {e}")
 
