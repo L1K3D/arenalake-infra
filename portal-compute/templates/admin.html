@@ -394,6 +394,37 @@
                 </div>
             </div>
 
+            <!-- Admin Side Panel for Preview -->
+            <div id="adminSidePanel" class="side-panel">
+                <button class="close-btn" onclick="fecharPreview()">×</button>
+                <h3 id="prevFilename" style="margin-top: 0; color: white; word-wrap: break-word;">Arquivo</h3>
+
+                <div style="margin-top: 20px;">
+                    <div class="meta-tag">📦 Bucket: <span id="prevBucket"></span></div>
+                    <div class="meta-tag">👤 Uploader: <span id="prevUploader"></span></div>
+                    <div class="meta-tag">💾 Tamanho: <span id="prevSize"></span></div>
+                    <div class="meta-tag">📅 Upload: <span id="prevDate"></span></div>
+                </div>
+
+                <div id="prevShape"
+                    style="display:none; margin-top: 15px; background: #21262d; padding: 10px; border-radius: 5px; border: 1px solid #30363d; font-size: 0.85em;">
+                    <span style="color:#8b949e">Total Linhas:</span> <strong id="prevRows"
+                        style="color:#58a6ff"></strong> |
+                    <span style="color:#8b949e">Total Colunas:</span> <strong id="prevCols"
+                        style="color:#58a6ff"></strong>
+                </div>
+
+                <div
+                    style="margin-top: 15px; background: #21262d; padding: 10px; border-radius: 5px; border: 1px solid #30363d; font-size: 0.85em;">
+                    <h5 style="margin: 0 0 5px 0; color: #8b949e;">🔗 Relações / Linhagem</h5>
+                    <span style="color:#da3633; font-style:italic;">Não rastreado. Requer engine de metadados
+                        externa.</span>
+                </div>
+
+                <h4 style="border-bottom: 1px solid #30363d; padding-bottom: 10px; margin-top: 25px;">Visualização</h4>
+                <div id="prevContent">Carregando...</div>
+            </div>
+
         </main>
     </div>
 

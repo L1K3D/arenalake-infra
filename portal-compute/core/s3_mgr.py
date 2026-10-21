@@ -11,6 +11,8 @@ import os
 import boto3
 import pandas as pd
 import io
+import json
+import pyarrow.parquet as pq
 
 
 def get_s3_client():
@@ -95,14 +97,8 @@ def format_size(size_bytes):
     else:
         return f"{round(size_bytes/(1024**3), 2)} GB"
 
-
 def get_file_details(bucket: str, filename: str):
-    """Collect object metadata and generate a UI preview for supported formats.
-
-    Images receive a short-lived presigned URL. CSV and Parquet files are
-    converted to HTML tables, while text files are limited to their first ten
-    lines to keep previews lightweight.
-    """
+    """Collect object metadata and generate a UI preview for supported formats."""
     s3_client = get_s3_client()
 
     if filename.endswith("_SUCCESS"):
@@ -112,6 +108,8 @@ def get_file_details(bucket: str, filename: str):
             "last_modified": "-",
             "uploader": "Apache Spark",
             "type": "info",
+            "total_rows": "-",
+            "total_cols": "-",
             "preview_content": "<p style='color: #8b949e; text-align: center; margin-top: 20px;'><em>Metadado do Apache Spark.</em></p>",
         }
 
@@ -126,6 +124,8 @@ def get_file_details(bucket: str, filename: str):
         "last_modified": last_modified,
         "uploader": uploader,
         "type": "unknown",
+        "total_rows": "-",
+        "total_cols": "-",
         "preview_content": "Pré-visualização não disponível.",
     }
 
@@ -136,31 +136,41 @@ def get_file_details(bucket: str, filename: str):
                 "get_object", Params={"Bucket": bucket, "Key": filename}, ExpiresIn=3600
             )
             details["type"] = "image"
-            details["preview_content"] = url.replace(
-                "http://minio:9000", "http://localhost:9000"
-            )
+            details["preview_content"] = url.replace("http://minio:9000", "http://localhost:9000")
+
+        elif ext == "json":
+            obj = s3_client.get_object(Bucket=bucket, Key=filename)
+            body = obj["Body"].read().decode("utf-8")
+            try:
+                parsed = json.loads(body)
+                pretty_json = json.dumps(parsed, indent=4)
+                details["preview_content"] = f"<pre class='preview-txt'>{pretty_json}</pre>"
+            except:
+                details["preview_content"] = f"<pre class='preview-txt'>{body}</pre>"
+            details["type"] = "json"
 
         elif ext == "csv":
             obj = s3_client.get_object(Bucket=bucket, Key=filename)
-            df = pd.read_csv(io.BytesIO(obj["Body"].read()), nrows=10)
+            df = pd.read_csv(io.BytesIO(obj["Body"].read()), nrows=15)
             details["type"] = "table"
-            details["preview_content"] = df.to_html(
-                classes="preview-table", index=False
-            )
+            details["preview_content"] = df.head(10).to_html(classes="preview-table", index=False)
+            details["total_cols"] = len(df.columns)
+            details["total_rows"] = "Requer S3 Select" # Extrair total de linhas de CSV massivos estoura a RAM
 
         elif ext == "parquet" or "part-" in filename:
             obj = s3_client.get_object(Bucket=bucket, Key=filename)
-            df = pd.read_parquet(io.BytesIO(obj["Body"].read()), engine="pyarrow")
+            table = pq.read_table(io.BytesIO(obj["Body"].read()))
+            df = table.to_pandas().head(10)
             details["type"] = "table"
-            details["preview_content"] = df.head(10).to_html(
-                classes="preview-table", index=False
-            )
+            details["preview_content"] = df.to_html(classes="preview-table", index=False)
+            details["total_cols"] = table.num_columns
+            details["total_rows"] = f"{table.num_rows:,}" # Lê metadados PyArrow sem estourar RAM
 
         elif ext == "txt":
             obj = s3_client.get_object(Bucket=bucket, Key=filename)
             body = obj["Body"].read().decode("utf-8")
             details["type"] = "text"
-            details["preview_content"] = "\n".join(body.split("\n")[:10])
+            details["preview_content"] = f"<pre class='preview-txt'>\n".join(body.split("\n")[:10]) + "</pre>"
 
     except Exception as e:
         details["preview_content"] = f"Erro ao gerar sample: {str(e)}"
@@ -188,3 +198,17 @@ def create_bucket_in_datalake(bucket_name: str):
             return True, clean_name
         except Exception as e:
             return False, f"Erro ao criar bucket: {str(e)}"
+        
+def delete_bucket_from_datalake(bucket_name: str):
+    """Exclui todos os arquivos de um bucket recursivamente e depois exclui o próprio bucket."""
+    s3_client = get_s3_client()
+    try:
+        objects = s3_client.list_objects_v2(Bucket=bucket_name)
+        if 'Contents' in objects:
+            for obj in objects['Contents']:
+                s3_client.delete_object(Bucket=bucket_name, Key=obj['Key'])
+                
+        s3_client.delete_bucket(Bucket=bucket_name)
+        return True, ""
+    except Exception as e:
+        return False, str(e)

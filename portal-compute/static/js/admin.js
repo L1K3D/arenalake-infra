@@ -527,14 +527,15 @@ function renderizarCatalog() {
         const files = globalAdminCatalog[bucket];
 
         if (files.length === 0) {
-            filesHtml = '<tr><td colspan="2" style="padding: 8px; color: #8b949e; font-style: italic;">Bucket is empty.</td></tr>';
+            filesHtml = '<tr><td colspan="2" style="padding: 15px; color: #8b949e; font-style: italic;">Bucket is empty.</td></tr>';
         } else {
             files.forEach(file => {
                 filesHtml += `
-                    <tr style="border-bottom: 1px solid #21262d;">
-                        <td style="padding: 8px; font-family: monospace; color: #58a6ff;">${file}</td>
-                        <td style="padding: 8px; text-align: right;">
-                            <button onclick="deletarArquivoCatalog('${bucket}', '${file}')" style="background: #da3633; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">🗑️ Delete</button>
+                    <tr style="border-bottom: 1px solid #21262d; transition: background 0.2s;" onmouseover="this.style.background='#1c2128'" onmouseout="this.style.background='transparent'">
+                        <td style="padding: 10px; font-family: monospace; color: #58a6ff; font-size: 0.9em;">${file}</td>
+                        <td style="padding: 10px; text-align: right; white-space: nowrap;">
+                            <button onclick="abrirPreview('${bucket}', '${file}')" style="background: #21262d; color: #58a6ff; border: 1px solid #30363d; padding: 4px 10px; border-radius: 4px; font-size: 0.85em; cursor: pointer; margin-right: 5px;">👁️ Preview</button>
+                            <button onclick="deletarArquivoCatalog('${bucket}', '${file}')" style="background: #da3633; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.85em; cursor: pointer;">🗑️ Delete</button>
                         </td>
                     </tr>
                 `;
@@ -542,14 +543,87 @@ function renderizarCatalog() {
         }
 
         container.innerHTML += `
-            <div style="background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 15px; margin-bottom: 15px;">
-                <h4 style="margin: 0 0 10px 0; color: #79c0ff;">📦 Bucket: ${bucket}</h4>
+            <div style="background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #21262d; padding-bottom: 10px;">
+                    <h4 style="margin: 0; color: #79c0ff; font-size: 1.1em;">📦 Bucket: ${bucket}</h4>
+                    <button onclick="deletarBucketAdmin('${bucket}')" style="background: transparent; color: #f85149; border: 1px solid #f85149; padding: 4px 12px; border-radius: 4px; font-size: 0.8em; font-weight: bold; cursor: pointer;">❌ Excluir Bucket</button>
+                </div>
                 <table style="width: 100%; border-collapse: collapse;">
                     <tbody>${filesHtml}</tbody>
                 </table>
             </div>
         `;
     });
+}
+
+async function deletarBucketAdmin(bucket) {
+    if (!confirm(`ATENÇÃO: Você está prestes a excluir o bucket '${bucket}'. Isso removerá TODOS os arquivos dentro dele e quebrará análises que dependem desses dados.\n\nDeseja prosseguir?`)) return;
+
+    // Dupla verificação
+    const confirmacao = prompt(`Para confirmar a exclusão, digite o nome do bucket exatamente como está escrito (${bucket}):`);
+    if (confirmacao !== bucket) {
+        alert('Nome incorreto. Exclusão cancelada por segurança.');
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/admin/catalog/bucket/${bucket}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        if (res.ok) {
+            alert(result.message);
+            document.getElementById('bucketDropdown').value = 'all'; // Reseta o filtro
+            carregarDataCatalog();
+        } else {
+            alert('Erro: ' + result.detail);
+        }
+    } catch (e) {
+        alert('Erro de comunicação ao tentar excluir o bucket.');
+    }
+}
+
+async function abrirPreview(bucket, filename) {
+    document.getElementById('adminSidePanel').classList.add('open');
+    document.getElementById('prevFilename').innerText = filename;
+    document.getElementById('prevBucket').innerText = bucket;
+    document.getElementById('prevContent').innerHTML = "<div style='color:#8b949e'>Gerando preview da amostra de dados...</div>";
+    document.getElementById('prevShape').style.display = 'none';
+
+    try {
+        const res = await fetch(`/api/admin/catalog/preview/${bucket}/${filename}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        if (result.status === 'success') {
+            document.getElementById('prevDate').innerText = result.data.last_modified;
+            document.getElementById('prevSize').innerText = result.data.size;
+            document.getElementById('prevUploader').innerText = result.data.uploader;
+
+            if (result.data.type === 'table') {
+                document.getElementById('prevShape').style.display = 'block';
+                document.getElementById('prevRows').innerText = result.data.total_rows;
+                document.getElementById('prevCols').innerText = result.data.total_cols;
+            }
+
+            let contentHtml = result.data.type === 'image'
+                ? `<img src="${result.data.preview_content}" class="preview-img">`
+                : result.data.preview_content;
+
+            document.getElementById('prevContent').innerHTML = contentHtml;
+        } else {
+            document.getElementById('prevContent').innerHTML = "<div style='color:#f85149'>Falha na leitura do arquivo.</div>";
+        }
+    } catch (e) {
+        document.getElementById('prevContent').innerHTML = "<div style='color:#da3633'>Erro de rede ao carregar preview.</div>";
+    }
+}
+
+function fecharPreview() {
+    document.getElementById('adminSidePanel').classList.remove('open');
 }
 
 async function handleCreateBucket() {
