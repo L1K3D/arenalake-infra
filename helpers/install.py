@@ -66,7 +66,6 @@ def check_telemetry_folder():
 
 def install_dependencies():
     print("\n[*] Verifying system dependencies (Ubuntu)...")
-    
     run_live("killall apt apt-get 2>/dev/null || true; rm -f /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock*", "Clearing OS package locks", ignore_errors=True)
     run_live("apt-get -qq update", "Updating system package lists")
     
@@ -193,7 +192,7 @@ def main():
     check_telemetry_folder()
 
     print("=" * 60)
-    print("      ArenaLake - Enterprise Interactive Setup")
+    print("    ArenaLake - Enterprise Interactive Setup")
     print("=" * 60)
 
     check_existing_install()
@@ -247,18 +246,20 @@ def main():
         folder_path = os.path.join(datalake_path, folder)
         os.makedirs(folder_path, exist_ok=True)
         
+        # Correções de permissões nativas recursivas (Evita manualidade pós-instalação)
         if folder == "database":
             os.chmod(folder_path, 0o700)
-            try: os.chown(folder_path, 70, 70)
-            except: pass
+            subprocess.run(["chown", "-R", "70:70", folder_path], check=False) # Postgres Alpine UID
         elif folder == "minio_data":
             os.chmod(folder_path, 0o775)
-            try: subprocess.run(["chown", "-R", "65532:65532", folder_path], check=False)
-            except: pass
+            subprocess.run(["chown", "-R", "65532:65532", folder_path], check=False) # Minio Chainguard UID
+        elif folder == "spark_jobs":
+            os.chmod(folder_path, 0o775)
+            subprocess.run(["chown", "-R", "1001:1001", folder_path], check=False) # Bitnami Spark UID
         else: 
             os.chmod(folder_path, 0o777)
             
-        print(f"    [+] Created: {folder}")
+        print(f"    [+] Created: {folder} with appropriate UID/GID ownership.")
 
     env_content = f"MINIO_ACCESS_KEY={minio_user}\nMINIO_SECRET_KEY={minio_pass}\nDATALAKE_STORAGE_PATH={datalake_path}\nDATALAKE_QUOTA_GB={datalake_quota}\nDATABASE_URL=postgresql://{dba_user}:{dba_pass}@postgres:5432/arenalake_core\nJWT_SECRET_KEY={jwt_secret}\nDBA_USERNAME={dba_user}\nDBA_PASSWORD={dba_pass}\nSPARK_MASTER_URL=spark://spark-master:7077\nPORTAL_PORT=8088\nTRAEFIK_WEB_PORT=80\nMINIO_API_PORT=9000\nMINIO_CONSOLE_PORT=9001\nSPARK_UI_PORT=8080\nTRAEFIK_DASH_PORT=8089\nWORKSPACE_NETWORK={workspace_network}\nWORKSPACE_IMAGE=arenalake-workspace:latest\nTAILSCALE_BASE_URL={tailscale_url}\nAUTO_UPDATE_WORKSPACE={auto_update_ws}\nAUTO_UPDATE_CORE={auto_update_core}\n"
     with open(".env", "w") as f: f.write(env_content)
@@ -268,10 +269,22 @@ def main():
         subprocess.run(["docker", "swarm", "init"], check=False, stdout=subprocess.DEVNULL)
 
     try:
-        subprocess.run(["docker", "compose", "build"], check=True)
+        # Carrega variáveis do .env no contexto Python
         with open(".env", "r") as f:
             for line in f:
                 if line.strip() and not line.startswith("#"): os.environ[line.split("=", 1)[0]] = line.strip().split("=", 1)[1]
+
+        # Otimização de tempo de compilação
+        print("\n[*] Pre-fetching public images to speed up build...")
+        subprocess.run(["docker", "compose", "pull", "--quiet"], check=False)
+
+        print("\n[*] Compiling local images (BuildKit enabled for speed)...")
+        env_vars = os.environ.copy()
+        env_vars["DOCKER_BUILDKIT"] = "1"
+        env_vars["COMPOSE_DOCKER_CLI_BUILD"] = "1"
+        subprocess.run(["docker", "compose", "build", "--parallel"], check=True, env=env_vars)
+
+        print("\n[*] Deploying ArenaLake Stack...")
         subprocess.run(["docker", "stack", "deploy", "-c", "docker-compose.yml", "arenalake-prod"], check=True, stdout=subprocess.DEVNULL)
         
         portal_id = ""
@@ -304,7 +317,8 @@ def main():
         print("\n" + "=" * 60)
         print(f"  {raw_company} DataLake installed and running successfully! 🚀")
         print("=" * 60)
-    except: print("[ERROR] Failed to deploy cluster.")
+    except Exception as e: 
+        print(f"[ERROR] Failed to deploy cluster: {e}")
 
 if __name__ == "__main__":
     main()
