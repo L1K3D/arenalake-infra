@@ -1,31 +1,17 @@
-# ============================================================================
-# S3/MinIO data lake manager.
-# Centralizes object storage access, catalog discovery, uploads, and previews.
-# ============================================================================
-# This module handles all interactions with the MinIO object storage service.
-# The functions below cover catalog browsing, file management, previews,
-# and connection setup using credentials supplied by the environment.
-# ============================================================================
-
 import os
 import boto3
 import pandas as pd
 import io
 import json
+import base64
 import pyarrow.parquet as pq
 
 
 def get_s3_client():
-    """Create a boto3 client configured for the internal MinIO endpoint.
-
-    Credentials are read from environment variables and a ``ValueError`` is
-    raised immediately when either required value is missing.
-    """
-    # Retrieve credentials injected by the container environment.
+    """Create a boto3 client configured for the internal MinIO endpoint."""
     minio_ak = os.environ.get("MINIO_ACCESS_KEY")
     minio_sk = os.environ.get("MINIO_SECRET_KEY")
 
-    # Fail fast so storage operations never run with incomplete credentials.
     if not minio_ak or not minio_sk:
         raise ValueError(
             "ERRO CRÍTICO: Credenciais do MinIO (MINIO_ACCESS_KEY e MINIO_SECRET_KEY) não encontradas no ambiente!"
@@ -41,11 +27,7 @@ def get_s3_client():
 
 
 def fetch_catalog_data():
-    """Return a bucket-to-file mapping for objects visible in MinIO.
-
-    Spark-generated ``_SUCCESS`` markers and ``.crc`` checksum files are
-    omitted because they are processing metadata rather than user datasets.
-    """
+    """Return a bucket-to-file mapping for objects visible in MinIO."""
     s3_client = get_s3_client()
     buckets_response = s3_client.list_buckets()
     buckets = [bucket["Name"] for bucket in buckets_response.get("Buckets", [])]
@@ -59,7 +41,6 @@ def fetch_catalog_data():
         for obj in contents:
             key = obj["Key"]
 
-            # Hide internal Spark artifacts from the user-facing catalog.
             if "_SUCCESS" in key or key.endswith(".crc") or "/_SUCCESS" in key:
                 continue
 
@@ -71,11 +52,7 @@ def fetch_catalog_data():
 
 
 def upload_file_to_datalake(bucket: str, file_obj, filename: str, username: str):
-    """Upload a file to a bucket and record the uploader as object metadata.
-
-    The file-like object is streamed through boto3, avoiding the need to write
-    a temporary copy to the portal container's local filesystem.
-    """
+    """Upload a file to a bucket and record the uploader as object metadata."""
     s3_client = get_s3_client()
     s3_client.upload_fileobj(
         Fileobj=file_obj,
@@ -96,6 +73,7 @@ def format_size(size_bytes):
         return f"{round(size_bytes/(1024**2), 2)} MB"
     else:
         return f"{round(size_bytes/(1024**3), 2)} GB"
+
 
 def get_file_details(bucket: str, filename: str):
     """Collect object metadata and generate a UI preview for supported formats."""
@@ -132,11 +110,14 @@ def get_file_details(bucket: str, filename: str):
     try:
         ext = filename.split(".")[-1].lower()
         if ext in ["png", "jpg", "jpeg"]:
-            url = s3_client.generate_presigned_url(
-                "get_object", Params={"Bucket": bucket, "Key": filename}, ExpiresIn=3600
-            )
+            # CORREÇÃO 1: Baixa a imagem e converte para base64 para evitar bloqueios de CORS/Rede do Docker
+            obj = s3_client.get_object(Bucket=bucket, Key=filename)
+            img_data = obj["Body"].read()
+            b64_img = base64.b64encode(img_data).decode("utf-8")
+            mime_type = f"image/{ext}" if ext != "jpg" else "image/jpeg"
+            
             details["type"] = "image"
-            details["preview_content"] = url.replace("http://minio:9000", "http://localhost:9000")
+            details["preview_content"] = f"data:{mime_type};base64,{b64_img}"
 
         elif ext == "json":
             obj = s3_client.get_object(Bucket=bucket, Key=filename)
@@ -150,12 +131,27 @@ def get_file_details(bucket: str, filename: str):
             details["type"] = "json"
 
         elif ext == "csv":
+            # CORREÇÃO 2: Lê em stream (sem sobrecarregar a memória) para contar todas as linhas 
+            # e captura apenas as primeiras 15 para desenhar a tabela.
             obj = s3_client.get_object(Bucket=bucket, Key=filename)
-            df = pd.read_csv(io.BytesIO(obj["Body"].read()), nrows=15)
+            head_lines = []
+            total_lines = 0
+            
+            for line in obj["Body"].iter_lines():
+                if total_lines < 15:
+                    head_lines.append(line)
+                total_lines += 1
+                
+            if head_lines:
+                head_bytes = b'\n'.join(head_lines)
+                df = pd.read_csv(io.BytesIO(head_bytes))
+                details["total_cols"] = len(df.columns)
+                details["total_rows"] = f"{max(0, total_lines - 1):,}".replace(",", ".") # Remove cabeçalho
+                details["preview_content"] = df.head(10).to_html(classes="preview-table", index=False)
+            else:
+                details["preview_content"] = "Arquivo CSV vazio."
+            
             details["type"] = "table"
-            details["preview_content"] = df.head(10).to_html(classes="preview-table", index=False)
-            details["total_cols"] = len(df.columns)
-            details["total_rows"] = "Requer S3 Select" # Extrair total de linhas de CSV massivos estoura a RAM
 
         elif ext == "parquet" or "part-" in filename:
             obj = s3_client.get_object(Bucket=bucket, Key=filename)
@@ -164,7 +160,7 @@ def get_file_details(bucket: str, filename: str):
             details["type"] = "table"
             details["preview_content"] = df.to_html(classes="preview-table", index=False)
             details["total_cols"] = table.num_columns
-            details["total_rows"] = f"{table.num_rows:,}" # Lê metadados PyArrow sem estourar RAM
+            details["total_rows"] = f"{table.num_rows:,}".replace(",", ".")
 
         elif ext == "txt":
             obj = s3_client.get_object(Bucket=bucket, Key=filename)
@@ -177,19 +173,20 @@ def get_file_details(bucket: str, filename: str):
 
     return details
 
+
 def delete_file_from_datalake(bucket: str, filename: str):
     """Delete an object from a MinIO bucket for an authorized administrator."""
     s3_client = get_s3_client()
     s3_client.delete_object(Bucket=bucket, Key=filename)
     return True
 
+
 def create_bucket_in_datalake(bucket_name: str):
-    """Create a new bucket in the MinIO data lake, conforming to DNS naming rules."""
+    """Create a new bucket in the MinIO data lake."""
     s3_client = get_s3_client()
     clean_name = bucket_name.lower().replace("_", "-").strip()
     
     try:
-        # Testa se o bucket já existe no cluster
         s3_client.head_bucket(Bucket=clean_name)
         return False, "O bucket já existe no MinIO."
     except Exception:
@@ -198,7 +195,8 @@ def create_bucket_in_datalake(bucket_name: str):
             return True, clean_name
         except Exception as e:
             return False, f"Erro ao criar bucket: {str(e)}"
-        
+
+
 def delete_bucket_from_datalake(bucket_name: str):
     """Exclui todos os arquivos de um bucket recursivamente e depois exclui o próprio bucket."""
     s3_client = get_s3_client()
