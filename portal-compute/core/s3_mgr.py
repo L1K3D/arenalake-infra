@@ -209,4 +209,80 @@ def delete_bucket_from_datalake(bucket_name: str):
         s3_client.delete_bucket(Bucket=bucket_name)
         return True, ""
     except Exception as e:
+        
         return False, str(e)
+    
+def generate_catalog_report():
+    """Gera um relatório consolidado com metadados e shape de todos os arquivos."""
+    s3_client = get_s3_client()
+    buckets_response = s3_client.list_buckets()
+    buckets = [bucket["Name"] for bucket in buckets_response.get("Buckets", [])]
+
+    report_data = []
+
+    for bucket in buckets:
+        objects_response = s3_client.list_objects_v2(Bucket=bucket)
+        contents = objects_response.get("Contents", [])
+
+        for obj in contents:
+            key = obj["Key"]
+            
+            # Ignora lixos do Spark
+            if "_SUCCESS" in key or key.endswith(".crc") or "/_SUCCESS" in key:
+                continue
+
+            try:
+                head = s3_client.head_object(Bucket=bucket, Key=key)
+                size_formatted = format_size(head["ContentLength"])
+                last_modified = head["LastModified"].strftime("%d/%m/%Y %H:%M:%S")
+                uploader = head.get("Metadata", {}).get("uploader", "Desconhecido")
+                
+                ext = key.split(".")[-1].lower() if "." in key else "unknown"
+                if "part-" in key and ext != "parquet":
+                    ext = "parquet"
+
+                total_rows = "-"
+                total_cols = "-"
+
+                # Tenta extrair shape se for dado tabular
+                if ext == "csv":
+                    file_obj = s3_client.get_object(Bucket=bucket, Key=key)
+                    head_lines = []
+                    total_lines = 0
+                    for line in file_obj["Body"].iter_lines():
+                        if total_lines < 2:
+                            head_lines.append(line)
+                        total_lines += 1
+                    
+                    if head_lines:
+                        try:
+                            df = pd.read_csv(io.BytesIO(b'\n'.join(head_lines)))
+                            total_cols = str(len(df.columns))
+                        except Exception:
+                            total_cols = "Erro"
+                        total_rows = str(max(0, total_lines - 1))
+                        
+                elif ext == "parquet":
+                    try:
+                        file_obj = s3_client.get_object(Bucket=bucket, Key=key)
+                        pf = pq.ParquetFile(io.BytesIO(file_obj["Body"].read()))
+                        total_cols = str(pf.metadata.num_columns)
+                        total_rows = str(pf.metadata.num_rows)
+                    except Exception:
+                        total_cols = "Erro"
+                        total_rows = "Erro"
+
+                report_data.append({
+                    "Bucket": bucket,
+                    "Arquivo": key,
+                    "Tipo": ext.upper(),
+                    "Data_Hora": last_modified,
+                    "Linhas": total_rows,
+                    "Colunas": total_cols,
+                    "Uploader": uploader,
+                    "Tamanho": size_formatted
+                })
+            except Exception as e:
+                print(f"Erro ao gerar relatorio para {key}: {e}")
+
+    return report_data

@@ -925,4 +925,64 @@ async function init() {
     }, 10000);
 }
 
+async function baixarRelatorioCatalog(event) {
+    const btn = event.currentTarget;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = "⏳ Gerando Análise...";
+    btn.disabled = true;
+
+    try {
+        const res = await fetch('/api/admin/catalog/export', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        if (result.status === 'success') {
+            const data = result.report;
+            if (data.length === 0) {
+                alert("Nenhum arquivo encontrado no catálogo.");
+                return;
+            }
+
+            // Cabeçalhos do CSV
+            const headers = ["Nome do Bucket", "Nome do Arquivo", "Tipo", "Data e Hora do Upload", "Qtd. Linhas", "Qtd. Colunas", "Uploader", "Tamanho (BD)"];
+            const csvRows = [headers.join(",")];
+
+            // Inserção dos dados processados
+            data.forEach(row => {
+                const values = [
+                    `"${row.Bucket}"`,
+                    `"${row.Arquivo}"`,
+                    `"${row.Tipo}"`,
+                    `"${row.Data_Hora}"`,
+                    `"${row.Linhas}"`,
+                    `"${row.Colunas}"`,
+                    `"${row.Uploader}"`,
+                    `"${row.Tamanho}"`
+                ];
+                csvRows.push(values.join(","));
+            });
+
+            // Tratamento do Blob para Download
+            const csvContent = csvRows.join("\n");
+            const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' }); // \uFEFF força o suporte a acentos no Excel
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+
+            a.setAttribute('href', url);
+            a.setAttribute('download', `datalake_inventory_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        } else {
+            alert("Erro ao gerar relatório: " + result.message);
+        }
+    } catch (e) {
+        alert("Erro de comunicação ao baixar relatório.");
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
 init();

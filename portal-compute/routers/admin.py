@@ -9,7 +9,7 @@ from passlib.context import CryptContext
 from core.database import get_db
 from core.models import User
 from core.docker_mgr import client as docker_client, shutdown_workspace, get_allocatable_resources
-from core.s3_mgr import fetch_catalog_data, upload_file_to_datalake, delete_file_from_datalake, create_bucket_in_datalake, delete_bucket_from_datalake, get_file_details
+from core.s3_mgr import fetch_catalog_data, upload_file_to_datalake, delete_file_from_datalake, create_bucket_in_datalake, delete_bucket_from_datalake, get_file_details, generate_catalog_report
 from core.security import get_current_user
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -499,3 +499,14 @@ async def admin_delete_bucket(bucket_name: str, current_user: User = Depends(get
         return JSONResponse(content={"status": "success", "message": f"Bucket '{bucket_name}' e todos os seus arquivos foram excluídos."})
     else:
         raise HTTPException(status_code=500, detail=msg)
+    
+@router.get("/admin/catalog/export")
+async def admin_export_catalog(current_user: User = Depends(get_current_user)):
+    """Gera e retorna o relatório consolidado do Data Lake em formato JSON para o Front-end."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado.")
+    try:
+        data = generate_catalog_report()
+        return JSONResponse(content={"status": "success", "report": data})
+    except Exception as e:
+        return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
