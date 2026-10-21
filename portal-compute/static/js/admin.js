@@ -464,6 +464,8 @@ async function executarAutodestruicao() {
     }
 }
 
+let globalAdminCatalog = {};
+
 async function carregarDataCatalog() {
     try {
         const res = await fetch('/api/admin/catalog', {
@@ -472,48 +474,120 @@ async function carregarDataCatalog() {
         const data = await res.json();
 
         if (data.status === 'success') {
-            const container = document.getElementById('catalogContainer');
-            container.innerHTML = '';
-
-            const catalog = data.data;
-            const buckets = Object.keys(catalog);
-
-            if (buckets.length === 0) {
-                container.innerHTML = '<p style="color: #8b949e;">No buckets found in MinIO.</p>';
-                return;
-            }
-
-            buckets.forEach(bucket => {
-                let filesHtml = '';
-                const files = catalog[bucket];
-
-                if (files.length === 0) {
-                    filesHtml = '<tr><td colspan="2" style="padding: 8px; color: #8b949e; font-style: italic;">Bucket is empty.</td></tr>';
-                } else {
-                    files.forEach(file => {
-                        filesHtml += `
-                            <tr style="border-bottom: 1px solid #21262d;">
-                                <td style="padding: 8px; font-family: monospace; color: #58a6ff;">${file}</td>
-                                <td style="padding: 8px; text-align: right;">
-                                    <button onclick="deletarArquivoCatalog('${bucket}', '${file}')" style="background: #da3633; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">🗑️ Delete</button>
-                                </td>
-                            </tr>
-                        `;
-                    });
-                }
-
-                container.innerHTML += `
-                    <div style="background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 15px; margin-bottom: 15px;">
-                        <h4 style="margin: 0 0 10px 0; color: #79c0ff;">📦 Bucket: ${bucket}</h4>
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <tbody>${filesHtml}</tbody>
-                        </table>
-                    </div>
-                `;
-            });
+            globalAdminCatalog = data.data;
+            atualizarDropdownBuckets();
+            renderizarCatalog();
         }
     } catch (e) {
         console.error('Error on load Data Catalog', e);
+    }
+}
+
+function atualizarDropdownBuckets() {
+    const dropdown = document.getElementById('bucketDropdown');
+    const currentSelection = dropdown.value;
+
+    const buckets = Object.keys(globalAdminCatalog);
+    let optionsHtml = '<option value="all">📁 All Buckets</option>';
+
+    buckets.forEach(b => {
+        optionsHtml += `<option value="${b}">📦 ${b}</option>`;
+    });
+
+    dropdown.innerHTML = optionsHtml;
+
+    // Mantém o filtro ativo se um bucket já estivesse selecionado
+    if (currentSelection && currentSelection !== "all" && buckets.includes(currentSelection)) {
+        dropdown.value = currentSelection;
+    }
+}
+
+function handleFilterChange() {
+    renderizarCatalog();
+}
+
+function renderizarCatalog() {
+    const container = document.getElementById('catalogContainer');
+    const filter = document.getElementById('bucketDropdown').value;
+    container.innerHTML = '';
+
+    let bucketsToRender = Object.keys(globalAdminCatalog);
+
+    if (bucketsToRender.length === 0) {
+        container.innerHTML = '<p style="color: #8b949e;">No buckets found in MinIO.</p>';
+        return;
+    }
+
+    if (filter !== "all") {
+        bucketsToRender = [filter];
+    }
+
+    bucketsToRender.forEach(bucket => {
+        let filesHtml = '';
+        const files = globalAdminCatalog[bucket];
+
+        if (files.length === 0) {
+            filesHtml = '<tr><td colspan="2" style="padding: 8px; color: #8b949e; font-style: italic;">Bucket is empty.</td></tr>';
+        } else {
+            files.forEach(file => {
+                filesHtml += `
+                    <tr style="border-bottom: 1px solid #21262d;">
+                        <td style="padding: 8px; font-family: monospace; color: #58a6ff;">${file}</td>
+                        <td style="padding: 8px; text-align: right;">
+                            <button onclick="deletarArquivoCatalog('${bucket}', '${file}')" style="background: #da3633; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">🗑️ Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        container.innerHTML += `
+            <div style="background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 15px; margin-bottom: 15px;">
+                <h4 style="margin: 0 0 10px 0; color: #79c0ff;">📦 Bucket: ${bucket}</h4>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tbody>${filesHtml}</tbody>
+                </table>
+            </div>
+        `;
+    });
+}
+
+async function handleCreateBucket() {
+    const input = document.getElementById("newBucketInput");
+    const bucketName = input.value.trim();
+
+    if (!bucketName) {
+        alert("Please enter a valid bucket name.");
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/admin/catalog/bucket', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ bucket_name: bucketName })
+        });
+
+        const result = await res.json();
+
+        if (res.ok) {
+            alert(result.message);
+            input.value = "";
+
+            // Recarrega o catálogo e já força o dropdown a focar no novo bucket
+            carregarDataCatalog().then(() => {
+                const cleanName = bucketName.toLowerCase().replace(/_/g, "-");
+                document.getElementById('bucketDropdown').value = cleanName;
+                renderizarCatalog();
+            });
+        } else {
+            alert("Error: " + result.detail);
+        }
+    } catch (error) {
+        alert("Communication error while creating the bucket.");
     }
 }
 
@@ -548,11 +622,18 @@ async function deletarArquivoCatalog(bucket, filename) {
 
 document.getElementById('uploadCatalogForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const bucket = document.getElementById('uploadBucket').value.trim();
+    const bucket = document.getElementById('bucketDropdown').value;
     const fileInput = document.getElementById('uploadFile').files[0];
 
-    if (!bucket || !fileInput) {
-        alert('Enter the bucket and select a file.');
+    // Trava de segurança solicitada: obriga a escolher o bucket.
+    if (bucket === "all") {
+        alert("Please select a specific bucket from the dropdown to upload this file.");
+        document.getElementById('bucketDropdown').focus();
+        return;
+    }
+
+    if (!fileInput) {
+        alert('Select a file.');
         return;
     }
 
@@ -570,7 +651,7 @@ document.getElementById('uploadCatalogForm').addEventListener('submit', async (e
 
         if (res.ok) {
             alert(result.message);
-            document.getElementById('uploadCatalogForm').reset();
+            document.getElementById('uploadFile').value = '';
             carregarDataCatalog();
         } else {
             alert('Error: ' + result.detail);

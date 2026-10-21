@@ -9,7 +9,7 @@ from passlib.context import CryptContext
 from core.database import get_db
 from core.models import User
 from core.docker_mgr import client as docker_client, shutdown_workspace, get_allocatable_resources
-from core.s3_mgr import fetch_catalog_data, upload_file_to_datalake, delete_file_from_datalake
+from core.s3_mgr import fetch_catalog_data, upload_file_to_datalake, delete_file_from_datalake, create_bucket_in_datalake
 from core.security import get_current_user
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -32,6 +32,8 @@ class SelfDeleteRequest(BaseModel):
 class UserPasswordResetRequest(BaseModel):
     new_password: str
 
+class BucketCreateRequest(BaseModel):
+    bucket_name: str
 
 @router.get("/system/resources")
 async def get_system_resources(current_user: User = Depends(get_current_user)):
@@ -462,3 +464,15 @@ async def admin_tailscale_status(current_user: User = Depends(get_current_user))
         return JSONResponse(content={"status": "success", "network": peers})
     except Exception as e:
         return JSONResponse(content={"status": "error", "message": f"Erro ao consultar Tailscale: {str(e)}"}, status_code=500)
+    
+@router.post("/admin/catalog/bucket")
+async def admin_create_bucket(req: BucketCreateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Create a new bucket in MinIO as an administrator."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado. Requer privilégios de Administrador.")
+    
+    success, msg_or_name = create_bucket_in_datalake(req.bucket_name)
+    if success:
+        return JSONResponse(content={"status": "success", "message": f"Bucket '{msg_or_name}' criado com sucesso!"})
+    else:
+        raise HTTPException(status_code=400, detail=msg_or_name)

@@ -343,14 +343,33 @@
                 <h1 style="margin-top:0; color: #c9d1d9;">Data Catalog Governance</h1>
                 <p style="color: #8b949e; margin-bottom: 25px;">Manage raw and processed layers in MinIO.</p>
                 <div class="card">
-                    <form id="uploadCatalogForm" style="display: flex; gap: 10px; margin-bottom: 20px; width: 100%;">
-                        <input type="text" id="uploadBucket" placeholder="Bucket Name (e.g. analise-dados)" required
+                    <!-- Linha 1: Criar Novo Bucket -->
+                    <div class="create-bucket-section"
+                        style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px;">
+                        <input type="text" id="newBucketInput" placeholder="New Bucket Name (e.g. raw-data-2026)"
                             style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                        <button onclick="handleCreateBucket()"
+                            style="padding: 10px 20px; background: #1f6feb; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap;">
+                            ➕ Create Bucket
+                        </button>
+                    </div>
+
+                    <hr style="border-color: #30363d; margin-bottom: 20px;">
+
+                    <!-- Linha 2: Filtro de View e Upload -->
+                    <form id="uploadCatalogForm" style="display: flex; gap: 10px; margin-bottom: 20px; width: 100%;">
+                        <select id="bucketDropdown" required onchange="handleFilterChange()"
+                            style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                            <option value="all">📁 All Buckets</option>
+                        </select>
+
                         <input type="file" id="uploadFile" required
                             style="flex: 1; padding: 8px; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; border-radius: 4px;">
+
                         <button type="submit"
-                            style="padding: 10px 20px; background: #238636; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap;">📤
-                            Upload File</button>
+                            style="padding: 10px 20px; background: #238636; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap;">
+                            📤 Upload File
+                        </button>
                     </form>
 
                     <div id="catalogContainer" style="color: #c9d1d9; font-size: 0.9em; width: 100%;">

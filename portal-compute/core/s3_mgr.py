@@ -172,3 +172,19 @@ def delete_file_from_datalake(bucket: str, filename: str):
     s3_client = get_s3_client()
     s3_client.delete_object(Bucket=bucket, Key=filename)
     return True
+
+def create_bucket_in_datalake(bucket_name: str):
+    """Create a new bucket in the MinIO data lake, conforming to DNS naming rules."""
+    s3_client = get_s3_client()
+    clean_name = bucket_name.lower().replace("_", "-").strip()
+    
+    try:
+        # Testa se o bucket já existe no cluster
+        s3_client.head_bucket(Bucket=clean_name)
+        return False, "O bucket já existe no MinIO."
+    except Exception:
+        try:
+            s3_client.create_bucket(Bucket=clean_name)
+            return True, clean_name
+        except Exception as e:
+            return False, f"Erro ao criar bucket: {str(e)}"
