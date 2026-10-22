@@ -464,6 +464,8 @@ async function executarAutodestruicao() {
     }
 }
 
+let globalAdminCatalog = {};
+
 async function carregarDataCatalog() {
     try {
         const res = await fetch('/api/admin/catalog', {
@@ -472,48 +474,194 @@ async function carregarDataCatalog() {
         const data = await res.json();
 
         if (data.status === 'success') {
-            const container = document.getElementById('catalogContainer');
-            container.innerHTML = '';
-
-            const catalog = data.data;
-            const buckets = Object.keys(catalog);
-
-            if (buckets.length === 0) {
-                container.innerHTML = '<p style="color: #8b949e;">No buckets found in MinIO.</p>';
-                return;
-            }
-
-            buckets.forEach(bucket => {
-                let filesHtml = '';
-                const files = catalog[bucket];
-
-                if (files.length === 0) {
-                    filesHtml = '<tr><td colspan="2" style="padding: 8px; color: #8b949e; font-style: italic;">Bucket is empty.</td></tr>';
-                } else {
-                    files.forEach(file => {
-                        filesHtml += `
-                            <tr style="border-bottom: 1px solid #21262d;">
-                                <td style="padding: 8px; font-family: monospace; color: #58a6ff;">${file}</td>
-                                <td style="padding: 8px; text-align: right;">
-                                    <button onclick="deletarArquivoCatalog('${bucket}', '${file}')" style="background: #da3633; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">🗑️ Delete</button>
-                                </td>
-                            </tr>
-                        `;
-                    });
-                }
-
-                container.innerHTML += `
-                    <div style="background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 15px; margin-bottom: 15px;">
-                        <h4 style="margin: 0 0 10px 0; color: #79c0ff;">📦 Bucket: ${bucket}</h4>
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <tbody>${filesHtml}</tbody>
-                        </table>
-                    </div>
-                `;
-            });
+            globalAdminCatalog = data.data;
+            atualizarDropdownBuckets();
+            renderizarCatalog();
         }
     } catch (e) {
         console.error('Error on load Data Catalog', e);
+    }
+}
+
+function atualizarDropdownBuckets() {
+    const dropdown = document.getElementById('bucketDropdown');
+    const currentSelection = dropdown.value;
+
+    const buckets = Object.keys(globalAdminCatalog);
+    let optionsHtml = '<option value="all">📁 All Buckets</option>';
+
+    buckets.forEach(b => {
+        optionsHtml += `<option value="${b}">📦 ${b}</option>`;
+    });
+
+    dropdown.innerHTML = optionsHtml;
+
+    // Mantém o filtro ativo se um bucket já estivesse selecionado
+    if (currentSelection && currentSelection !== "all" && buckets.includes(currentSelection)) {
+        dropdown.value = currentSelection;
+    }
+}
+
+function handleFilterChange() {
+    renderizarCatalog();
+}
+
+function renderizarCatalog() {
+    const container = document.getElementById('catalogContainer');
+    const filter = document.getElementById('bucketDropdown').value;
+    container.innerHTML = '';
+
+    let bucketsToRender = Object.keys(globalAdminCatalog);
+
+    if (bucketsToRender.length === 0) {
+        container.innerHTML = '<p style="color: #8b949e;">No buckets found in MinIO.</p>';
+        return;
+    }
+
+    if (filter !== "all") {
+        bucketsToRender = [filter];
+    }
+
+    bucketsToRender.forEach(bucket => {
+        let filesHtml = '';
+        const files = globalAdminCatalog[bucket];
+
+        if (files.length === 0) {
+            filesHtml = '<tr><td colspan="2" style="padding: 15px; color: #8b949e; font-style: italic;">Bucket is empty.</td></tr>';
+        } else {
+            files.forEach(file => {
+                filesHtml += `
+                    <tr style="border-bottom: 1px solid #21262d; transition: background 0.2s;" onmouseover="this.style.background='#1c2128'" onmouseout="this.style.background='transparent'">
+                        <td style="padding: 10px; font-family: monospace; color: #58a6ff; font-size: 0.9em;">${file}</td>
+                        <td style="padding: 10px; text-align: right; white-space: nowrap;">
+                            <button onclick="abrirPreview('${bucket}', '${file}')" style="background: #21262d; color: #58a6ff; border: 1px solid #30363d; padding: 4px 10px; border-radius: 4px; font-size: 0.85em; cursor: pointer; margin-right: 5px;">👁️ Preview</button>
+                            <button onclick="deletarArquivoCatalog('${bucket}', '${file}')" style="background: #da3633; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.85em; cursor: pointer;">🗑️ Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        container.innerHTML += `
+            <div style="background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #21262d; padding-bottom: 10px;">
+                    <h4 style="margin: 0; color: #79c0ff; font-size: 1.1em;">📦 Bucket: ${bucket}</h4>
+                    <button onclick="deletarBucketAdmin('${bucket}')" style="background: transparent; color: #f85149; border: 1px solid #f85149; padding: 4px 12px; border-radius: 4px; font-size: 0.8em; font-weight: bold; cursor: pointer;">❌ Excluir Bucket</button>
+                </div>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tbody>${filesHtml}</tbody>
+                </table>
+            </div>
+        `;
+    });
+}
+
+async function deletarBucketAdmin(bucket) {
+    if (!confirm(`ATENÇÃO: Você está prestes a excluir o bucket '${bucket}'. Isso removerá TODOS os arquivos dentro dele e quebrará análises que dependem desses dados.\n\nDeseja prosseguir?`)) return;
+
+    // Dupla verificação
+    const confirmacao = prompt(`Para confirmar a exclusão, digite o nome do bucket exatamente como está escrito (${bucket}):`);
+    if (confirmacao !== bucket) {
+        alert('Nome incorreto. Exclusão cancelada por segurança.');
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/admin/catalog/bucket/${bucket}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        if (res.ok) {
+            alert(result.message);
+            document.getElementById('bucketDropdown').value = 'all'; // Reseta o filtro
+            carregarDataCatalog();
+        } else {
+            alert('Erro: ' + result.detail);
+        }
+    } catch (e) {
+        alert('Erro de comunicação ao tentar excluir o bucket.');
+    }
+}
+
+async function abrirPreview(bucket, filename) {
+    document.getElementById('adminSidePanel').classList.add('open');
+    document.getElementById('prevFilename').innerText = filename;
+    document.getElementById('prevBucket').innerText = bucket;
+    document.getElementById('prevContent').innerHTML = "<div style='color:#8b949e'>Gerando preview da amostra de dados...</div>";
+    document.getElementById('prevShape').style.display = 'none';
+
+    try {
+        const res = await fetch(`/api/admin/catalog/preview/${bucket}/${filename}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        if (result.status === 'success') {
+            document.getElementById('prevDate').innerText = result.data.last_modified;
+            document.getElementById('prevSize').innerText = result.data.size;
+            document.getElementById('prevUploader').innerText = result.data.uploader;
+
+            if (result.data.type === 'table') {
+                document.getElementById('prevShape').style.display = 'block';
+                document.getElementById('prevRows').innerText = result.data.total_rows;
+                document.getElementById('prevCols').innerText = result.data.total_cols;
+            }
+
+            let contentHtml = result.data.type === 'image'
+                ? `<img src="${result.data.preview_content}" class="preview-img">`
+                : result.data.preview_content;
+
+            document.getElementById('prevContent').innerHTML = contentHtml;
+        } else {
+            document.getElementById('prevContent').innerHTML = "<div style='color:#f85149'>Falha na leitura do arquivo.</div>";
+        }
+    } catch (e) {
+        document.getElementById('prevContent').innerHTML = "<div style='color:#da3633'>Erro de rede ao carregar preview.</div>";
+    }
+}
+
+function fecharPreview() {
+    document.getElementById('adminSidePanel').classList.remove('open');
+}
+
+async function handleCreateBucket() {
+    const input = document.getElementById("newBucketInput");
+    const bucketName = input.value.trim();
+
+    if (!bucketName) {
+        alert("Please enter a valid bucket name.");
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/admin/catalog/bucket', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ bucket_name: bucketName })
+        });
+
+        const result = await res.json();
+
+        if (res.ok) {
+            alert(result.message);
+            input.value = "";
+
+            // Recarrega o catálogo e já força o dropdown a focar no novo bucket
+            carregarDataCatalog().then(() => {
+                const cleanName = bucketName.toLowerCase().replace(/_/g, "-");
+                document.getElementById('bucketDropdown').value = cleanName;
+                renderizarCatalog();
+            });
+        } else {
+            alert("Error: " + result.detail);
+        }
+    } catch (error) {
+        alert("Communication error while creating the bucket.");
     }
 }
 
@@ -548,11 +696,18 @@ async function deletarArquivoCatalog(bucket, filename) {
 
 document.getElementById('uploadCatalogForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const bucket = document.getElementById('uploadBucket').value.trim();
+    const bucket = document.getElementById('bucketDropdown').value;
     const fileInput = document.getElementById('uploadFile').files[0];
 
-    if (!bucket || !fileInput) {
-        alert('Enter the bucket and select a file.');
+    // Trava de segurança solicitada: obriga a escolher o bucket.
+    if (bucket === "all") {
+        alert("Please select a specific bucket from the dropdown to upload this file.");
+        document.getElementById('bucketDropdown').focus();
+        return;
+    }
+
+    if (!fileInput) {
+        alert('Select a file.');
         return;
     }
 
@@ -570,7 +725,7 @@ document.getElementById('uploadCatalogForm').addEventListener('submit', async (e
 
         if (res.ok) {
             alert(result.message);
-            document.getElementById('uploadCatalogForm').reset();
+            document.getElementById('uploadFile').value = '';
             carregarDataCatalog();
         } else {
             alert('Error: ' + result.detail);
@@ -756,8 +911,146 @@ function closeWebTerminal() {
     document.getElementById('terminal-container').style.display = 'none';
 }
 
+// =========================================================
+// DATALAKE DASHBOARD MGR
+// =========================================================
+let chartBucketsInst = null;
+let chartTypesInst = null;
+let chartBytesInst = null;
+
+// Formatação nativa de bytes para labels visuais do Chart.js
+function formatBytesLabel(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+async function carregarDataLakeDashboard() {
+    try {
+        const res = await fetch('/api/admin/catalog/dashboard', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        if (result.status === 'success') {
+            const data = result.data;
+
+            // 1. Atualizar KPIs
+            document.getElementById('kpi-dl-size').innerText = data.total_bytes_fmt;
+            document.getElementById('kpi-dl-files').innerText = data.total_files;
+            document.getElementById('kpi-dl-buckets').innerText = data.total_buckets;
+
+            // Descobre o top uploader
+            let topUser = "-";
+            let topUserMax = 0;
+            for (const [user, count] of Object.entries(data.files_by_uploader)) {
+                if (count > topUserMax && user !== "Desconhecido") {
+                    topUserMax = count;
+                    topUser = user;
+                }
+            }
+            document.getElementById('kpi-dl-topuser').innerText = topUser;
+
+            // Configuração Global de Cores para Modo Escuro
+            Chart.defaults.color = '#8b949e';
+            Chart.defaults.borderColor = '#30363d';
+            const colors = ['#1f6feb', '#238636', '#8957e5', '#d29922', '#da3633', '#58a6ff', '#e3b341'];
+
+            // Limpa gráficos anteriores se existirem
+            if (chartBucketsInst) chartBucketsInst.destroy();
+            if (chartTypesInst) chartTypesInst.destroy();
+            if (chartBytesInst) chartBytesInst.destroy();
+
+            // 2. Gráfico: Arquivos por Bucket (Bar Chart)
+            const ctxBuckets = document.getElementById('chartBuckets').getContext('2d');
+            chartBucketsInst = new Chart(ctxBuckets, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(data.files_by_bucket),
+                    datasets: [{
+                        label: 'Qtd. de Arquivos',
+                        data: Object.values(data.files_by_bucket),
+                        backgroundColor: colors[0],
+                        borderRadius: 4
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+
+            // 3. Gráfico: Tipos de Arquivos (Doughnut)
+            const ctxTypes = document.getElementById('chartTypes').getContext('2d');
+            chartTypesInst = new Chart(ctxTypes, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(data.files_by_type).map(x => x.toUpperCase()),
+                    datasets: [{
+                        data: Object.values(data.files_by_type),
+                        backgroundColor: colors,
+                        borderWidth: 1,
+                        borderColor: '#0d1117'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // 4. Gráfico: Volume por Tipo (Line/Bar)
+            const ctxBytes = document.getElementById('chartBytes').getContext('2d');
+            chartBytesInst = new Chart(ctxBytes, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(data.bytes_by_type).map(x => x.toUpperCase()),
+                    datasets: [{
+                        label: 'Volume em Bytes',
+                        data: Object.values(data.bytes_by_type),
+                        backgroundColor: colors[2],
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) { return formatBytesLabel(context.raw); }
+                            }
+                        },
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            ticks: { callback: function (value) { return formatBytesLabel(value); } }
+                        }
+                    }
+                }
+            });
+        }
+    } catch (e) {
+        console.error("Erro ao carregar o dashboard do datalake", e);
+    }
+}
+
+// Função para fotografar a DIV e forçar o download
+function baixarDashboardImagem() {
+    const targetElement = document.getElementById('dashboard-export-area');
+
+    // Configura o canvas para ignorar transparência e manter o fundo dark original do painel
+    html2canvas(targetElement, {
+        backgroundColor: '#0d1117',
+        scale: 2 // Alta resolução
+    }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = `datalake_dashboard_${new Date().toISOString().split('T')[0]}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    });
+}
+
 async function init() {
     carregarDataCatalog();
+    carregarDataLakeDashboard();
     await carregarWorkspaces();
     await carregarUsuarios();
     await carregarClusterNodes();
@@ -768,6 +1061,66 @@ async function init() {
         carregarWorkspaces();
         carregarClusterNodes();
     }, 10000);
+}
+
+async function baixarRelatorioCatalog(event) {
+    const btn = event.currentTarget;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = "⏳ Gerando Análise...";
+    btn.disabled = true;
+
+    try {
+        const res = await fetch('/api/admin/catalog/export', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        if (result.status === 'success') {
+            const data = result.report;
+            if (data.length === 0) {
+                alert("Nenhum arquivo encontrado no catálogo.");
+                return;
+            }
+
+            // Cabeçalhos do CSV
+            const headers = ["Nome do Bucket", "Nome do Arquivo", "Tipo", "Data e Hora do Upload", "Qtd. Linhas", "Qtd. Colunas", "Uploader", "Tamanho (BD)"];
+            const csvRows = [headers.join(",")];
+
+            // Inserção dos dados processados
+            data.forEach(row => {
+                const values = [
+                    `"${row.Bucket}"`,
+                    `"${row.Arquivo}"`,
+                    `"${row.Tipo}"`,
+                    `"${row.Data_Hora}"`,
+                    `"${row.Linhas}"`,
+                    `"${row.Colunas}"`,
+                    `"${row.Uploader}"`,
+                    `"${row.Tamanho}"`
+                ];
+                csvRows.push(values.join(","));
+            });
+
+            // Tratamento do Blob para Download
+            const csvContent = csvRows.join("\n");
+            const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' }); // \uFEFF força o suporte a acentos no Excel
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+
+            a.setAttribute('href', url);
+            a.setAttribute('download', `datalake_inventory_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        } else {
+            alert("Erro ao gerar relatório: " + result.message);
+        }
+    } catch (e) {
+        alert("Erro de comunicação ao baixar relatório.");
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
 }
 
 init();

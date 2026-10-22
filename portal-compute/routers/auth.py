@@ -132,8 +132,10 @@ def complete_first_access(data: FirstAccessSetup, current_user: User = Depends(g
         import time
         server_epoch = int(time.time())
         # Return temporary diagnostic details while the onboarding flow is active.
-        error_msg = f"DEBUG: App sent '{data.otp_code}' | Server calculated '{expected}'. Secret: {user.otp_secret} | Epoch: {server_epoch}"
-        raise HTTPException(status_code=400, detail=error_msg)
+        raise HTTPException(
+            status_code=400, 
+            detail="Código de autenticação 2FA inválido ou expirado. Tente novamente."
+        )
 
     if len(data.new_password) < 8:
         raise HTTPException(status_code=400, detail="The password must have at least 8 characters.")

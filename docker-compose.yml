@@ -12,7 +12,7 @@ services:
     environment:
       - DOCKER_API_VERSION=1.41
     command:
-      - "--api.insecure=true"
+      - "--api.insecure=false"
       - "--api.dashboard=true"
       - "--providers.docker=true"
       - "--providers.docker.endpoint=unix:///var/run/docker.sock"
@@ -52,7 +52,7 @@ services:
   # MinIO provides the S3-compatible data lake used to store datasets,
   # uploaded files, and bucketized artifacts managed by the portal.
   minio:
-    image: quay.io/minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest
     command: server /data --console-address ":9001"
     environment:
       - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
@@ -62,6 +62,21 @@ services:
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - ${DATALAKE_STORAGE_PATH}/minio_data:/data
+    networks:
+      - arenalake-net
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${DBA_USERNAME}
+      POSTGRES_PASSWORD: ${DBA_PASSWORD}
+      POSTGRES_DB: arenalake_core
+    volumes:
+      - ${DATALAKE_STORAGE_PATH}/database:/var/lib/postgresql/data
     networks:
       - arenalake-net
     deploy:
@@ -94,12 +109,11 @@ services:
     environment:
       - HOST_PROJECT_PATH=${PWD}
       - WORKSPACE_NETWORK=${WORKSPACE_NETWORK}
+      - DOCKER_HOST=tcp://dockerproxy:2375
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
       - ${DATALAKE_STORAGE_PATH}/projects_data:/app/projects_data
-      - ${DATALAKE_STORAGE_PATH}/database:/mnt/datalake/prod/database
-      - /root/.ssh:/root/.ssh:ro
       - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock
+      - ~/.ssh:/root/.ssh:ro
     networks:
       - arenalake-net
     deploy:
@@ -126,6 +140,26 @@ services:
       - arenalake-net
     deploy:
       mode: global # <--- O SEGREDO MÁGICO: Garante 1 container em CADA máquina do Swarm!
+
+  dockerproxy:
+    image: tecnativa/docker-socket-proxy
+    environment:
+      - SERVICES=1
+      - TASKS=1
+      - NETWORKS=1
+      - NODES=1
+      - CONTAINERS=1
+      # Bloqueia execução remota de código (RCE) e escalonamento de privilégios:
+      - EXEC=0
+      - BUILD=0
+      - AUTH=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - arenalake-net
+    deploy:
+      placement:
+        constraints: [node.role == manager]
 
 networks:
   arenalake-net:

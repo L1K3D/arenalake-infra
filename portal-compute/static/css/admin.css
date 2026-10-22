@@ -244,3 +244,91 @@ body {
 .fill-danger {
     background: #da3633;
 }
+
+/* ==========================================================================
+   Admin Side Panel & Preview Styling
+   ========================================================================== */
+.side-panel {
+    position: fixed;
+    top: 0;
+    right: -450px;
+    width: 450px;
+    height: 100vh;
+    background: #161b22;
+    border-left: 1px solid #30363d;
+    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: -5px 0 25px rgba(0, 0, 0, 0.6);
+    padding: 25px;
+    overflow-y: auto;
+    z-index: 1000;
+}
+
+.side-panel.open {
+    right: 0;
+}
+
+.close-btn {
+    float: right;
+    cursor: pointer;
+    color: #8b949e;
+    font-size: 1.8em;
+    font-weight: bold;
+    border: none;
+    background: none;
+    line-height: 0.8;
+}
+
+.close-btn:hover {
+    color: #f85149;
+}
+
+.meta-tag {
+    background: #0d1117;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    color: #c9d1d9;
+    display: inline-block;
+    margin-bottom: 8px;
+    margin-right: 8px;
+    border: 1px solid #30363d;
+}
+
+.preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8em;
+    margin-top: 15px;
+}
+
+.preview-table th,
+.preview-table td {
+    padding: 8px;
+    border: 1px solid #30363d;
+    color: #c9d1d9;
+}
+
+.preview-table th {
+    background: #0d1117;
+    color: #58a6ff;
+}
+
+.preview-img {
+    max-width: 100%;
+    border-radius: 8px;
+    margin-top: 15px;
+    border: 1px solid #30363d;
+}
+
+.preview-txt {
+    background: #0d1117;
+    padding: 15px;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 0.85em;
+    white-space: pre-wrap;
+    border: 1px solid #30363d;
+    overflow-x: auto;
+    color: #58a6ff;
+    margin-top: 15px;
+}
