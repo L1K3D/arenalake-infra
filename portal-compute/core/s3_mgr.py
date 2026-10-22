@@ -286,3 +286,59 @@ def generate_catalog_report():
                 print(f"Erro ao gerar relatorio para {key}: {e}")
 
     return report_data
+
+def get_datalake_dashboard_metrics():
+    """Calcula e consolida métricas gerenciais para o Dashboard do Data Lake."""
+    s3_client = get_s3_client()
+    buckets_response = s3_client.list_buckets()
+    buckets = [bucket["Name"] for bucket in buckets_response.get("Buckets", [])]
+
+    total_bytes = 0
+    total_files = 0
+    files_by_bucket = {}
+    files_by_type = {}
+    bytes_by_type = {}
+    files_by_uploader = {}
+
+    for bucket in buckets:
+        files_by_bucket[bucket] = 0
+        try:
+            objects_response = s3_client.list_objects_v2(Bucket=bucket)
+            contents = objects_response.get("Contents", [])
+
+            for obj in contents:
+                key = obj["Key"]
+                if "_SUCCESS" in key or key.endswith(".crc") or "/_SUCCESS" in key:
+                    continue
+                    
+                size = obj["Size"]
+                total_bytes += size
+                total_files += 1
+                files_by_bucket[bucket] += 1
+                
+                ext = key.split(".")[-1].lower() if "." in key else "unknown"
+                if "part-" in key and ext != "parquet":
+                    ext = "parquet"
+                
+                files_by_type[ext] = files_by_type.get(ext, 0) + 1
+                bytes_by_type[ext] = bytes_by_type.get(ext, 0) + size
+                
+                # Extrai o uploader para o ranking
+                try:
+                    head = s3_client.head_object(Bucket=bucket, Key=key)
+                    uploader = head.get("Metadata", {}).get("uploader", "Desconhecido")
+                    files_by_uploader[uploader] = files_by_uploader.get(uploader, 0) + 1
+                except:
+                    pass
+        except Exception:
+            pass
+
+    return {
+        "total_bytes_fmt": format_size(total_bytes),
+        "total_files": total_files,
+        "total_buckets": len(buckets),
+        "files_by_bucket": files_by_bucket,
+        "files_by_type": files_by_type,
+        "bytes_by_type": bytes_by_type,
+        "files_by_uploader": files_by_uploader
+    }

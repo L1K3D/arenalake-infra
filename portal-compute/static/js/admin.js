@@ -911,8 +911,146 @@ function closeWebTerminal() {
     document.getElementById('terminal-container').style.display = 'none';
 }
 
+// =========================================================
+// DATALAKE DASHBOARD MGR
+// =========================================================
+let chartBucketsInst = null;
+let chartTypesInst = null;
+let chartBytesInst = null;
+
+// Formatação nativa de bytes para labels visuais do Chart.js
+function formatBytesLabel(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+async function carregarDataLakeDashboard() {
+    try {
+        const res = await fetch('/api/admin/catalog/dashboard', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        if (result.status === 'success') {
+            const data = result.data;
+
+            // 1. Atualizar KPIs
+            document.getElementById('kpi-dl-size').innerText = data.total_bytes_fmt;
+            document.getElementById('kpi-dl-files').innerText = data.total_files;
+            document.getElementById('kpi-dl-buckets').innerText = data.total_buckets;
+
+            // Descobre o top uploader
+            let topUser = "-";
+            let topUserMax = 0;
+            for (const [user, count] of Object.entries(data.files_by_uploader)) {
+                if (count > topUserMax && user !== "Desconhecido") {
+                    topUserMax = count;
+                    topUser = user;
+                }
+            }
+            document.getElementById('kpi-dl-topuser').innerText = topUser;
+
+            // Configuração Global de Cores para Modo Escuro
+            Chart.defaults.color = '#8b949e';
+            Chart.defaults.borderColor = '#30363d';
+            const colors = ['#1f6feb', '#238636', '#8957e5', '#d29922', '#da3633', '#58a6ff', '#e3b341'];
+
+            // Limpa gráficos anteriores se existirem
+            if (chartBucketsInst) chartBucketsInst.destroy();
+            if (chartTypesInst) chartTypesInst.destroy();
+            if (chartBytesInst) chartBytesInst.destroy();
+
+            // 2. Gráfico: Arquivos por Bucket (Bar Chart)
+            const ctxBuckets = document.getElementById('chartBuckets').getContext('2d');
+            chartBucketsInst = new Chart(ctxBuckets, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(data.files_by_bucket),
+                    datasets: [{
+                        label: 'Qtd. de Arquivos',
+                        data: Object.values(data.files_by_bucket),
+                        backgroundColor: colors[0],
+                        borderRadius: 4
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+
+            // 3. Gráfico: Tipos de Arquivos (Doughnut)
+            const ctxTypes = document.getElementById('chartTypes').getContext('2d');
+            chartTypesInst = new Chart(ctxTypes, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(data.files_by_type).map(x => x.toUpperCase()),
+                    datasets: [{
+                        data: Object.values(data.files_by_type),
+                        backgroundColor: colors,
+                        borderWidth: 1,
+                        borderColor: '#0d1117'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // 4. Gráfico: Volume por Tipo (Line/Bar)
+            const ctxBytes = document.getElementById('chartBytes').getContext('2d');
+            chartBytesInst = new Chart(ctxBytes, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(data.bytes_by_type).map(x => x.toUpperCase()),
+                    datasets: [{
+                        label: 'Volume em Bytes',
+                        data: Object.values(data.bytes_by_type),
+                        backgroundColor: colors[2],
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) { return formatBytesLabel(context.raw); }
+                            }
+                        },
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            ticks: { callback: function (value) { return formatBytesLabel(value); } }
+                        }
+                    }
+                }
+            });
+        }
+    } catch (e) {
+        console.error("Erro ao carregar o dashboard do datalake", e);
+    }
+}
+
+// Função para fotografar a DIV e forçar o download
+function baixarDashboardImagem() {
+    const targetElement = document.getElementById('dashboard-export-area');
+
+    // Configura o canvas para ignorar transparência e manter o fundo dark original do painel
+    html2canvas(targetElement, {
+        backgroundColor: '#0d1117',
+        scale: 2 // Alta resolução
+    }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = `datalake_dashboard_${new Date().toISOString().split('T')[0]}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    });
+}
+
 async function init() {
     carregarDataCatalog();
+    carregarDataLakeDashboard();
     await carregarWorkspaces();
     await carregarUsuarios();
     await carregarClusterNodes();
