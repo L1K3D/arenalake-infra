@@ -43,13 +43,9 @@ def remove_docker_stack(stack_name="arenalake-prod"):
             stderr=subprocess.DEVNULL,
         )
 
-        print(
-            "[*] Waiting for the containers to finish shutting down (this may take a few seconds)..."
-        )
+        print("[*] Waiting for the containers to finish shutting down (this may take a few seconds)...")
         while True:
-            result = subprocess.run(
-                ["docker", "stack", "ls"], capture_output=True, text=True
-            )
+            result = subprocess.run(["docker", "stack", "ls"], capture_output=True, text=True)
             if stack_name not in result.stdout:
                 break
             time.sleep(2)
@@ -89,6 +85,11 @@ def clean_configs():
         print("[+] .env file (credentials and variables) removed.")
     else:
         print("[-] .env file not found. Skipping.")
+        
+    # Remove a rotina de backup (Rsync) se o nó for um Manager
+    if os.path.exists("/etc/cron.d/arenalake_replication"):
+        os.remove("/etc/cron.d/arenalake_replication")
+        print("[+] Async replication backup job removed.")
 
 def cleanup_nfs():
     """Remove partilhas do Master e desmonta/limpa pontos de montagem dos Workers."""
@@ -104,7 +105,6 @@ def cleanup_nfs():
             
             with open("/etc/exports", "w") as f:
                 for line in lines:
-                    # Remove a linha se for a partilha gerada pelo nosso script
                     if "100.64.0.0/10" not in line and "arenalake" not in line.lower():
                         f.write(line)
                         
@@ -121,12 +121,11 @@ def cleanup_nfs():
             
             cleaned_lines = []
             for line in lines:
-                # Identifica se é uma montagem NFS do ArenaLake via Tailscale
                 if "nfs" in line and ("100." in line or "arenalake" in line.lower()):
                     mount_point = line.split()[1]
                     print(f"[*] Force unmounting {mount_point}...")
                     subprocess.run(["umount", "-f", mount_point], check=False, stderr=subprocess.DEVNULL)
-                    continue # Pula a escrita desta linha no novo fstab
+                    continue 
                 cleaned_lines.append(line)
                 
             with open("/etc/fstab", "w") as f:
@@ -136,45 +135,47 @@ def cleanup_nfs():
             print(f"[-] Failed to clean /etc/fstab: {e}")
 
 def handle_data_volume():
-    """Optionally remove the physical DataLake storage directory."""
+    """Optionally remove the physical DataLake storage directory and leftover bricks."""
     print("\n============================================================")
-    print(" STEP 4: DATALAKE DATA (MAXIMUM ATTENTION)")
+    print(" STEP 5: DATALAKE DATA (MAXIMUM ATTENTION)")
     print("============================================================")
 
-    # This path matches the dynamic storage layout used by the current architecture.
-    current_project_dir = PROJECT_ROOT
-    datalake_path = os.path.join(current_project_dir, "datalake_data")
+    datalake_path = os.path.join(PROJECT_ROOT, "datalake_data")
 
     if os.path.exists(datalake_path):
-        print(f"We detected the physical storage folder at: {datalake_path}")
-        print("This folder contains database files, MinIO data, workspace content, and jobs.")
-        print(
-            "\n⚠️  If you delete it, ALL COMPANY DATA WILL BE LOST FOREVER."
-        )
-
-        resp = (
-            input(
-                "Do you want to permanently DELETE the physical DataLake data? (Y/N) [Default: N]: "
-            )
-            .strip()
-            .lower()
-        )
+        print(f"We detected ArenaLake storage folders on this server.")
+        
+        resp = input("Do you want to permanently DELETE the physical DataLake data? (Y/N) [Default: N]: ").strip().lower()
         if resp == "y":
-            print(f"[*] Deleting {datalake_path}...")
-            shutil.rmtree(datalake_path)
+            print(f"[*] Unmounting and deleting data...")
+            
+            real_path = os.path.realpath(datalake_path)
+
+            try:
+                subprocess.run(["umount", "-f", datalake_path], stderr=subprocess.DEVNULL)
+                subprocess.run(["umount", "-f", real_path], stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
+                
+            if os.path.exists(real_path):
+                shutil.rmtree(real_path, ignore_errors=True)
+            
+            if os.path.islink(datalake_path):
+                try:
+                    os.remove(datalake_path)
+                except OSError:
+                    pass
+            
             print("[+] Data deleted successfully. There is no undo.")
         else:
-            print(
-                "[*] Physical data kept. The system was removed, but the data remains on disk."
-            )
+            print("[*] Physical data kept.")
     else:
-        print(f"[-] Directory {datalake_path} not found. Skipping.")
-
+        print("[-] No local DataLake storage detected.")
 
 def handle_tailscale():
     """Optionally disconnect the server from the Tailscale VPN network."""
     print("\n============================================================")
-    print(" STEP 5: REMOTE ACCESS (TAILSCALE)")
+    print(" STEP 6: REMOTE ACCESS (TAILSCALE)")
     print("============================================================")
     print("Tailscale is still connecting this server to your VPN account.")
     resp = (

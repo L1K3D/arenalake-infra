@@ -8,7 +8,6 @@ import json
 import socket
 import secrets
 
-# Terminal color codes.
 YELLOW = "\033[93m"
 CYAN = "\033[96m"
 RESET = "\033[0m"
@@ -16,258 +15,176 @@ RESET = "\033[0m"
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(PROJECT_ROOT)
 
+def run_live(command, description="Executing", ignore_errors=False):
+    print(f"\n[*] {description}...")
+    try:
+        process = subprocess.Popen(
+            command, shell=True, stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT, text=True, bufsize=1
+        )
+        for line in process.stdout: print(f"    {line.strip()}")
+        process.wait()
+        if process.returncode != 0 and not ignore_errors: 
+            raise subprocess.CalledProcessError(process.returncode, command)
+    except Exception as e:
+        if ignore_errors:
+            print(f"{YELLOW}[WARNING]{RESET} {description} returned non-zero, but continuing...")
+        else:
+            print(f"{YELLOW}[ERROR]{RESET} Failed during: {description} | {e}")
+            sys.exit(1)
 
 def check_root():
-    """Ensure the install script has administrator privileges."""
     if os.geteuid() != 0:
         print(f"{YELLOW}[ERROR]{RESET} This script requires administrator privileges.")
-        print(f"{CYAN}Run it again with: sudo python3 helpers/install.py{RESET}")
         sys.exit(1)
 
-
 def check_existing_install():
-    """Warn the operator before overwriting an existing configuration."""
     if os.path.exists(".env"):
         print("\n" + "!" * 60)
         print(" CRITICAL WARNING: AN INSTALLATION HAS ALREADY BEEN DETECTED!")
-        print(" A .env file already exists. If you continue, the current credentials")
-        print(" and settings will be overwritten.")
-        print("!" * 60)
-        resp = (
-            input(
-                "Are you absolutely sure you want to overwrite the current installation? (Y/N) [Default: N]: "
-            )
-            .strip()
-            .lower()
-        )
-        if resp != "y":
-            print(
-                "\n[*] Installation aborted for safety. No changes were made."
-            )
-            sys.exit(0)
-
+        resp = input("Are you absolutely sure you want to overwrite the current installation? (Y/N) [Default: N]: ").strip().lower()
+        if resp != "y": sys.exit(0)
 
 def check_ports_available():
-    """Validate that the required TCP ports are free before deploying services."""
     print("\n[*] Checking the server's critical ports...")
     vital_ports = [80, 443, 8000, 8080, 9000, 9001, 7077]
-    ports_in_use = []
-    for port in vital_ports:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            if s.connect_ex(("localhost", port)) == 0:
-                ports_in_use.append(port)
+    ports_in_use = [port for port in vital_ports if socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect_ex(("localhost", port)) == 0]
     if ports_in_use:
-        print(
-            "\n[CRITICAL ERROR] The following ports are already in use by another program:"
-        )
-        for p in ports_in_use:
-            print(f" - Port {p}")
-        print(
-            "\nArenaLake needs these ports free for Traefik, the Portal, and MinIO."
-        )
-        print("Stop the conflicting service (for example Apache or Nginx) and try again.")
+        print("\n[CRITICAL ERROR] The following ports are already in use:", ports_in_use)
         sys.exit(1)
     print("[+] All required ports are free!")
 
-
 def check_compose_file():
-    """Verify the Compose file is present before running deployment."""
     if not os.path.isfile("docker-compose.yml"):
-        print(
-            "[ERROR] The 'docker-compose.yml' file was not found in this directory."
-        )
+        print("[ERROR] The 'docker-compose.yml' file was not found.")
         sys.exit(1)
-
-
-def install_dependencies():
-    """Ensure Docker and Tailscale are installed on the host operating system."""
-    print("\n[*] Verifying system dependencies (Ubuntu)...")
-
-    # Install Docker if it is not present in the base image.
-    if shutil.which("docker") is None:
-        print("\n[*] Docker not found. Installing... (This may take a few minutes)")
-        try:
-            subprocess.run(
-                "curl -fsSL https://get.docker.com | sh",
-                shell=True,
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            docker_v = subprocess.run(
-                ["docker", "--version"], capture_output=True, text=True
-            ).stdout.strip()
-            print(f"[+] Docker installed! | {docker_v}")
-        except BaseException as error:
-            print(f"\n[ERROR] Failed to install Docker. | {error}")
-            sys.exit(1)
-    else:
-        docker_v = subprocess.run(
-            ["docker", "--version"], capture_output=True, text=True
-        ).stdout.strip()
-        print(f"[+] Docker OK! | {docker_v}")
-
-    # Install Tailscale so the node can join the private VPN network.
-    if shutil.which("tailscale") is None:
-        print("\n[*] Tailscale not found. Installing...")
-        try:
-            subprocess.run(
-                "curl -fsSL https://tailscale.com/install.sh | sh",
-                shell=True,
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            ts_v = (
-                subprocess.run(["tailscale", "version"], capture_output=True, text=True)
-                .stdout.strip()
-                .split("\n")[0]
-            )
-            print(f"[+] Tailscale installed! | {ts_v}")
-        except BaseException as error:
-            print(f"\n[ERROR] Failed to install Tailscale. | {error}")
-            sys.exit(1)
-    else:
-        ts_v = (
-            subprocess.run(["tailscale", "version"], capture_output=True, text=True)
-            .stdout.strip()
-            .split("\n")[0]
-        )
-        print(f"[+] Tailscale OK! | {ts_v}")
-    time.sleep(1)
-
-
-def format_company_name(name):
-    """Normalize the company/project name to a safe environment key value."""
-    name = name.lower().strip()
-    name = re.sub(r"[^a-z0-9]", "_", name)
-    name = re.sub(r"_+", "_", name)
-    return name
-
-
-def is_valid_password(password):
-    """Require a stronger password to protect the DataLake and DBA credentials."""
-    if len(password) < 10:
-        return False
-    if not re.search(r"[A-Z]", password):
-        return False
-    if not re.search(r"[a-z]", password):
-        return False
-    if not re.search(r"[0-9]", password):
-        return False
-    return True
-
-
-def get_tailscale_url():
-    """Fetch the machine's Tailscale DNS name and build a public HTTPS URL."""
-    try:
-        result = subprocess.run(
-            ["tailscale", "status", "--json"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        data = json.loads(result.stdout)
-        dns_name = data.get("Self", {}).get("DNSName", "")
-        if dns_name:
-            return f"https://{dns_name.rstrip('.')}"
-    except Exception:
-        pass
-    return ""
 
 def check_telemetry_folder():
-    """Verify the telemetry-agent folder is present before building."""
     if not os.path.isdir("telemetry-agent"):
         print("[ERROR] The 'telemetry-agent' directory was not found.")
-        print("Ensure the full repository is downloaded.")
         sys.exit(1)
-        
+
+def install_dependencies():
+    print("\n[*] Verifying system dependencies (Ubuntu)...")
+    run_live("killall apt apt-get 2>/dev/null || true; rm -f /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock*", "Clearing OS package locks", ignore_errors=True)
+    run_live("apt-get -qq update", "Updating system package lists")
+    
+    if shutil.which("docker") is None:
+        run_live("curl -fsSL https://get.docker.com | sh", "Installing Docker Engine")
+    if shutil.which("tailscale") is None:
+        run_live("curl -fsSL https://tailscale.com/install.sh | sh", "Installing Tailscale VPN")
+    time.sleep(1)
+
+def format_company_name(name):
+    name = re.sub(r"[^a-z0-9]", "_", name.lower().strip())
+    return re.sub(r"_+", "_", name)
+
+def is_valid_password(password):
+    return len(password) >= 10 and re.search(r"[A-Z]", password) and re.search(r"[a-z]", password) and re.search(r"[0-9]", password)
+
+def get_tailscale_url():
+    try:
+        result = subprocess.run(["tailscale", "status", "--json"], capture_output=True, text=True, check=True)
+        dns_name = json.loads(result.stdout).get("Self", {}).get("DNSName", "")
+        if dns_name: return f"https://{dns_name.rstrip('.')}"
+    except: pass
+    return ""
+
 def configure_storage():
-    """Lista os discos disponíveis, permite a escolha e define uma quota."""
     print("\n============================================================")
     print(" STEP 1.5: STORAGE CONFIGURATION")
     print("============================================================")
-    print("[*] Mapping available storage devices...")
+    project_datalake = os.path.join(PROJECT_ROOT, "datalake_data")
 
-    # Usa o comando 'df' do Linux para listar partições reais
+    if os.path.lexists(project_datalake):
+        try:
+            os.unlink(project_datalake) if os.path.islink(project_datalake) or os.path.isfile(project_datalake) else shutil.rmtree(project_datalake)
+        except: pass
+
     result = subprocess.run(["df", "-h", "--output=target,avail,pcent"], capture_output=True, text=True)
-    lines = result.stdout.strip().split("\n")[1:]
-    mounts = []
-    for line in lines:
-        parts = line.split()
-        if len(parts) >= 3 and not parts[0].startswith(('/run', '/sys', '/dev', '/proc', '/snap', '/boot')):
-            mounts.append({"path": parts[0], "free": parts[1], "pcent": parts[2]})
+    mounts = [{"path": p[0], "free": p[1], "pcent": p[2]} for line in result.stdout.strip().split("\n")[1:] if len((p := line.split())) >= 3 and not p[0].startswith(('/run', '/sys', '/dev', '/proc', '/snap', '/boot'))]
 
     print("\nAvailable Partitions:")
-    for i, m in enumerate(mounts):
-        print(f" [{i+1}] {m['path']} (Free: {m['free']} / Used: {m['pcent']})")
-    print(f" [{len(mounts)+1}] Type a custom absolute path...")
+    for i, m in enumerate(mounts): print(f" [{i+1}] {m['path']} (Free: {m['free']} / Used: {m['pcent']})")
 
-    choice = 0
     while True:
         try:
-            choice = int(input(f"\nSelect a storage location [1-{len(mounts)+1}]: ").strip())
-            if 1 <= choice <= len(mounts) + 1:
-                break
-        except ValueError:
-            pass
-        print(f"{YELLOW}[ERROR]{RESET} Invalid choice.")
+            choice = int(input(f"\nSelect a storage location [1-{len(mounts)}]: ").strip())
+            if 1 <= choice <= len(mounts): break
+        except ValueError: pass
 
-    if choice <= len(mounts):
-        base_path = mounts[choice-1]["path"]
-        datalake_path = os.path.join(base_path, "arenalake_data")
-    else:
-        datalake_path = input("Enter the absolute path (e.g., /mnt/dados/arenalake): ").strip()
-
-    # Validação da Quota (Mínimo 5GB)
+    base_path = mounts[choice-1]["path"]
     quota_gb = 0
     while quota_gb < 5:
-        try:
-            quota_gb = int(input("How many GBs do you want to allocate? (Minimum 5): ").strip())
-            if quota_gb < 5:
-                print(f"{YELLOW}[ERROR]{RESET} You must allocate at least 5GB.")
-        except ValueError:
-            print(f"{YELLOW}[ERROR]{RESET} Please enter a valid number.")
+        try: quota_gb = int(input("How many GBs do you want to allocate? (Minimum 5): ").strip())
+        except ValueError: pass
 
-    # Valida se o disco realmente tem esse espaço
-    os.makedirs(datalake_path, exist_ok=True)
-    total, used, free = shutil.disk_usage(datalake_path)
-    free_gb = free / (1024**3)
+    project_partition = subprocess.run(["df", "--output=target", PROJECT_ROOT], capture_output=True, text=True).stdout.strip().split("\n")[-1]
+
+    if base_path == project_partition:
+        os.makedirs(project_datalake, exist_ok=True)
+    else:
+        physical_path = os.path.join(base_path, "arenalake_data")
+        os.makedirs(physical_path, exist_ok=True)
+        os.symlink(physical_path, project_datalake)
+
+    return project_datalake, quota_gb
+
+def setup_nfs_master(datalake_path):
+    print("\n============================================================")
+    print(" STEP 1.6: CONFIGURING NFS SERVER (STORAGE SHARING)")
+    print("============================================================")
     
-    if free_gb < quota_gb:
-        print(f"\n{YELLOW}[WARNING]{RESET} The selected disk only has {free_gb:.1f}GB free, but you requested {quota_gb}GB.")
-        resp = input("Do you want to continue anyway? (Y/N) [Default: N]: ").strip().lower()
-        if resp != 'y':
-            print("[*] Please free up some space or choose another disk and run the script again.")
-            sys.exit(1)
-
-    print(f"\n[+] Storage securely configured at: {datalake_path} (Quota: {quota_gb}GB)")
-    return datalake_path, quota_gb
-
-def setup_nfs_server(datalake_path):
-    """Instala o servidor NFS e exporta o DataLake exclusivamente para a rede Tailscale."""
-    print("\n[*] Configuring NFS Server for distributed storage...")
-    try:
-        subprocess.run(["apt-get", "update"], stdout=subprocess.DEVNULL)
-        subprocess.run(["apt-get", "install", "-y", "nfs-kernel-server"], check=True, stdout=subprocess.DEVNULL)
-        
-        # Exporta a pasta apenas para a sub-rede do Tailscale (100.x.x.x), 
-        # garantindo que ninguém fora da VPN aceda aos dados.
-        export_line = f"{datalake_path} 100.64.0.0/10(rw,sync,no_subtree_check,no_root_squash)\n"
-        
+    run_live("DEBIAN_FRONTEND=noninteractive apt-get install -y nfs-kernel-server rpcbind nfs-common", "Installing NFS Server & Dependencies")
+    run_live("systemctl unmask rpcbind nfs-common nfs-kernel-server || true", "Unmasking NFS services", ignore_errors=True)
+    run_live("systemctl daemon-reload", "Reloading systemd daemons", ignore_errors=True)
+    run_live("systemctl enable --now rpcbind nfs-common || true", "Starting RPCBind and NFS Common", ignore_errors=True)
+    
+    real_path = os.path.realpath(datalake_path)
+    exports_line = f"{real_path} 100.64.0.0/10(rw,sync,no_subtree_check,no_root_squash)\n"
+    
+    exports_content = ""
+    if os.path.exists("/etc/exports"):
         with open("/etc/exports", "r") as f:
-            exports = f.read()
+            exports_content = f.read()
             
-        if datalake_path not in exports:
-            with open("/etc/exports", "a") as f:
-                f.write(export_line)
-        
-        subprocess.run(["exportfs", "-a"], check=True)
-        subprocess.run(["systemctl", "restart", "nfs-kernel-server"], check=True)
-        print("[+] NFS Server configured. DataLake is now securely shared over the VPN!")
+    if real_path not in exports_content:
+        with open("/etc/exports", "a") as f:
+            f.write(exports_line)
+            
+    run_live("exportfs -a && systemctl restart nfs-kernel-server", "Starting NFS Service", ignore_errors=True)
+    
+    print(f"[+] NFS Share configured for {real_path} over the Tailscale VPN.")
+    print(f"{CYAN} 💡 TIP FOR WORKERS:{RESET} When asked for the physical path, type: {real_path}")
+    
+def setup_ssh_keys():
+    print("\n============================================================")
+    print(" STEP 2.5: CONFIGURING SSH WEB TERMINAL")
+    print("============================================================")
+    
+    os.makedirs("/root/.ssh", exist_ok=True)
+    os.chmod("/root/.ssh", 0o700)
+    
+    if not os.path.isfile("/root/.ssh/id_rsa"):
+        run_live("ssh-keygen -t rsa -b 4096 -N '' -f /root/.ssh/id_rsa -q", "Generating SSH Keys for Web Terminal")
+    
+    try:
+        with open("/root/.ssh/id_rsa.pub", "r") as pub_key_file:
+            pub_key = pub_key_file.read().strip()
+            
+        auth_keys_path = "/root/.ssh/authorized_keys"
+        auth_content = ""
+        if os.path.exists(auth_keys_path):
+            with open(auth_keys_path, "r") as f:
+                auth_content = f.read()
+                
+        if pub_key not in auth_content:
+            with open(auth_keys_path, "a") as f:
+                f.write(f"\n{pub_key}\n")
+            os.chmod(auth_keys_path, 0o600)
+            print("[+] Master auto-authorized for SSH access.")
     except Exception as e:
-        print(f"[ERROR] Failed to configure NFS Server: {e}")
-        sys.exit(1)
+        print(f"{YELLOW}[WARNING]{RESET} Failed to setup SSH keys: {e}")
 
 def main():
     check_root()
@@ -275,10 +192,11 @@ def main():
     check_telemetry_folder()
 
     print("=" * 60)
-    print("      ArenaLake - Enterprise Interactive Setup")
+    print("    ArenaLake - Enterprise Interactive Setup")
     print("=" * 60)
 
     check_existing_install()
+
     install_dependencies()
     check_ports_available()
     jwt_secret = secrets.token_hex(32)
@@ -288,244 +206,119 @@ def main():
     print("============================================================")
 
     raw_company = ""
-    while not raw_company:
-        raw_company = input("Company or project name (required): ").strip()
+    while not raw_company: raw_company = input("Company or project name (required): ").strip()
     safe_company_name = format_company_name(raw_company)
     workspace_network = "arenalake-prod_arenalake-net"
 
-    print("\n--- DataLake Credentials ---")
     minio_user = f"arenalake_{safe_company_name}_minio_admin"
-    print(f"\n[*] MinIO login defined as: {minio_user}")
-
     minio_pass = ""
     while not is_valid_password(minio_pass):
-        minio_pass = input(
-            "Password (Min. 10 chars, uppercase, lowercase, and numbers): "
-        ).strip()
-        if not is_valid_password(minio_pass):
-            print("[ERROR] Password too weak. Please try again.\n")
+        minio_pass = input("MinIO Password (Min. 10 chars, upper, lower, numbers): ").strip()
 
-    print("\n--- Database Credentials ---")
     dba_user = f"arenalake_{safe_company_name}_dba_admin"
-    print(f"\n[*] Database login defined as: {dba_user}")
-
     dba_pass = ""
     while not is_valid_password(dba_pass):
-        dba_pass = input(
-            "Password (Min. 10 chars, uppercase, lowercase, and numbers): "
-        ).strip()
-        if not is_valid_password(dba_pass):
-            print("[ERROR] Password too weak. Please try again.\n")
+        dba_pass = input("Database Password (Min. 10 chars, upper, lower, numbers): ").strip()
 
-    print("\n--- Update Policies ---")
-    ws_input = (
-        input("Automatically update Workspace? (Y/N) [Default: Y]: ")
-        .strip()
-        .lower()
-    )
-    auto_update_ws = "false" if ws_input == "n" else "true"
-    core_input = (
-        input("Automatically update Core/Portal? (Y/N) [Default: N]: ")
-        .strip()
-        .lower()
-    )
-    auto_update_core = "true" if core_input == "y" else "false"
+    auto_update_ws = "false" if input("Automatically update Workspace? (Y/N) [Default: Y]: ").strip().lower() == "n" else "true"
+    auto_update_core = "true" if input("Automatically update Core/Portal? (Y/N) [Default: N]: ").strip().lower() == "y" else "false"
 
     print("\n============================================================")
     print(" STEP 2: NETWORK AUTHENTICATION (TAILSCALE)")
     print("============================================================")
-
-    print("[*] We need to link this server to your Tailscale account.")
-    print("!" * 60)
-    print(" IMPORTANT:")
-    print(" 1. Click the link generated below and log in.")
-    print(" 2. The terminal will pause while waiting for your login.")
-    print(" 3. After logging in, enable 'MagicDNS' and 'HTTPS Certificates' in the dashboard.")
-    print("!" * 60)
-
     input("\nPress ENTER to generate the authentication link...")
-
-    try:
-        subprocess.run("tailscale up", shell=True, check=True)
-        print("\n[+] Tailscale authenticated successfully!")
-    except subprocess.CalledProcessError:
-        print("\n[ERROR] There was a problem starting Tailscale.")
-        sys.exit(1)
-
-    tailscale_url = get_tailscale_url()
-    if tailscale_url:
-        print(f"[+] URL identified automatically: {tailscale_url}")
-    else:
-        print("\n[!] We could not capture your URL automatically.")
-        while not tailscale_url:
-            tailscale_url = input(
-                "Paste the complete server URL (example: https://machine.tailnet.ts.net): "
-            ).strip()
+    subprocess.run("tailscale up", shell=True, check=True)
+    tailscale_url = get_tailscale_url() or input("Paste the complete server URL (e.g. https://machine.tailnet.ts.net): ").strip()
+    setup_ssh_keys()
 
     print("\n============================================================")
     print(" STEP 3: FINALIZING AND STARTING THE CLUSTER")
     print("============================================================")
 
-    # Dynamic local directory plus all mandatory subfolders needed by the platform.
     datalake_path, datalake_quota = configure_storage()
-
-    print(f"[*] Provisioning storage directories in {datalake_path}...")
     os.makedirs(datalake_path, exist_ok=True)
     os.chmod(datalake_path, 0o755)
 
-    subfolders = ["minio_data", "spark_jobs", "projects_data", "database"]
-    for folder in subfolders:
+    setup_nfs_master(datalake_path)
+
+    print(f"\n[*] Provisioning directories in {datalake_path}...")
+    for folder in ["minio_data", "spark_jobs", "projects_data", "database"]:
         folder_path = os.path.join(datalake_path, folder)
         os.makedirs(folder_path, exist_ok=True)
-        os.chmod(folder_path, 0o777)
-        print(f"[+] Subfolder configured: {folder}")
         
-    setup_nfs_server(datalake_path)
+        # Correções de permissões nativas recursivas (Evita manualidade pós-instalação)
+        if folder == "database":
+            os.chmod(folder_path, 0o700)
+            subprocess.run(["chown", "-R", "70:70", folder_path], check=False) # Postgres Alpine UID
+        elif folder == "minio_data":
+            os.chmod(folder_path, 0o775)
+            subprocess.run(["chown", "-R", "65532:65532", folder_path], check=False) # Minio Chainguard UID
+        elif folder == "spark_jobs":
+            os.chmod(folder_path, 0o775)
+            subprocess.run(["chown", "-R", "1001:1001", folder_path], check=False) # Bitnami Spark UID
+        else: 
+            os.chmod(folder_path, 0o777)
+            
+        print(f"    [+] Created: {folder} with appropriate UID/GID ownership.")
 
-    print("[*] Generating the environment file (.env)...")
-    env_content = f"""# --- DataLake Configurations ---
-MINIO_ACCESS_KEY={minio_user}
-MINIO_SECRET_KEY={minio_pass}
-DATALAKE_STORAGE_PATH={datalake_path}
-DATALAKE_QUOTA_GB={datalake_quota}
-
-# --- Core Security & Database ---
-DATABASE_URL=sqlite:////mnt/datalake/prod/database/arenalake_{safe_company_name}_core.db
-JWT_SECRET_KEY={jwt_secret}
-DBA_USERNAME={dba_user}
-DBA_PASSWORD={dba_pass}
-
-# --- Spark Cluster ---
-SPARK_MASTER_URL=spark://spark-master:7077
-
-# --- Network & Ports ---
-PORTAL_PORT=8088
-TRAEFIK_WEB_PORT=80
-MINIO_API_PORT=9000
-MINIO_CONSOLE_PORT=9001
-SPARK_UI_PORT=8080
-TRAEFIK_DASH_PORT=8089
-
-WORKSPACE_NETWORK={workspace_network}
-WORKSPACE_IMAGE=arenalake-workspace:latest
-TAILSCALE_BASE_URL={tailscale_url}
-
-# --- Enterprise Auto-Update Policies ---
-AUTO_UPDATE_WORKSPACE={auto_update_ws}
-AUTO_UPDATE_CORE={auto_update_core}
-"""
-    with open(".env", "w") as env_file:
-        env_file.write(env_content)
+    env_content = f"MINIO_ACCESS_KEY={minio_user}\nMINIO_SECRET_KEY={minio_pass}\nDATALAKE_STORAGE_PATH={datalake_path}\nDATALAKE_QUOTA_GB={datalake_quota}\nDATABASE_URL=postgresql://{dba_user}:{dba_pass}@postgres:5432/arenalake_core\nJWT_SECRET_KEY={jwt_secret}\nDBA_USERNAME={dba_user}\nDBA_PASSWORD={dba_pass}\nSPARK_MASTER_URL=spark://spark-master:7077\nPORTAL_PORT=8088\nTRAEFIK_WEB_PORT=80\nMINIO_API_PORT=9000\nMINIO_CONSOLE_PORT=9001\nSPARK_UI_PORT=8080\nTRAEFIK_DASH_PORT=8089\nWORKSPACE_NETWORK={workspace_network}\nWORKSPACE_IMAGE=arenalake-workspace:latest\nTAILSCALE_BASE_URL={tailscale_url}\nAUTO_UPDATE_WORKSPACE={auto_update_ws}\nAUTO_UPDATE_CORE={auto_update_core}\n"
+    with open(".env", "w") as f: f.write(env_content)
     os.chmod(".env", 0o600)
 
-    print("[*] Preparing Docker Swarm...")
-    if (
-        subprocess.run(["docker", "info"], capture_output=True, text=True).stdout.find(
-            "Swarm: active"
-        )
-        == -1
-    ):
-        subprocess.run(
-            ["docker", "swarm", "init"], check=False, stdout=subprocess.DEVNULL
-        )
-
-    print("[*] Building local Portal and Workspace Builder images...")
-    try:
-        subprocess.run(["docker", "compose", "build"], check=True)
-        print("[+] Images built successfully!")
-    except subprocess.CalledProcessError:
-        print(
-            "\n[WARNING] The direct docker compose build failed. Trying to build individual images..."
-        )
-        subprocess.run(["docker", "image", "prune", "-f"], stdout=subprocess.DEVNULL)
-
-    print("[*] Deploying the cluster (this may take a few seconds)...")
-    with open(".env", "r") as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#"):
-                key, value = line.split("=", 1)
-                os.environ[key] = value
+    if subprocess.run(["docker", "info"], capture_output=True, text=True).stdout.find("Swarm: active") == -1:
+        subprocess.run(["docker", "swarm", "init"], check=False, stdout=subprocess.DEVNULL)
 
     try:
-        subprocess.run(
-            ["docker", "stack", "deploy", "-c", "docker-compose.yml", "arenalake-prod"],
-            check=True,
-        )
+        # Carrega variáveis do .env no contexto Python
+        with open(".env", "r") as f:
+            for line in f:
+                if line.strip() and not line.startswith("#"): os.environ[line.split("=", 1)[0]] = line.strip().split("=", 1)[1]
 
-        print("\n[*] Validating services...")
-        # Give the containers some time to start before checking the cluster state.
-        time.sleep(10)
-        print("-" * 60)
-        subprocess.run(["docker", "service", "ls"])
-        print("-" * 60)
+        # Otimização de tempo de compilação
+        print("\n[*] Pre-fetching public images to speed up build...")
+        subprocess.run(["docker", "compose", "pull", "--quiet"], check=False)
 
-        # -------------------------------------------------------------------
-        # AUTOMATIC DATABASE INITIALIZATION
-        # -------------------------------------------------------------------
-        print(f"\n[*] Configuring the database and the super admin...")
+        print("\n[*] Compiling local images (BuildKit enabled for speed)...")
+        env_vars = os.environ.copy()
+        env_vars["DOCKER_BUILDKIT"] = "1"
+        env_vars["COMPOSE_DOCKER_CLI_BUILD"] = "1"
+        subprocess.run(["docker", "compose", "build", "--parallel"], check=True, env=env_vars)
 
-        # Poll the running portal container until it is up enough to accept exec commands.
+        print("\n[*] Deploying ArenaLake Stack...")
+        subprocess.run(["docker", "stack", "deploy", "-c", "docker-compose.yml", "arenalake-prod"], check=True, stdout=subprocess.DEVNULL)
+        
         portal_id = ""
-        for _ in range(15):  # Try for up to 30 seconds before giving up.
-            result = subprocess.run(
-                "docker ps -q -f name=portal | head -n 1",
-                shell=True,
-                capture_output=True,
-                text=True,
-            )
-            if result.stdout.strip():
-                portal_id = result.stdout.strip()
-                break
+        for _ in range(40):
+            result = subprocess.run("docker ps -q -f name=arenalake-prod_portal | head -n 1", shell=True, capture_output=True, text=True)
+            if result.stdout.strip(): portal_id = result.stdout.strip(); break
             time.sleep(2)
-
-        if portal_id:
-            try:
-                # Run the Python bootstrap script without -it because this is a non-interactive shell.
-                subprocess.run(
-                    f"docker exec {portal_id} python -m core.init_db",
-                    shell=True,
-                    check=True,
-                )
-                print(f"[+] {CYAN}Database and credentials generated successfully!{RESET}")
-            except subprocess.CalledProcessError:
-                print(f"[{YELLOW}Warning{RESET}] Failed to initialize the database inside the container.")
-        else:
-            print(f"[{YELLOW}Warning{RESET}] The Portal container took too long to respond. The database was not created automatically.")
-        # -------------------------------------------------------------------
-
-        # Automatic Tailscale Funnel activation.
-        print(f"\n[*] Configuring public exposure (Tailscale Funnel for port 8088)...")
-        funnel_result = subprocess.run(
-            ["tailscale", "funnel", "--bg", "http://127.0.0.1:8088"], capture_output=True, text=True
-        )
-        funnel_output = funnel_result.stdout + funnel_result.stderr
-
-        if "To enable, visit:" in funnel_output:
-            print(
-                f"\n{YELLOW}============================================================{RESET}"
-            )
-            print(
-                f"{YELLOW} ACTION REQUIRED: The Funnel requires authorization in your account!{RESET}"
-            )
-            print(
-                f"{YELLOW}============================================================{RESET}"
-            )
-            for line in funnel_output.split("\n"):
-                if "https://login.tailscale.com" in line:
-                    print(f"{CYAN} -> {line.strip()}{RESET}")
-        else:
-            print(
-                f"[+] {CYAN}Tailscale Funnel enabled successfully! Your site is already public.{RESET}"
-            )
+        
+        if portal_id: 
+            print(f"\n[*] Waiting for PostgreSQL overlay network to resolve and initializing database...")
+            db_initialized = False
+            for attempt in range(20):
+                res = subprocess.run(f"docker exec {portal_id} python -m core.init_db", shell=True, capture_output=True, text=True)
+                if res.returncode == 0:
+                    if res.stdout.strip():
+                        for line in res.stdout.strip().split("\n"): print(f"    {line}")
+                    print("    [+] Database successfully initialized.")
+                    db_initialized = True
+                    break
+                time.sleep(3)
+            
+            if not db_initialized:
+                print(f"{YELLOW}[ERROR]{RESET} Failed to initialize database. Postgres resolution timeout.")
+                sys.exit(1)
+        
+        print(f"\n{CYAN}[*] Exposing Portal securely to the Internet via Tailscale Funnel...{RESET}")
+        subprocess.run("tailscale serve reset >/dev/null 2>&1", shell=True)
+        subprocess.run("tailscale funnel --bg http://127.0.0.1:8088", shell=True)
 
         print("\n" + "=" * 60)
         print(f"  {raw_company} DataLake installed and running successfully! 🚀")
-        print(f"  Public endpoint: {tailscale_url}")
         print("=" * 60)
-
-    except subprocess.CalledProcessError:
-        print("\n[ERROR] There was a problem starting Docker Swarm or the deployment.")
+    except Exception as e: 
+        print(f"[ERROR] Failed to deploy cluster: {e}")
 
 if __name__ == "__main__":
     main()
