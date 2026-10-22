@@ -1051,6 +1051,7 @@ function baixarDashboardImagem() {
 async function init() {
     carregarDataCatalog();
     carregarDataLakeDashboard();
+    carregarGatewayEndpoints();
     await carregarWorkspaces();
     await carregarUsuarios();
     await carregarClusterNodes();
@@ -1120,6 +1121,93 @@ async function baixarRelatorioCatalog(event) {
     } finally {
         btn.innerHTML = originalText;
         btn.disabled = false;
+    }
+}
+
+// =========================================================
+// API INGESTION GATEWAY MGR
+// =========================================================
+async function carregarGatewayEndpoints() {
+    try {
+        const res = await fetch('/api/admin/gateway/endpoints', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        if (result.status === 'success') {
+            const tbody = document.getElementById('gwTableBody');
+            tbody.innerHTML = '';
+
+            result.data.forEach(ep => {
+                const urlGet = `${window.location.origin}/api/v1/get/${ep.endpoint_hash}/`;
+                const urlPost = `${window.location.origin}/api/v1/post/${ep.endpoint_hash}/${ep.target_bucket}/${ep.target_format}`;
+                const urlFormat = `${window.location.origin}/api/v1/format/${ep.endpoint_hash}/`;
+
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #30363d';
+                tr.innerHTML = `
+                    <td style="padding: 10px; color: #c9d1d9;">${ep.target_bucket}</td>
+                    <td style="padding: 10px;"><span class="meta-tag" style="margin:0;">${ep.target_format.toUpperCase()}</span></td>
+                    <td style="padding: 10px;">
+                        <div style="margin-bottom: 4px;"><span style="color:#8b949e">POST:</span> <a href="javascript:void(0)" style="color:#58a6ff" onclick="alert('${urlPost}')">${ep.endpoint_hash.substring(0, 8)}...</a></div>
+                        <div style="margin-bottom: 4px;"><span style="color:#8b949e">GET:</span> <a href="javascript:void(0)" style="color:#58a6ff" onclick="alert('${urlGet}')">...${ep.endpoint_hash.substring(ep.endpoint_hash.length - 8)}</a></div>
+                        <div><span style="color:#8b949e">Token:</span> <span style="color:#da3633; cursor:pointer;" onclick="alert('Token: ${ep.access_token}')">Revelar 👁️</span></div>
+                        <div style="margin-top: 4px;"><span style="color:#8b949e">Docs:</span> <a href="${urlFormat}" target="_blank" style="color:#3fb950">/format/</a></div>
+                    </td>
+                    <td style="padding: 10px; color: #c9d1d9;">${ep.request_count}</td>
+                    <td style="padding: 10px; color: #8b949e;">${ep.created_by}<br><small>${ep.created_at}</small></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    } catch (e) {
+        console.error("Erro ao carregar endpoints do gateway", e);
+    }
+}
+
+async function criarGatewayEndpoint() {
+    const bucket = document.getElementById('gwBucket').value.trim();
+    const format = document.getElementById('gwFormat').value;
+    const schema = document.getElementById('gwSchema').value.trim();
+
+    if (!bucket || !schema) {
+        alert("Preencha o Bucket de Destino e defina o Schema (Formato esperado).");
+        return;
+    }
+
+    // Validação basica de JSON
+    try {
+        JSON.parse(schema);
+    } catch (e) {
+        alert("O Schema precisa ser um formato JSON válido.");
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/admin/gateway/endpoints', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                target_bucket: bucket,
+                target_format: format,
+                schema_definition: schema
+            })
+        });
+
+        const result = await res.json();
+        if (result.status === 'success') {
+            alert(result.message);
+            document.getElementById('gwBucket').value = '';
+            document.getElementById('gwSchema').value = '';
+            carregarGatewayEndpoints();
+        } else {
+            alert(result.message);
+        }
+    } catch (e) {
+        alert("Erro ao criar endpoint.");
     }
 }
 

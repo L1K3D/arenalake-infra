@@ -44,6 +44,7 @@
                 <li class="menu-header">🗄️ Data Governance</li>
                 <li id="nav-catalog" class="menu-item" onclick="showSection('catalog')">Data Catalog (MinIO)</li>
                 <li id="nav-dldash" class="menu-item" onclick="showSection('dldash')">DataLake Dashboard</li>
+                <li id="nav-gateway" class="menu-item" onclick="showSection('gateway')">API Ingestion Gateway</li>
 
                 <li class="menu-header" style="color: #da3633;">🚨 Danger Zone</li>
                 <li id="nav-destroy" class="menu-item danger-item" onclick="showSection('destroy')">Critical
@@ -463,6 +464,57 @@
                         <button onclick="executarAutodestruicao()"
                             style="padding: 10px 20px; background: #da3633; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap;">🚨
                             Run Self-Destruction</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API INGESTION GATEWAY -->
+            <div id="sec-gateway" class="admin-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div>
+                        <h1 style="margin: 0; color: #c9d1d9;">API Ingestion Gateway</h1>
+                        <p style="color: #8b949e; margin: 5px 0 0 0;">Crie e gerencie URLs para recebimento autônomo de
+                            dados externos.</p>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom: 20px;">
+                    <h4 style="margin-top: 0; color: #79c0ff;">Criar Novo Endpoint Restrito</h4>
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <input type="text" id="gwBucket" placeholder="Bucket de Destino"
+                            style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                        <select id="gwFormat"
+                            style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px; width: 200px;">
+                            <option value="json">Ingerir como JSON</option>
+                            <option value="parquet">Ingerir como PARQUET</option>
+                        </select>
+                    </div>
+                    <textarea id="gwSchema" rows="4"
+                        placeholder='Defina o formato esperado em JSON (ex: {"id": "int", "nome": "string", "valor": "float"})'
+                        style="width: 100%; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px; resize: vertical; margin-bottom: 15px; font-family: monospace;"></textarea>
+                    <button onclick="criarGatewayEndpoint()"
+                        style="padding: 10px 20px; background: #238636; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Gerar
+                        Chaves e Endpoint</button>
+                </div>
+
+                <div class="card">
+                    <h4 style="margin-top: 0; color: #79c0ff;">Endpoints Ativos</h4>
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85em; text-align: left;"
+                            id="gwTable">
+                            <thead>
+                                <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
+                                    <th style="padding: 10px;">Bucket Destino</th>
+                                    <th style="padding: 10px;">Formato</th>
+                                    <th style="padding: 10px;">API Hash / Token (Bearer)</th>
+                                    <th style="padding: 10px;">Requests</th>
+                                    <th style="padding: 10px;">Criado Por</th>
+                                </tr>
+                            </thead>
+                            <tbody id="gwTableBody">
+                                <!-- Preenchido via JS -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
