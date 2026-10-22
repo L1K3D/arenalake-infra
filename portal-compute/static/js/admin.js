@@ -500,6 +500,20 @@ function atualizarDropdownBuckets() {
     if (currentSelection && currentSelection !== "all" && buckets.includes(currentSelection)) {
         dropdown.value = currentSelection;
     }
+
+    // --- NOVO: Popula também o Dropdown de Buckets do Gateway ---
+    const gwBucketSelect = document.getElementById('gwBucket');
+    if (gwBucketSelect) {
+        const currentGwSelection = gwBucketSelect.value;
+        let gwOptionsHtml = '<option value="">Selecione o Bucket de Destino...</option>';
+        buckets.forEach(b => {
+            gwOptionsHtml += `<option value="${b}">📦 ${b}</option>`;
+        });
+        gwBucketSelect.innerHTML = gwOptionsHtml;
+        if (currentGwSelection && buckets.includes(currentGwSelection)) {
+            gwBucketSelect.value = currentGwSelection;
+        }
+    }
 }
 
 function handleFilterChange() {
@@ -1165,23 +1179,89 @@ async function carregarGatewayEndpoints() {
     }
 }
 
+// =========================================================
+// API INGESTION GATEWAY MGR (Construtor Visual)
+// =========================================================
+let currentGatewaySchema = {};
+
+function addSchemaColumn() {
+    const colNameInput = document.getElementById('gwColName');
+    const colType = document.getElementById('gwColType').value;
+    let colName = colNameInput.value.trim();
+
+    if (!colName) {
+        alert("Digite um nome para a coluna.");
+        return;
+    }
+
+    // Higieniza o nome da coluna para garantir compatibilidade com Parquet
+    colName = colName.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+
+    if (colName.toLowerCase() === 'dathorrefcarga') {
+        alert("A coluna 'datHorRefCarga' é reservada e gerenciada pelo sistema.");
+        return;
+    }
+
+    if (currentGatewaySchema[colName]) {
+        alert("Esta coluna já existe no schema.");
+        return;
+    }
+
+    currentGatewaySchema[colName] = colType;
+    colNameInput.value = '';
+    renderGatewaySchema();
+}
+
+function removeSchemaColumn(colName) {
+    delete currentGatewaySchema[colName];
+    renderGatewaySchema();
+}
+
+function renderGatewaySchema() {
+    const tbody = document.getElementById('gwSchemaTableBody');
+
+    // Sempre renderiza a coluna fixa do sistema no topo
+    let html = `
+        <tr style="border-bottom: 1px solid #30363d; background: #0d1117;">
+            <td style="padding: 8px; color: #c9d1d9;">datHorRefCarga <span style="font-size: 0.7em; background: #238636; padding: 2px 5px; border-radius: 4px; margin-left: 5px;">Sistema</span></td>
+            <td style="padding: 8px; color: #58a6ff;">datetime</td>
+            <td style="padding: 8px; text-align: right; color: #8b949e; font-style: italic;">Automático</td>
+        </tr>
+    `;
+
+    for (const [col, type] of Object.entries(currentGatewaySchema)) {
+        html += `
+            <tr style="border-bottom: 1px solid #30363d;">
+                <td style="padding: 8px; color: #c9d1d9;">${col}</td>
+                <td style="padding: 8px; color: #58a6ff;">${type}</td>
+                <td style="padding: 8px; text-align: right;">
+                    <button onclick="removeSchemaColumn('${col}')" style="background: transparent; color: #da3633; border: none; cursor: pointer; font-size: 1.2em;" title="Remover">🗑️</button>
+                </td>
+            </tr>
+        `;
+    }
+    tbody.innerHTML = html;
+}
+
 async function criarGatewayEndpoint() {
-    const bucket = document.getElementById('gwBucket').value.trim();
+    const bucket = document.getElementById('gwBucket').value;
     const format = document.getElementById('gwFormat').value;
-    const schema = document.getElementById('gwSchema').value.trim();
 
-    if (!bucket || !schema) {
-        alert("Preencha o Bucket de Destino e defina o Schema (Formato esperado).");
+    if (!bucket) {
+        alert("Por favor, selecione o Bucket de Destino.");
         return;
     }
 
-    // Validação basica de JSON
-    try {
-        JSON.parse(schema);
-    } catch (e) {
-        alert("O Schema precisa ser um formato JSON válido.");
+    if (Object.keys(currentGatewaySchema).length === 0) {
+        alert("Adicione pelo menos uma coluna além da coluna do sistema na Estrutura do Dado.");
         return;
     }
+
+    // Monta o schema final injetando a coluna de sistema obrigatoriamente
+    const finalSchema = {
+        datHorRefCarga: "datetime",
+        ...currentGatewaySchema
+    };
 
     try {
         const res = await fetch('/api/admin/gateway/endpoints', {
@@ -1193,7 +1273,7 @@ async function criarGatewayEndpoint() {
             body: JSON.stringify({
                 target_bucket: bucket,
                 target_format: format,
-                schema_definition: schema
+                schema_definition: JSON.stringify(finalSchema) // Backend continua recebendo String JSON
             })
         });
 
@@ -1201,7 +1281,8 @@ async function criarGatewayEndpoint() {
         if (result.status === 'success') {
             alert(result.message);
             document.getElementById('gwBucket').value = '';
-            document.getElementById('gwSchema').value = '';
+            currentGatewaySchema = {}; // Reseta o estado do construtor
+            renderGatewaySchema();
             carregarGatewayEndpoints();
         } else {
             alert(result.message);

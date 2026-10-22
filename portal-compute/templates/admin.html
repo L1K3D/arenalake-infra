@@ -480,18 +480,64 @@
 
                 <div class="card" style="margin-bottom: 20px;">
                     <h4 style="margin-top: 0; color: #79c0ff;">Criar Novo Endpoint Restrito</h4>
+
+                    <!-- 1: Dropdown de Buckets e Formato -->
                     <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                        <input type="text" id="gwBucket" placeholder="Bucket de Destino"
+                        <select id="gwBucket"
                             style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                            <option value="">Selecione o Bucket de Destino...</option>
+                            <!-- Preenchido via JS -->
+                        </select>
                         <select id="gwFormat"
                             style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px; width: 200px;">
                             <option value="json">Ingerir como JSON</option>
                             <option value="parquet">Ingerir como PARQUET</option>
                         </select>
                     </div>
-                    <textarea id="gwSchema" rows="4"
-                        placeholder='Defina o formato esperado em JSON (ex: {"id": "int", "nome": "string", "valor": "float"})'
-                        style="width: 100%; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px; resize: vertical; margin-bottom: 15px; font-family: monospace;"></textarea>
+
+                    <!-- 2 e 3: Construtor de Schema Visual com datHorRefCarga -->
+                    <div
+                        style="background: #161b22; border: 1px solid #30363d; border-radius: 4px; padding: 15px; margin-bottom: 15px;">
+                        <h5 style="margin: 0 0 10px 0; color: #8b949e;">Construtor de Schema (Estrutura do Dado)</h5>
+
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                            <input type="text" id="gwColName" placeholder="Nome da Coluna (ex: id_cliente)"
+                                style="flex: 1; padding: 8px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                            <select id="gwColType"
+                                style="padding: 8px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px; width: 150px;">
+                                <option value="string">String (Texto)</option>
+                                <option value="int">Integer (Inteiro)</option>
+                                <option value="float">Float (Decimal)</option>
+                                <option value="boolean">Boolean (Lógico)</option>
+                                <option value="datetime">Datetime (Data/Hora)</option>
+                            </select>
+                            <button onclick="addSchemaColumn()"
+                                style="background: #1f6feb; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">➕
+                                Adicionar</button>
+                        </div>
+
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85em; text-align: left;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
+                                    <th style="padding: 8px;">Nome da Coluna</th>
+                                    <th style="padding: 8px;">Tipo de Dado</th>
+                                    <th style="padding: 8px; text-align: right;">Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="gwSchemaTableBody">
+                                <!-- datHorRefCarga fixa e novas colunas aparecerão aqui -->
+                                <tr style="border-bottom: 1px solid #30363d; background: #0d1117;">
+                                    <td style="padding: 8px; color: #c9d1d9;">datHorRefCarga <span
+                                            style="font-size: 0.7em; background: #238636; padding: 2px 5px; border-radius: 4px; margin-left: 5px;">Sistema</span>
+                                    </td>
+                                    <td style="padding: 8px; color: #58a6ff;">datetime</td>
+                                    <td style="padding: 8px; text-align: right; color: #8b949e; font-style: italic;">
+                                        Automático</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
                     <button onclick="criarGatewayEndpoint()"
                         style="padding: 10px 20px; background: #238636; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Gerar
                         Chaves e Endpoint</button>
