@@ -7,19 +7,29 @@ import pandas as pd
 import io
 import boto3
 import os
+from dotenv import load_dotenv # <== Adicionado para forçar a leitura do .env
 
 from core.database import get_db
 from core.models import IngestionEndpoint
 
+# Carrega o .env do servidor para dentro do contexto Python
+load_dotenv()
+
 # Rota /api/v1/ isolada da /api/admin/ por segurança
 router = APIRouter(prefix="/api/v1")
 
-# Configuração do Cliente MinIO (Puxando do seu .env)
+# Mapeia as credenciais buscando as variáveis mais comuns usadas em .env
+minio_user = os.getenv("MINIO_ROOT_USER") or os.getenv("MINIO_ACCESS_KEY") or os.getenv("AWS_ACCESS_KEY_ID") or "admin"
+minio_pass = os.getenv("MINIO_ROOT_PASSWORD") or os.getenv("MINIO_SECRET_KEY") or os.getenv("AWS_SECRET_ACCESS_KEY") or "admin123"
+minio_url = os.getenv("MINIO_ENDPOINT", "http://minio:9000")
+
+# Instância blindada do cliente S3 (MinIO)
 s3_client = boto3.client(
     's3',
-    endpoint_url=os.getenv("MINIO_ENDPOINT", "http://minio:9000"),
-    aws_access_key_id=os.getenv("MINIO_ROOT_USER", "admin"),
-    aws_secret_access_key=os.getenv("MINIO_ROOT_PASSWORD", "admin123")
+    endpoint_url=minio_url,
+    aws_access_key_id=minio_user,
+    aws_secret_access_key=minio_pass,
+    region_name="us-east-1" # Exigência do Boto3, mesmo o MinIO não usando
 )
 
 @router.get("/format/{endpoint_hash}/")
