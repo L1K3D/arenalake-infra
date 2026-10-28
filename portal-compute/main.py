@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 # Importação dos submódulos modularizados no lugar do antigo api.py monolítico
-from routers import admin, bi, catalog, jobs, terminal, ui, auth, gateway
+from routers import admin, bi, catalog, jobs, terminal, ui, auth, gateway, ingestion
 from core.models import IngestionEndpoint
 
 # Initialize the FastAPI application
@@ -35,6 +35,7 @@ app.include_router(jobs.router)
 app.include_router(admin.router)
 app.include_router(terminal.router)
 app.include_router(gateway.router)
+app.include_router(ingestion.router)
 
 # Entry point for development server
 # Starts Uvicorn ASGI server on 0.0.0.0:8000
