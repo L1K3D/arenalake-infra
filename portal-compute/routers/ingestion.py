@@ -7,13 +7,9 @@ import pandas as pd
 import io
 import boto3
 import os
-from dotenv import load_dotenv # <== Adicionado para forçar a leitura do .env
 
 from core.database import get_db
 from core.models import IngestionEndpoint
-
-# Carrega o .env do servidor para dentro do contexto Python
-load_dotenv()
 
 # Rota /api/v1/ isolada da /api/admin/ por segurança
 router = APIRouter(prefix="/api/v1")

@@ -9,9 +9,6 @@ from core.database import get_db, engine
 from core.models import User, IngestionEndpoint, Base
 from core.security import get_current_user
 
-# GARANTE A CRIAÇÃO DA TABELA NOVA SE ELA NÃO EXISTIR NO BANCO
-Base.metadata.create_all(bind=engine)
-
 router = APIRouter(prefix="/api/admin/gateway")
 
 class EndpointCreate(BaseModel):
@@ -48,6 +45,9 @@ async def list_endpoints(db: Session = Depends(get_db), current_user: User = Dep
 @router.post("/endpoints")
 async def create_endpoint(data: EndpointCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Gera e salva um novo endpoint de ingestão criptografado."""
+    
+    Base.metadata.create_all(bind=engine)
+    
     if current_user.role != "admin":
         return JSONResponse(content={"status": "error", "message": "Acesso negado."}, status_code=403)
     
