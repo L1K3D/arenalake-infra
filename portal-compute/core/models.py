@@ -45,6 +45,7 @@ class IngestionEndpoint(Base):
     endpoint_hash = Column(String, unique=True, index=True, default=lambda: uuid.uuid4().hex)
     access_token = Column(String, unique=True, default=lambda: secrets.token_urlsafe(32))
     target_bucket = Column(String, nullable=False)
+    target_filename = Column(String, nullable=False, default="dataset")
     target_format = Column(String, nullable=False) # 'json' ou 'parquet'
     schema_definition = Column(Text, nullable=True) # Regras/Tipos dos campos em formato JSON (String)
     request_count = Column(Integer, default=0)

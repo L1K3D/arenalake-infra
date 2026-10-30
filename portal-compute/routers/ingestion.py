@@ -10,6 +10,7 @@ import os
 
 from core.database import get_db
 from core.models import IngestionEndpoint
+from botocore.exceptions import ClientError
 
 # Rota /api/v1/ isolada da /api/admin/ por segurança
 router = APIRouter(prefix="/api/v1")
@@ -94,43 +95,62 @@ async def ingest_data(
         raise HTTPException(status_code=400, detail="A API aceita apenas um Objeto JSON {} ou uma Lista de Objetos [{}].")
 
     # 5. Processamento e Escrita no Datalake (MinIO)
-    timestamp_str = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
-    file_key = f"api_ingestion_{endpoint_hash[:8]}_{timestamp_str}"
+    clean_filename = endpoint.target_filename.replace(".json", "").replace(".parquet", "")
+    file_key = f"{clean_filename}.{target_format.lower()}"
     
     try:
-        # Garante que o bucket destino existe, se não, cria na hora
         try:
             s3_client.head_bucket(Bucket=target_bucket)
         except:
             s3_client.create_bucket(Bucket=target_bucket)
 
-        # Roteamento de Formato
+        # Baixa o arquivo existente (se houver) para fazer o Append
+        file_exists = False
+        existing_data = None
+        try:
+            response = s3_client.get_object(Bucket=target_bucket, Key=file_key)
+            existing_data = response['Body'].read()
+            file_exists = True
+        except ClientError as e:
+            if e.response['Error']['Code'] in ['NoSuchKey', '404']:
+                file_exists = False
+            else:
+                raise
+
         if target_format.lower() == "json":
-            file_key += ".json"
-            file_content = json.dumps(data_to_save).encode('utf-8')
-            s3_client.put_object(Bucket=target_bucket, Key=file_key, Body=file_content)
+            if file_exists:
+                existing_list = json.loads(existing_data.decode('utf-8'))
+                if not isinstance(existing_list, list):
+                    existing_list = [existing_list]
+                existing_list.extend(data_to_save)
+                final_data = existing_list
+            else:
+                final_data = data_to_save
+                
+            s3_client.put_object(Bucket=target_bucket, Key=file_key, Body=json.dumps(final_data).encode('utf-8'))
             
         elif target_format.lower() == "parquet":
-            file_key += ".parquet"
-            # O poder do Pandas entra aqui: Transforma o JSON dinamicamente num DataFrame e salva como Parquet
-            df = pd.DataFrame(data_to_save)
+            new_df = pd.DataFrame(data_to_save)
+            if file_exists:
+                existing_df = pd.read_parquet(io.BytesIO(existing_data))
+                final_df = pd.concat([existing_df, new_df], ignore_index=True)
+            else:
+                final_df = new_df
+                
             parquet_buffer = io.BytesIO()
-            df.to_parquet(parquet_buffer, index=False, engine='pyarrow')
+            final_df.to_parquet(parquet_buffer, index=False, engine='pyarrow')
             s3_client.put_object(Bucket=target_bucket, Key=file_key, Body=parquet_buffer.getvalue())
-        else:
-            raise HTTPException(status_code=400, detail="Formato corrompido.")
             
-        # 6. Atualiza o Hodômetro (Count de requisições) no BD e salva
+        # 6. Atualiza o BD
         endpoint.request_count += 1
         db.commit()
         
         return JSONResponse(status_code=201, content={
             "status": "success", 
-            "message": f"Dados processados e salvos com sucesso.",
-            "format": target_format.upper(),
-            "records_inserted": len(data_to_save),
-            "file_key": file_key
+            "message": "Dados processados e anexados com sucesso.",
+            "file": file_key,
+            "records_inserted": len(data_to_save)
         })
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro interno de I/O no DataLake: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro de I/O no DataLake: {str(e)}")

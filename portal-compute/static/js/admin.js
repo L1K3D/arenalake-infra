@@ -1246,9 +1246,15 @@ function renderGatewaySchema() {
 async function criarGatewayEndpoint() {
     const bucket = document.getElementById('gwBucket').value;
     const format = document.getElementById('gwFormat').value;
+    const filename = document.getElementById('gwFilename').value.trim()
 
     if (!bucket) {
         alert("Por favor, selecione o Bucket de Destino.");
+        return;
+    }
+
+    if (!filename) {
+        alert("Por favor, defina o Nome do Arquivo.");
         return;
     }
 
@@ -1272,8 +1278,9 @@ async function criarGatewayEndpoint() {
             },
             body: JSON.stringify({
                 target_bucket: bucket,
+                target_filename: filename,
                 target_format: format,
-                schema_definition: JSON.stringify(finalSchema) // Backend continua recebendo String JSON
+                schema_definition: JSON.stringify(finalSchema)
             })
         });
 
