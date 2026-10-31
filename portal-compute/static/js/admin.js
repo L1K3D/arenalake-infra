@@ -1169,7 +1169,10 @@ async function carregarGatewayEndpoints() {
                         <div style="margin-top: 4px;"><span style="color:#8b949e">Docs:</span> <a href="${urlFormat}" target="_blank" style="color:#3fb950">/format/</a></div>
                     </td>
                     <td style="padding: 10px; color: #c9d1d9;">${ep.request_count}</td>
-                    <td style="padding: 10px; color: #8b949e;">${ep.created_by}<br><small>${ep.created_at}</small></td>
+                    <td style="padding: 10px; color: #8b949e; position: relative;">
+                        ${ep.created_by}<br><small>${ep.created_at}</small>
+                        <button onclick="deletarGatewayEndpoint(${ep.id})" style="background: transparent; color: #da3633; border: none; cursor: pointer; font-size: 1.2em; position: absolute; right: 10px; top: 10px;" title="Excluir Endpoint">🗑️</button>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -1296,6 +1299,27 @@ async function criarGatewayEndpoint() {
         }
     } catch (e) {
         alert("Erro ao criar endpoint.");
+    }
+}
+
+async function deletarGatewayEndpoint(id) {
+    if (!confirm("Tem certeza que deseja excluir este endpoint? O acesso externo (GET/POST) via Token será revogado IMEDIATAMENTE!")) return;
+
+    try {
+        const res = await fetch(`/api/admin/gateway/endpoints/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        if (res.ok) {
+            alert(result.message);
+            carregarGatewayEndpoints(); // Recarrega a tabela
+        } else {
+            alert("Erro: " + result.message);
+        }
+    } catch (e) {
+        alert("Erro de comunicação ao excluir endpoint.");
     }
 }
 

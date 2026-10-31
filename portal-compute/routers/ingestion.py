@@ -154,3 +154,85 @@ async def ingest_data(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro de I/O no DataLake: {str(e)}")
+    
+# =========================================================
+# ROTAS DE LEITURA (GET) - CONSUMO DE DADOS
+# =========================================================
+
+def auth_endpoint(endpoint_hash: str, authorization: str, db: Session):
+    """Função auxiliar que garante que apenas o dono do Token acesse os dados"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token Bearer ausente ou mal formatado no Header.")
+    
+    token = authorization.split(" ")[1]
+    endpoint = db.query(IngestionEndpoint).filter(IngestionEndpoint.endpoint_hash == endpoint_hash).first()
+    
+    if not endpoint:
+        raise HTTPException(status_code=404, detail="Endpoint não encontrado ou revogado.")
+    if endpoint.access_token != token:
+        raise HTTPException(status_code=403, detail="Acesso Negado: Token inválido.")
+        
+    return endpoint
+
+@router.get("/get/{endpoint_hash}/")
+async def get_specific_data(endpoint_hash: str, authorization: str = Header(None), db: Session = Depends(get_db)):
+    """1. GET ESPECÍFICO: Retorna o dataset consolidado daquele endpoint"""
+    endpoint = auth_endpoint(endpoint_hash, authorization, db)
+    
+    clean_filename = endpoint.target_filename.replace(".json", "").replace(".parquet", "")
+    file_key = f"{clean_filename}.{endpoint.target_format.lower()}"
+    
+    try:
+        response = s3_client.get_object(Bucket=endpoint.target_bucket, Key=file_key)
+        data = response['Body'].read()
+        
+        if endpoint.target_format.lower() == "json":
+            return JSONResponse(content=json.loads(data.decode('utf-8')))
+        elif endpoint.target_format.lower() == "parquet":
+            # O superpoder: Lê o binário Parquet e converte de volta pra JSON instantaneamente para a API
+            df = pd.read_parquet(io.BytesIO(data))
+            return JSONResponse(content=df.to_dict(orient='records'))
+            
+    except ClientError as e:
+        if e.response['Error']['Code'] in ['NoSuchKey', '404']:
+            raise HTTPException(status_code=404, detail="O dataset ainda está vazio (nenhum dado ingerido).")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/get/{endpoint_hash}/explore/")
+async def get_general_explore(endpoint_hash: str, authorization: str = Header(None), db: Session = Depends(get_db)):
+    """2. GET GERAL (EXPLORE): Lista todos os arquivos existentes no Bucket que o endpoint tem acesso"""
+    endpoint = auth_endpoint(endpoint_hash, authorization, db)
+    
+    try:
+        response = s3_client.list_objects_v2(Bucket=endpoint.target_bucket)
+        files = [obj['Key'] for obj in response.get('Contents', [])]
+        return JSONResponse(content={
+            "bucket_acessivel": endpoint.target_bucket,
+            "total_arquivos": len(files),
+            "arquivos": files,
+            "instrucao": f"Para ler um desses arquivos, faça um GET em: /api/v1/get/{endpoint_hash}/file/NOME_DO_ARQUIVO"
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao listar bucket: {str(e)}")
+
+@router.get("/get/{endpoint_hash}/file/{filename:path}")
+async def get_general_file(endpoint_hash: str, filename: str, authorization: str = Header(None), db: Session = Depends(get_db)):
+    """3. GET GERAL (DOWNLOAD): Permite a leitura em JSON de QUALQUER arquivo Parquet/JSON do bucket"""
+    endpoint = auth_endpoint(endpoint_hash, authorization, db)
+    
+    try:
+        response = s3_client.get_object(Bucket=endpoint.target_bucket, Key=filename)
+        data = response['Body'].read()
+        
+        if filename.endswith(".json"):
+            return JSONResponse(content=json.loads(data.decode('utf-8')))
+        elif filename.endswith(".parquet"):
+            df = pd.read_parquet(io.BytesIO(data))
+            return JSONResponse(content=df.to_dict(orient='records'))
+        else:
+            raise HTTPException(status_code=400, detail="Este formato não é suportado para leitura direta na API. Use JSON ou Parquet.")
+            
+    except ClientError as e:
+        if e.response['Error']['Code'] in ['NoSuchKey', '404']:
+            raise HTTPException(status_code=404, detail="Arquivo não encontrado no banco de dados bruto.")
+        raise HTTPException(status_code=500, detail=str(e))

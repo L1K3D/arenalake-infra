@@ -75,3 +75,20 @@ async def create_endpoint(data: EndpointCreate, db: Session = Depends(get_db), c
     except Exception as e:
         db.rollback()
         return JSONResponse(content={"status": "error", "message": f"Erro ao criar endpoint: {str(e)}"}, status_code=500)
+    
+@router.delete("/endpoints/{endpoint_id}")
+async def delete_endpoint(endpoint_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        return JSONResponse(content={"status": "error", "message": "Acesso negado."}, status_code=403)
+    
+    endpoint = db.query(IngestionEndpoint).filter(IngestionEndpoint.id == endpoint_id).first()
+    if not endpoint:
+        return JSONResponse(content={"status": "error", "message": "Endpoint não encontrado."}, status_code=404)
+    
+    try:
+        db.delete(endpoint)
+        db.commit()
+        return JSONResponse(content={"status": "success", "message": "Endpoint revogado e excluído com sucesso!"})
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(content={"status": "error", "message": f"Erro ao excluir: {str(e)}"}, status_code=500)
