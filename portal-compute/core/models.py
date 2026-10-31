@@ -1,6 +1,9 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text
 from datetime import datetime
 from .database import Base
+import uuid
+import secrets
+from datetime import datetime
 
 
 class User(Base):
@@ -34,3 +37,17 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     otp_secret = Column(String, nullable=True)
+    
+class IngestionEndpoint(Base):
+    __tablename__ = "ingestion_endpoints"
+
+    id = Column(Integer, primary_key=True, index=True)
+    endpoint_hash = Column(String, unique=True, index=True, default=lambda: uuid.uuid4().hex)
+    access_token = Column(String, unique=True, default=lambda: secrets.token_urlsafe(32))
+    target_bucket = Column(String, nullable=False)
+    target_filename = Column(String, nullable=False, default="dataset")
+    target_format = Column(String, nullable=False) # 'json' ou 'parquet'
+    schema_definition = Column(Text, nullable=True) # Regras/Tipos dos campos em formato JSON (String)
+    request_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    created_by = Column(String, nullable=False)

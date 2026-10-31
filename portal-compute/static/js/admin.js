@@ -500,6 +500,20 @@ function atualizarDropdownBuckets() {
     if (currentSelection && currentSelection !== "all" && buckets.includes(currentSelection)) {
         dropdown.value = currentSelection;
     }
+
+    // --- NOVO: Popula também o Dropdown de Buckets do Gateway ---
+    const gwBucketSelect = document.getElementById('gwBucket');
+    if (gwBucketSelect) {
+        const currentGwSelection = gwBucketSelect.value;
+        let gwOptionsHtml = '<option value="">Selecione o Bucket de Destino...</option>';
+        buckets.forEach(b => {
+            gwOptionsHtml += `<option value="${b}">📦 ${b}</option>`;
+        });
+        gwBucketSelect.innerHTML = gwOptionsHtml;
+        if (currentGwSelection && buckets.includes(currentGwSelection)) {
+            gwBucketSelect.value = currentGwSelection;
+        }
+    }
 }
 
 function handleFilterChange() {
@@ -1051,6 +1065,7 @@ function baixarDashboardImagem() {
 async function init() {
     carregarDataCatalog();
     carregarDataLakeDashboard();
+    carregarGatewayEndpoints();
     await carregarWorkspaces();
     await carregarUsuarios();
     await carregarClusterNodes();
@@ -1120,6 +1135,191 @@ async function baixarRelatorioCatalog(event) {
     } finally {
         btn.innerHTML = originalText;
         btn.disabled = false;
+    }
+}
+
+// =========================================================
+// API INGESTION GATEWAY MGR
+// =========================================================
+async function carregarGatewayEndpoints() {
+    try {
+        const res = await fetch('/api/admin/gateway/endpoints', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        if (result.status === 'success') {
+            const tbody = document.getElementById('gwTableBody');
+            tbody.innerHTML = '';
+
+            result.data.forEach(ep => {
+                const urlGet = `${window.location.origin}/api/v1/get/${ep.endpoint_hash}/`;
+                const urlPost = `${window.location.origin}/api/v1/post/${ep.endpoint_hash}/${ep.target_bucket}/${ep.target_format}`;
+                const urlFormat = `${window.location.origin}/api/v1/format/${ep.endpoint_hash}/`;
+
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #30363d';
+                tr.innerHTML = `
+                    <td style="padding: 10px; color: #c9d1d9;">${ep.target_bucket}</td>
+                    <td style="padding: 10px;"><span class="meta-tag" style="margin:0;">${ep.target_format.toUpperCase()}</span></td>
+                    <td style="padding: 10px;">
+                        <div style="margin-bottom: 4px;"><span style="color:#8b949e">POST:</span> <a href="javascript:void(0)" style="color:#58a6ff" onclick="alert('${urlPost}')">${ep.endpoint_hash.substring(0, 8)}...</a></div>
+                        <div style="margin-bottom: 4px;"><span style="color:#8b949e">GET:</span> <a href="javascript:void(0)" style="color:#58a6ff" onclick="alert('${urlGet}')">...${ep.endpoint_hash.substring(ep.endpoint_hash.length - 8)}</a></div>
+                        <div><span style="color:#8b949e">Token:</span> <span style="color:#da3633; cursor:pointer;" onclick="alert('Token: ${ep.access_token}')">Revelar 👁️</span></div>
+                        <div style="margin-top: 4px;"><span style="color:#8b949e">Docs:</span> <a href="${urlFormat}" target="_blank" style="color:#3fb950">/format/</a></div>
+                    </td>
+                    <td style="padding: 10px; color: #c9d1d9;">${ep.request_count}</td>
+                    <td style="padding: 10px; color: #8b949e; position: relative;">
+                        ${ep.created_by}<br><small>${ep.created_at}</small>
+                        <button onclick="deletarGatewayEndpoint(${ep.id})" style="background: transparent; color: #da3633; border: none; cursor: pointer; font-size: 1.2em; position: absolute; right: 10px; top: 10px;" title="Excluir Endpoint">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    } catch (e) {
+        console.error("Erro ao carregar endpoints do gateway", e);
+    }
+}
+
+// =========================================================
+// API INGESTION GATEWAY MGR (Construtor Visual)
+// =========================================================
+let currentGatewaySchema = {};
+
+function addSchemaColumn() {
+    const colNameInput = document.getElementById('gwColName');
+    const colType = document.getElementById('gwColType').value;
+    let colName = colNameInput.value.trim();
+
+    if (!colName) {
+        alert("Digite um nome para a coluna.");
+        return;
+    }
+
+    // Higieniza o nome da coluna para garantir compatibilidade com Parquet
+    colName = colName.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+
+    if (colName.toLowerCase() === 'dathorrefcarga') {
+        alert("A coluna 'datHorRefCarga' é reservada e gerenciada pelo sistema.");
+        return;
+    }
+
+    if (currentGatewaySchema[colName]) {
+        alert("Esta coluna já existe no schema.");
+        return;
+    }
+
+    currentGatewaySchema[colName] = colType;
+    colNameInput.value = '';
+    renderGatewaySchema();
+}
+
+function removeSchemaColumn(colName) {
+    delete currentGatewaySchema[colName];
+    renderGatewaySchema();
+}
+
+function renderGatewaySchema() {
+    const tbody = document.getElementById('gwSchemaTableBody');
+
+    // Sempre renderiza a coluna fixa do sistema no topo
+    let html = `
+        <tr style="border-bottom: 1px solid #30363d; background: #0d1117;">
+            <td style="padding: 8px; color: #c9d1d9;">datHorRefCarga <span style="font-size: 0.7em; background: #238636; padding: 2px 5px; border-radius: 4px; margin-left: 5px;">Sistema</span></td>
+            <td style="padding: 8px; color: #58a6ff;">datetime</td>
+            <td style="padding: 8px; text-align: right; color: #8b949e; font-style: italic;">Automático</td>
+        </tr>
+    `;
+
+    for (const [col, type] of Object.entries(currentGatewaySchema)) {
+        html += `
+            <tr style="border-bottom: 1px solid #30363d;">
+                <td style="padding: 8px; color: #c9d1d9;">${col}</td>
+                <td style="padding: 8px; color: #58a6ff;">${type}</td>
+                <td style="padding: 8px; text-align: right;">
+                    <button onclick="removeSchemaColumn('${col}')" style="background: transparent; color: #da3633; border: none; cursor: pointer; font-size: 1.2em;" title="Remover">🗑️</button>
+                </td>
+            </tr>
+        `;
+    }
+    tbody.innerHTML = html;
+}
+
+async function criarGatewayEndpoint() {
+    const bucket = document.getElementById('gwBucket').value;
+    const format = document.getElementById('gwFormat').value;
+    const filename = document.getElementById('gwFilename').value.trim()
+
+    if (!bucket) {
+        alert("Por favor, selecione o Bucket de Destino.");
+        return;
+    }
+
+    if (!filename) {
+        alert("Por favor, defina o Nome do Arquivo.");
+        return;
+    }
+
+    if (Object.keys(currentGatewaySchema).length === 0) {
+        alert("Adicione pelo menos uma coluna além da coluna do sistema na Estrutura do Dado.");
+        return;
+    }
+
+    // Monta o schema final injetando a coluna de sistema obrigatoriamente
+    const finalSchema = {
+        datHorRefCarga: "datetime",
+        ...currentGatewaySchema
+    };
+
+    try {
+        const res = await fetch('/api/admin/gateway/endpoints', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                target_bucket: bucket,
+                target_filename: filename,
+                target_format: format,
+                schema_definition: JSON.stringify(finalSchema)
+            })
+        });
+
+        const result = await res.json();
+        if (result.status === 'success') {
+            alert(result.message);
+            document.getElementById('gwBucket').value = '';
+            currentGatewaySchema = {}; // Reseta o estado do construtor
+            renderGatewaySchema();
+            carregarGatewayEndpoints();
+        } else {
+            alert(result.message);
+        }
+    } catch (e) {
+        alert("Erro ao criar endpoint.");
+    }
+}
+
+async function deletarGatewayEndpoint(id) {
+    if (!confirm("Tem certeza que deseja excluir este endpoint? O acesso externo (GET/POST) via Token será revogado IMEDIATAMENTE!")) return;
+
+    try {
+        const res = await fetch(`/api/admin/gateway/endpoints/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        if (res.ok) {
+            alert(result.message);
+            carregarGatewayEndpoints(); // Recarrega a tabela
+        } else {
+            alert("Erro: " + result.message);
+        }
+    } catch (e) {
+        alert("Erro de comunicação ao excluir endpoint.");
     }
 }
 
