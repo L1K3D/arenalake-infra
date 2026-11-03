@@ -6,7 +6,7 @@ import shutil
 import subprocess
 import sys
 import time
-import socket
+import concurrent.futures
 
 
 STACK_NAME = "arenalake-prod"
@@ -81,12 +81,6 @@ def cleanup_orphaned_workspaces():
         else:
             print("[+] No orphaned workspaces found.")
 
-        # Força a limpeza da rede caso ela tenha travado em execuções anteriores
-        print(f"[*] Ensuring network {STACK_NAME}_arenalake-net is clear...")
-        subprocess.run(
-            ["docker", "network", "rm", f"{STACK_NAME}_arenalake-net"],
-            capture_output=True, check=False
-        )
     except Exception as e:
         print(f"[ERROR] Failed to clean up orphaned workspaces: {e}")
 
@@ -159,82 +153,72 @@ def rebuild_images():
     )
     print("[+] Local images rebuilt successfully.")
 
-
-def distribute_workspace_image():
-    """Distribute the newly built workspace image to all Swarm workers via Tailscale."""
-    print("\n[*] Distributing workspace image to Swarm worker nodes...")
+def get_active_worker_nodes():
+    """Verifica dinamicamente o Swarm em busca de nós do tipo Worker que estejam ativos."""
     try:
         result = subprocess.run(
-            ["docker", "node", "ls", "--format", "{{.Hostname}}"],
+            ["docker", "node", "ls", "-f", "role=worker", "--format", "{{.Hostname}} {{.Status}}"],
             capture_output=True, text=True, check=True
         )
-        nodes = result.stdout.splitlines()
-        local_hostname = socket.gethostname()
+        nodes = []
+        for line in result.stdout.splitlines():
+            parts = line.split()
+            if len(parts) >= 2 and parts[1] == "Ready":
+                nodes.append(parts[0])
+        return nodes
+    except Exception:
+        return []
 
-        for node in nodes:
-            if node != local_hostname and node != "arenalakeserver":
-                print(f"[*] Sending image to Worker ({node})... This may take a minute.")
-                
-                # Executa o pipe do Docker Save pro SSH de forma nativa e segura em Python
-                save_proc = subprocess.Popen(
-                    ["docker", "save", "arenalake-workspace:latest"],
-                    stdout=subprocess.PIPE
-                )
-                ssh_proc = subprocess.Popen(
-                    ["ssh", "-o", "StrictHostKeyChecking=no", f"root@{node}", "docker load"],
-                    stdin=save_proc.stdout,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE
-                )
-                
-                save_proc.stdout.close()
-                stdout, stderr = ssh_proc.communicate()
+def distribute_images():
+    """Distribui as imagens compiladas de forma otimizada e em paralelo."""
+    workers = get_active_worker_nodes()
+    
+    if not workers:
+        print("\n[*] Nenhum Worker ativo detectado no cluster (Single-Node). Pulando distribuição.")
+        return
 
-                if ssh_proc.returncode == 0:
-                    print(f"[+] Image loaded successfully on {node}.")
-                else:
-                    print(f"[!] Warning: Failed to send image to {node}: {stderr.decode().strip()}")
-    except Exception as e:
-        print(f"[ERROR] Failed to distribute workspace image: {e}")
+    images_to_distribute = ["arenalake-workspace:latest", "arenalake-telemetry:latest"]
+    print(f"\n[*] Preparando imagens para distribuição (compactando uma única vez)...")
+    
+    # Passo 1: Salvar as imagens no disco do Master apenas UMA vez
+    tar_paths = {}
+    for image in images_to_distribute:
+        safe_name = image.replace(":", "_").replace("/", "_") + ".tar"
+        tar_path = f"/tmp/{safe_name}"
+        print(f"[*] Exportando {image} -> {tar_path}")
+        subprocess.run(["docker", "save", "-o", tar_path, image], check=True)
+        tar_paths[image] = tar_path
 
-
-def rebuild_remote_agents():
-    """Connect to Swarm worker nodes via Tailscale SSH to rebuild the agent image."""
-    print("\n[*] Updating Telemetry Agents across all Swarm nodes via Tailscale SSH...")
-    try:
-        result = subprocess.run(
-            ["docker", "node", "ls", "--format", "{{.Hostname}}"],
-            capture_output=True, text=True, check=True
-        )
-        nodes = result.stdout.splitlines()
-        local_hostname = socket.gethostname()
-
-        for node in nodes:
-            if node == local_hostname or node == "arenalakeserver":
-                print(f"[*] Construindo agente localmente no Manager ({node})...")
-                run_command(["python3", "helpers/build_worker_agent.py"])
+    # Passo 2: Função que envia o tarball para um nó específico
+    def send_to_worker(node):
+        for image, tar_path in tar_paths.items():
+            print(f"[*] [Worker: {node}] Iniciando transferência de {image}...")
+            # Usa 'cat' e pipe pelo SSH para evitar gravar duas vezes no disco do Worker
+            cmd = f"cat {tar_path} | ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 root@{node} 'docker load'"
+            proc = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            
+            if proc.returncode == 0:
+                print(f"[+] [Worker: {node}] {image} recebida com sucesso.")
             else:
-                print(f"[*] Acessando Worker ({node}) via SSH para construir o agente...")
-                ssh_command = [
-                    "ssh",
-                    "-o", "StrictHostKeyChecking=no",
-                    "-o", "ConnectTimeout=10",
-                    f"root@{node}",
-                    "cd /opt/arenalake-prod && python3 helpers/build_worker_agent.py"
-                ]
-                try:
-                    run_command(ssh_command)
-                except subprocess.CalledProcessError:
-                    print(f"[!] AVISO: Falha ao compilar no nó {node}. Ele pode estar offline ou bloqueando o SSH.")
-                    
-    except Exception as e:
-        print(f"[ERROR] Falha na orquestração dos agentes remotos: {e}")
+                print(f"[!] [Worker: {node}] Falha ao enviar {image}: {proc.stderr.strip()}")
+
+    # Passo 3: Disparar o envio para todos os workers SIMULTANEAMENTE
+    print(f"\n[*] Disparando transferências em paralelo para {len(workers)} worker(s)...")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(workers)) as executor:
+        executor.map(send_to_worker, workers)
+
+    # Passo 4: Limpeza do lixo temporário no Master
+    for tar_path in tar_paths.values():
+        if os.path.exists(tar_path):
+            os.remove(tar_path)
     
 
 def cleanup_docker():
     """Remove stopped containers, dangling images, and build cache to free up disk space."""
     print("[*] Cleaning up old Docker images and build cache...")
-    run_command(["docker", "system", "prune", "-f"])
+    run_command(["docker", "container", "prune", "-f"])
+    run_command(["docker", "image", "prune", "-f"])
+    subprocess.run(["docker", "builder", "prune", "-f", "--keep-storage", "3GB"], check=False)
 
 
 def deploy_stack():
@@ -246,6 +230,8 @@ def deploy_stack():
                 if line and not line.startswith("#"):
                     key, value = line.split("=", 1)
                     os.environ[key] = value
+
+    prepare_datalake_permissions()
 
     run_command(
         [
@@ -260,7 +246,6 @@ def deploy_stack():
     print("[+] ArenaLake stack deployed.")
     subprocess.run(["docker", "service", "ls"], check=False)
 
-
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Restart Docker, rebuild ArenaLake images, and redeploy the stack."
@@ -270,8 +255,24 @@ def parse_args():
         action="store_true",
         help="skip the interactive confirmation",
     )
+    parser.add_argument(
+        "--quick",
+        action="store_true",
+        help="skip Docker restart, image rebuild, and SSH distribution for a lightning-fast deploy",
+    )
     return parser.parse_args()
 
+def prepare_datalake_permissions():
+    """Ensure MinIO directory has correct permissions for Chainguard nonroot user."""
+    print("[*] Verifying DataLake security permissions...")
+    datalake_path = os.environ.get("DATALAKE_STORAGE_PATH", os.path.join(PROJECT_ROOT, "datalake_data"))
+    minio_path = os.path.join(datalake_path, "minio_data")
+    
+    os.makedirs(minio_path, exist_ok=True)
+    try:
+        subprocess.run(["chown", "-R", "65532:65532", minio_path], check=False, stderr=subprocess.DEVNULL)
+    except Exception:
+        print("[!] Warning: Failed to adjust MinIO permissions. The container may crash.")
 
 def main():
     args = parse_args()
@@ -290,16 +291,26 @@ def main():
     print("\n" + "=" * 60)
     print("      ArenaLake - Rebuild and Restart")
     print("=" * 60)
+    
+    if args.quick:
+        print("[*] Quick mode enabled: skipping Docker restart, image rebuild, and SSH distribution.")
+        print("=" * 60)
+        check_swarm()
+        cleanup_orphaned_workspaces()
+        remove_stack()
 
-    check_swarm()
-    cleanup_orphaned_workspaces()
-    remove_stack()
-    restart_docker()
-    check_swarm()
-    rebuild_images()
-    distribute_workspace_image()
-    rebuild_remote_agents()
-    cleanup_docker()
+    elif not args.quick:
+        print("[*] Performing full restart: Docker will be restarted, images rebuilt, and stack redeployed.")
+        print("=" * 60)
+        check_swarm()
+        cleanup_orphaned_workspaces()
+        remove_stack()
+        restart_docker()
+        check_swarm()
+        rebuild_images()
+        distribute_images()
+        cleanup_docker()
+       
     deploy_stack()
 
     print("\n[+] Restart completed. Existing persistent data was preserved.")

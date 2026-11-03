@@ -6,3 +6,4 @@ docs/
 minio_data/
 __pycache__/
 configs_scripts/
+.vscode/

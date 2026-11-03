@@ -897,6 +897,7 @@ async function executarAutodestruicao() {
 // ----------------------------------------------------------------------------
 // DATA CATALOG (MINIO)
 // ----------------------------------------------------------------------------
+let globalAdminCatalog = {};
 async function carregarDataCatalog() {
     try {
         const res = await fetch('/api/admin/catalog', {
@@ -905,51 +906,208 @@ async function carregarDataCatalog() {
         const data = await res.json();
 
         if (data.status === 'success') {
-            const container = document.getElementById('catalogContainer');
-            container.innerHTML = '';
-
-            const catalog = data.data;
-            const buckets = Object.keys(catalog);
-
-            if (buckets.length === 0) {
-                container.innerHTML = '<p style="color: var(--arena-text-muted);">Nenhum bucket encontrado no MinIO.</p>';
-                return;
-            }
-
-            buckets.forEach(bucket => {
-                let filesHtml = '';
-                const files = catalog[bucket];
-
-                if (files.length === 0) {
-                    filesHtml = '<tr><td colspan="2" style="padding: 10px; color: var(--arena-text-dim); font-style: italic;">Bucket vazio.</td></tr>';
-                } else {
-                    files.forEach(file => {
-                        filesHtml += `
-                            <tr>
-                                <td style="font-family: var(--font-mono); color: var(--arena-blue); font-size: 0.85rem;">${file}</td>
-                                <td style="text-align: right;">
-                                    <button onclick="deletarArquivoCatalog('${bucket}', '${file}')" class="btn-danger" style="padding: 3px 8px; font-size: 0.78rem;">Excluir</button>
-                                </td>
-                            </tr>
-                        `;
-                    });
-                }
-
-                container.innerHTML += `
-                    <div style="background: var(--arena-surface-input); border: 1px solid var(--arena-lines); border-radius: var(--r-md); padding: 16px; margin-bottom: 16px;">
-                        <h4 style="margin: 0 0 12px 0; color: var(--arena-text-main); font-size: 0.95rem; font-family: var(--font-mono); display: flex; align-items: center; gap: 8px;">
-                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" style="color: var(--arena-blue);"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                            <span>${bucket}</span>
-                        </h4>
-                        <table style="width: 100%;">
-                            <tbody>${filesHtml}</tbody>
-                        </table>
-                    </div>
-                `;
-            });
+            globalAdminCatalog = data.data;
+            atualizarDropdownBuckets();
+            renderizarCatalog();
         }
     } catch (e) {
         console.error('Erro ao carregar Data Catalog:', e);
+    }
+}
+
+function atualizarDropdownBuckets() {
+    const dropdown = document.getElementById('bucketDropdown');
+    const currentSelection = dropdown.value;
+
+    const buckets = Object.keys(globalAdminCatalog);
+    let optionsHtml = '<option value="all">📁 All Buckets</option>';
+
+    buckets.forEach(b => {
+        optionsHtml += `<option value="${b}">📦 ${b}</option>`;
+    });
+
+    dropdown.innerHTML = optionsHtml;
+
+    // Mantém o filtro ativo se um bucket já estivesse selecionado
+    if (currentSelection && currentSelection !== "all" && buckets.includes(currentSelection)) {
+        dropdown.value = currentSelection;
+    }
+
+    // --- NOVO: Popula também o Dropdown de Buckets do Gateway ---
+    const gwBucketSelect = document.getElementById('gwBucket');
+    if (gwBucketSelect) {
+        const currentGwSelection = gwBucketSelect.value;
+        let gwOptionsHtml = '<option value="">Selecione o Bucket de Destino...</option>';
+        buckets.forEach(b => {
+            gwOptionsHtml += `<option value="${b}">📦 ${b}</option>`;
+        });
+        gwBucketSelect.innerHTML = gwOptionsHtml;
+        if (currentGwSelection && buckets.includes(currentGwSelection)) {
+            gwBucketSelect.value = currentGwSelection;
+        }
+    }
+}
+
+function handleFilterChange() {
+    renderizarCatalog();
+}
+
+function renderizarCatalog() {
+    const container = document.getElementById('catalogContainer');
+    const filter = document.getElementById('bucketDropdown').value;
+    container.innerHTML = '';
+
+    let bucketsToRender = Object.keys(globalAdminCatalog);
+
+    if (bucketsToRender.length === 0) {
+        container.innerHTML = '<p style="color: #8b949e;">No buckets found in MinIO.</p>';
+        return;
+    }
+
+    if (filter !== "all") {
+        bucketsToRender = [filter];
+    }
+
+    bucketsToRender.forEach(bucket => {
+        let filesHtml = '';
+        const files = globalAdminCatalog[bucket];
+
+        if (files.length === 0) {
+            filesHtml = '<tr><td colspan="2" style="padding: 15px; color: #8b949e; font-style: italic;">Bucket is empty.</td></tr>';
+        } else {
+            files.forEach(file => {
+                filesHtml += `
+                    <tr style="border-bottom: 1px solid #21262d; transition: background 0.2s;" onmouseover="this.style.background='#1c2128'" onmouseout="this.style.background='transparent'">
+                        <td style="padding: 10px; font-family: monospace; color: #58a6ff; font-size: 0.9em;">${file}</td>
+                        <td style="padding: 10px; text-align: right; white-space: nowrap;">
+                            <button onclick="abrirPreview('${bucket}', '${file}')" style="background: #21262d; color: #58a6ff; border: 1px solid #30363d; padding: 4px 10px; border-radius: 4px; font-size: 0.85em; cursor: pointer; margin-right: 5px;">👁️ Preview</button>
+                            <button onclick="deletarArquivoCatalog('${bucket}', '${file}')" style="background: #da3633; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.85em; cursor: pointer;">🗑️ Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        container.innerHTML += `
+            <div style="background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #21262d; padding-bottom: 10px;">
+                    <h4 style="margin: 0; color: #79c0ff; font-size: 1.1em;">📦 Bucket: ${bucket}</h4>
+                    <button onclick="deletarBucketAdmin('${bucket}')" style="background: transparent; color: #f85149; border: 1px solid #f85149; padding: 4px 12px; border-radius: 4px; font-size: 0.8em; font-weight: bold; cursor: pointer;">❌ Excluir Bucket</button>
+                </div>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tbody>${filesHtml}</tbody>
+                </table>
+            </div>
+        `;
+    });
+}
+
+async function deletarBucketAdmin(bucket) {
+    if (!confirm(`ATENÇÃO: Você está prestes a excluir o bucket '${bucket}'. Isso removerá TODOS os arquivos dentro dele e quebrará análises que dependem desses dados.\n\nDeseja prosseguir?`)) return;
+
+    // Dupla verificação
+    const confirmacao = prompt(`Para confirmar a exclusão, digite o nome do bucket exatamente como está escrito (${bucket}):`);
+    if (confirmacao !== bucket) {
+        alert('Nome incorreto. Exclusão cancelada por segurança.');
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/admin/catalog/bucket/${bucket}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        if (res.ok) {
+            alert(result.message);
+            document.getElementById('bucketDropdown').value = 'all'; // Reseta o filtro
+            carregarDataCatalog();
+        } else {
+            alert('Erro: ' + result.detail);
+        }
+    } catch (e) {
+        alert('Erro de comunicação ao tentar excluir o bucket.');
+    }
+}
+
+async function abrirPreview(bucket, filename) {
+    document.getElementById('adminSidePanel').classList.add('open');
+    document.getElementById('prevFilename').innerText = filename;
+    document.getElementById('prevBucket').innerText = bucket;
+    document.getElementById('prevContent').innerHTML = "<div style='color:#8b949e'>Gerando preview da amostra de dados...</div>";
+    document.getElementById('prevShape').style.display = 'none';
+
+    try {
+        const res = await fetch(`/api/admin/catalog/preview/${bucket}/${filename}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        if (result.status === 'success') {
+            document.getElementById('prevDate').innerText = result.data.last_modified;
+            document.getElementById('prevSize').innerText = result.data.size;
+            document.getElementById('prevUploader').innerText = result.data.uploader;
+
+            if (result.data.type === 'table') {
+                document.getElementById('prevShape').style.display = 'block';
+                document.getElementById('prevRows').innerText = result.data.total_rows;
+                document.getElementById('prevCols').innerText = result.data.total_cols;
+            }
+
+            let contentHtml = result.data.type === 'image'
+                ? `<img src="${result.data.preview_content}" class="preview-img">`
+                : result.data.preview_content;
+
+            document.getElementById('prevContent').innerHTML = contentHtml;
+        } else {
+            document.getElementById('prevContent').innerHTML = "<div style='color:#f85149'>Falha na leitura do arquivo.</div>";
+        }
+    } catch (e) {
+        document.getElementById('prevContent').innerHTML = "<div style='color:#da3633'>Erro de rede ao carregar preview.</div>";
+    }
+}
+
+function fecharPreview() {
+    document.getElementById('adminSidePanel').classList.remove('open');
+}
+
+async function handleCreateBucket() {
+    const input = document.getElementById("newBucketInput");
+    const bucketName = input.value.trim();
+
+    if (!bucketName) {
+        alert("Please enter a valid bucket name.");
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/admin/catalog/bucket', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ bucket_name: bucketName })
+        });
+
+        const result = await res.json();
+
+        if (res.ok) {
+            alert(result.message);
+            input.value = "";
+
+            // Recarrega o catálogo e já força o dropdown a focar no novo bucket
+            carregarDataCatalog().then(() => {
+                const cleanName = bucketName.toLowerCase().replace(/_/g, "-");
+                document.getElementById('bucketDropdown').value = cleanName;
+                renderizarCatalog();
+            });
+        } else {
+            alert("Error: " + result.detail);
+        }
+    } catch (error) {
+        alert("Communication error while creating the bucket.");
     }
 }
 
@@ -991,11 +1149,19 @@ async function deletarArquivoCatalog(bucket, filename) {
 
 document.getElementById('uploadCatalogForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const bucket = document.getElementById('uploadBucket').value.trim();
+    const bucket = document.getElementById('bucketDropdown').value;
     const fileInput = document.getElementById('uploadFile').files[0];
 
-    if (!bucket || !fileInput) {
-        await arenaAlert({ title: 'Atenção', message: 'Informe o nome do bucket e selecione um arquivo para upload.', type: 'warning' });
+    if (bucket === "all" || !bucket) {
+        await arenaAlert({ title: 'Atenção', message: 'Selecione um bucket específico para fazer o upload do arquivo.', type: 'warning' });
+        document.getElementById('bucketDropdown').focus();
+        return;
+    }
+
+    if (!fileInput) {
+        await arenaAlert({ title: 'Atenção', message: 'Selecione um arquivo para upload.', type: 'warning' });
+        return;
+    }
         return;
     }
 
@@ -1013,7 +1179,7 @@ document.getElementById('uploadCatalogForm').addEventListener('submit', async (e
 
         if (res.ok) {
             await arenaAlert({ title: 'Upload Concluído', message: result.message || 'Arquivo enviado com sucesso para o Data Lake.', type: 'success' });
-            document.getElementById('uploadCatalogForm').reset();
+            document.getElementById('uploadFile').value = '';
             carregarDataCatalog();
         } else {
             await arenaAlert({ title: 'Erro no Upload', message: result.detail || 'Falha ao enviar arquivo.', type: 'error' });
@@ -1186,28 +1352,278 @@ function closeWebTerminal() {
     document.getElementById('terminal-container').style.display = 'none';
 }
 
-// ----------------------------------------------------------------------------
-// INICIALIZAÇÃO
-// ----------------------------------------------------------------------------
-async function init() {
-    // 1. Restaura imediatamente a aba em que o usuário estava (sem aguardar rede)
-    const initialSec = getInitialSection();
-    showSection(initialSec);
+// =========================================================
+// INICIALIZAÇÃO E INTEGRAÇÃO DE FEATURES
+// =========================================================
+//
 
-    // 2. Carrega todos os dados do painel em segundo plano
-    carregarDataCatalog();
-    carregarTailscale();
-    await Promise.allSettled([
-        carregarWorkspaces(),
-        carregarUsuarios(),
-        carregarClusterNodes()
-    ]);
+// Suporte para navegação pelo histórico (botões Voltar / Avançar do navegador)
+window.addEventListener('popstate', (e) => {
+    const sec = (e.state && e.state.section) || getInitialSection();
+    showSection(sec);
+});
+
+// Aplica a aba salva imediatamente antes do render completo para evitar piscar de tela
+(() => {
+    const startupSec = getInitialSection();
+    if (startupSec && startupSec !== 'register') {
+        showSection(startupSec);
+    }
+})();
+
+document.addEventListener('DOMContentLoaded', init);
 
     setInterval(() => {
         carregarWorkspaces();
         carregarClusterNodes();
     }, 10000);
 }
+
+async function baixarRelatorioCatalog(event) {
+    const btn = event.currentTarget;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = "⏳ Gerando Análise...";
+    btn.disabled = true;
+
+    try {
+        const res = await fetch('/api/admin/catalog/export', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        if (result.status === 'success') {
+            const data = result.report;
+            if (data.length === 0) {
+                alert("Nenhum arquivo encontrado no catálogo.");
+                return;
+            }
+
+            // Cabeçalhos do CSV
+            const headers = ["Nome do Bucket", "Nome do Arquivo", "Tipo", "Data e Hora do Upload", "Qtd. Linhas", "Qtd. Colunas", "Uploader", "Tamanho (BD)"];
+            const csvRows = [headers.join(",")];
+
+            // Inserção dos dados processados
+            data.forEach(row => {
+                const values = [
+                    `"${row.Bucket}"`,
+                    `"${row.Arquivo}"`,
+                    `"${row.Tipo}"`,
+                    `"${row.Data_Hora}"`,
+                    `"${row.Linhas}"`,
+                    `"${row.Colunas}"`,
+                    `"${row.Uploader}"`,
+                    `"${row.Tamanho}"`
+                ];
+                csvRows.push(values.join(","));
+            });
+
+            // Tratamento do Blob para Download
+            const csvContent = csvRows.join("\n");
+            const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' }); // \uFEFF força o suporte a acentos no Excel
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+
+            a.setAttribute('href', url);
+            a.setAttribute('download', `datalake_inventory_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        } else {
+            alert("Erro ao gerar relatório: " + result.message);
+        }
+    } catch (e) {
+        alert("Erro de comunicação ao baixar relatório.");
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+// =========================================================
+// API INGESTION GATEWAY MGR
+// =========================================================
+async function carregarGatewayEndpoints() {
+    try {
+        const res = await fetch('/api/admin/gateway/endpoints', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        if (result.status === 'success') {
+            const tbody = document.getElementById('gwTableBody');
+            tbody.innerHTML = '';
+
+            result.data.forEach(ep => {
+                const urlGet = `${window.location.origin}/api/v1/get/${ep.endpoint_hash}/`;
+                const urlPost = `${window.location.origin}/api/v1/post/${ep.endpoint_hash}/${ep.target_bucket}/${ep.target_format}`;
+                const urlFormat = `${window.location.origin}/api/v1/format/${ep.endpoint_hash}/`;
+
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #30363d';
+                tr.innerHTML = `
+                    <td style="padding: 10px; color: #c9d1d9;">${ep.target_bucket}</td>
+                    <td style="padding: 10px;"><span class="meta-tag" style="margin:0;">${ep.target_format.toUpperCase()}</span></td>
+                    <td style="padding: 10px;">
+                        <div style="margin-bottom: 4px;"><span style="color:#8b949e">POST:</span> <a href="javascript:void(0)" style="color:#58a6ff" onclick="alert('${urlPost}')">${ep.endpoint_hash.substring(0, 8)}...</a></div>
+                        <div style="margin-bottom: 4px;"><span style="color:#8b949e">GET:</span> <a href="javascript:void(0)" style="color:#58a6ff" onclick="alert('${urlGet}')">...${ep.endpoint_hash.substring(ep.endpoint_hash.length - 8)}</a></div>
+                        <div><span style="color:#8b949e">Token:</span> <span style="color:#da3633; cursor:pointer;" onclick="alert('Token: ${ep.access_token}')">Revelar 👁️</span></div>
+                        <div style="margin-top: 4px;"><span style="color:#8b949e">Docs:</span> <a href="${urlFormat}" target="_blank" style="color:#3fb950">/format/</a></div>
+                    </td>
+                    <td style="padding: 10px; color: #c9d1d9;">${ep.request_count}</td>
+                    <td style="padding: 10px; color: #8b949e; position: relative;">
+                        ${ep.created_by}<br><small>${ep.created_at}</small>
+                        <button onclick="deletarGatewayEndpoint(${ep.id})" style="background: transparent; color: #da3633; border: none; cursor: pointer; font-size: 1.2em; position: absolute; right: 10px; top: 10px;" title="Excluir Endpoint">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    } catch (e) {
+        console.error("Erro ao carregar endpoints do gateway", e);
+    }
+}
+
+// =========================================================
+// API INGESTION GATEWAY MGR (Construtor Visual)
+// =========================================================
+let currentGatewaySchema = {};
+
+function addSchemaColumn() {
+    const colNameInput = document.getElementById('gwColName');
+    const colType = document.getElementById('gwColType').value;
+    let colName = colNameInput.value.trim();
+
+    if (!colName) {
+        alert("Digite um nome para a coluna.");
+        return;
+    }
+
+    // Higieniza o nome da coluna para garantir compatibilidade com Parquet
+    colName = colName.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+
+    if (colName.toLowerCase() === 'dathorrefcarga') {
+        alert("A coluna 'datHorRefCarga' é reservada e gerenciada pelo sistema.");
+        return;
+    }
+
+    if (currentGatewaySchema[colName]) {
+        alert("Esta coluna já existe no schema.");
+        return;
+    }
+
+    currentGatewaySchema[colName] = colType;
+    colNameInput.value = '';
+    renderGatewaySchema();
+}
+
+function removeSchemaColumn(colName) {
+    delete currentGatewaySchema[colName];
+    renderGatewaySchema();
+}
+
+function renderGatewaySchema() {
+    const tbody = document.getElementById('gwSchemaTableBody');
+
+    // Sempre renderiza a coluna fixa do sistema no topo
+    let html = `
+        <tr style="border-bottom: 1px solid #30363d; background: #0d1117;">
+            <td style="padding: 8px; color: #c9d1d9;">datHorRefCarga <span style="font-size: 0.7em; background: #238636; padding: 2px 5px; border-radius: 4px; margin-left: 5px;">Sistema</span></td>
+            <td style="padding: 8px; color: #58a6ff;">datetime</td>
+            <td style="padding: 8px; text-align: right; color: #8b949e; font-style: italic;">Automático</td>
+        </tr>
+    `;
+
+    for (const [col, type] of Object.entries(currentGatewaySchema)) {
+        html += `
+            <tr style="border-bottom: 1px solid #30363d;">
+                <td style="padding: 8px; color: #c9d1d9;">${col}</td>
+                <td style="padding: 8px; color: #58a6ff;">${type}</td>
+                <td style="padding: 8px; text-align: right;">
+                    <button onclick="removeSchemaColumn('${col}')" style="background: transparent; color: #da3633; border: none; cursor: pointer; font-size: 1.2em;" title="Remover">🗑️</button>
+                </td>
+            </tr>
+        `;
+    }
+    tbody.innerHTML = html;
+}
+
+async function criarGatewayEndpoint() {
+    const bucket = document.getElementById('gwBucket').value;
+    const format = document.getElementById('gwFormat').value;
+    const filename = document.getElementById('gwFilename').value.trim()
+
+    if (!bucket) {
+        alert("Por favor, selecione o Bucket de Destino.");
+        return;
+    }
+
+    if (!filename) {
+        alert("Por favor, defina o Nome do Arquivo.");
+        return;
+    }
+
+    if (Object.keys(currentGatewaySchema).length === 0) {
+        alert("Adicione pelo menos uma coluna além da coluna do sistema na Estrutura do Dado.");
+        return;
+    }
+
+    // Monta o schema final injetando a coluna de sistema obrigatoriamente
+    const finalSchema = {
+        datHorRefCarga: "datetime",
+        ...currentGatewaySchema
+    };
+
+    try {
+        const res = await fetch('/api/admin/gateway/endpoints', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                target_bucket: bucket,
+                target_filename: filename,
+                target_format: format,
+                schema_definition: JSON.stringify(finalSchema)
+            })
+        });
+
+        const result = await res.json();
+        if (result.status === 'success') {
+            alert(result.message);
+            document.getElementById('gwBucket').value = '';
+            currentGatewaySchema = {}; // Reseta o estado do construtor
+            renderGatewaySchema();
+            carregarGatewayEndpoints();
+        } else {
+            alert(result.message);
+        }
+    } catch (e) {
+        alert("Erro ao criar endpoint.");
+    }
+}
+
+async function deletarGatewayEndpoint(id) {
+    if (!confirm("Tem certeza que deseja excluir este endpoint? O acesso externo (GET/POST) via Token será revogado IMEDIATAMENTE!")) return;
+
+    try {
+        const res = await fetch(`/api/admin/gateway/endpoints/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        if (res.ok) {
+            alert(result.message);
+            carregarGatewayEndpoints(); // Recarrega a tabela
+        } else {
+            alert("Erro: " + result.message);
+        }
+    } catch (e) {
+        alert("Erro de comunicação ao excluir endpoint.");
+    }
+}
+
 
 // Suporte para navegação pelo histórico (botões Voltar / Avançar do navegador)
 window.addEventListener('popstate', (e) => {
