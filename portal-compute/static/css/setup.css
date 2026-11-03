@@ -1,188 +1,390 @@
 /* ============================================================================
-   ArenaLake Hardware Setup Page CSS
-   ============================================================================
-   Styling for hardware profile selection (Standard vs Extreme).
-   Layout: Centered container with side-by-side machine cards
-   Theme: GitHub dark theme, interactive card selection with visual feedback
+   ArenaLake — Estilos Oficiais de Seleção de Workspace (setup.css)
+   Design System Canônico: Minimalismo, Cores Oficiais, Inter e JetBrains Mono
    ============================================================================ */
 
-/* Full-screen background with a centered setup interface. */
+:root {
+    --arena-bg: #121620;
+    --arena-surface: #161c28;
+    --arena-surface-input: #0e121a;
+    --arena-lines: #273142;
+    --arena-lines-focus: #58a6ff;
+    --arena-orange: #f39200;
+    --arena-orange-hover: #d98200;
+    --arena-blue: #58a6ff;
+    --arena-ok: #3fb950;
+    --arena-danger: #f85149;
+    --arena-text-main: #f8fafc;
+    --arena-text-muted: #94a3b8;
+    --arena-text-dim: #64748b;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', Consolas, monospace;
+    --r-sm: 6px;
+    --r-md: 10px;
+    --r-lg: 14px;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #0d1117;
-    /* GitHub-inspired dark background. */
-    color: white;
-    display: flex;
-    justify-content: center;
-    /* Center the setup panel horizontally. */
-    align-items: center;
-    /* Center the setup panel vertically. */
-    height: 100vh;
-    /* Fill the viewport. */
     margin: 0;
-}
-
-/* Main hardware profile selection panel. */
-.container {
-    background: #161b22;
-    /* Elevated dark surface. */
-    padding: 40px;
-    border-radius: 10px;
-    /* Soften the panel edges. */
-    border: 1px solid #30363d;
-    /* Define the panel boundary. */
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-    /* Drop shadow */
-    width: 600px;
-    text-align: center;
-    /* Center headings and the launch action. */
-}
-
-/* Page title styling. */
-h2 {
-    margin-top: 0;
-    margin-bottom: 5px;
-    color: #c9d1d9;
-    /* Light neutral text. */
-}
-
-/* Subtitle and explanatory text. */
-p.subtitle {
-    color: #8b949e;
-    /* Reduce emphasis for supporting text. */
-    font-size: 0.95em;
-    margin-bottom: 30px;
-    /* Separate the description from the profile cards. */
-}
-
-/* Side-by-side hardware profile layout. */
-.card-grid {
+    padding: 0;
+    background-color: var(--arena-bg);
+    color: var(--arena-text-main);
+    font-family: var(--font-sans);
+    min-height: 100vh;
     display: flex;
-    gap: 20px;
-    /* Keep profile cards visually separated. */
     justify-content: center;
-    margin-bottom: 30px;
-    /* Separate profiles from the launch action. */
+    align-items: center;
+    position: relative;
+    overflow-x: hidden;
 }
 
-/* Clickable hardware profile card. */
-.machine-card {
-    flex: 1;
-    /* Give each profile equal available width. */
-    background: #0d1117;
-    /* Contrast the profile card with the panel. */
-    border: 2px solid #30363d;
-    /* Default card boundary. */
-    border-radius: 8px;
-    padding: 20px;
-    cursor: pointer;
-    /* Indicate that the card is interactive. */
-    transition: all 0.2s ease;
-    /* Animate selection feedback. */
-    text-align: left;
+canvas#lake-canvas,
+.lake-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1;
+    pointer-events: none;
+    display: block;
+}
+
+.setup-container {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: 680px;
+    padding: 24px 20px;
+}
+
+.setup-card {
+    background-color: var(--arena-surface);
+    border: 1px solid var(--arena-lines);
+    border-radius: var(--r-lg);
+    box-shadow: 0 24px 60px -10px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+    padding: 38px 40px;
+    text-align: center;
     position: relative;
 }
 
-/* Hover state with a blue highlight and subtle lift. */
-.machine-card:hover {
-    border-color: #58a6ff;
-    /* Highlight the interactive boundary. */
-    transform: translateY(-3px);
-    /* Provide a small elevation cue. */
-    box-shadow: 0 4px 12px rgba(88, 166, 255, 0.15);
-    /* Add a restrained focus glow. */
+/* Cabeçalho e Marca */
+.brand-link {
+    display: inline-block;
+    margin-bottom: 18px;
+    transition: opacity 0.15s ease;
 }
 
-/* Selected state with a green confirmation highlight. */
-.machine-card.selected {
-    border-color: #2ea043;
-    /* Confirm the active profile. */
-    background: rgba(46, 160, 67, 0.05);
-    /* Add a subtle selected-state tint. */
+.brand-link:hover {
+    opacity: 0.9;
 }
 
-/* Hardware profile title (Standard or Extreme). */
-.machine-title {
-    font-size: 1.2em;
-    font-weight: bold;
-    margin-bottom: 12px;
+.brand-logo {
+    max-width: 180px;
+    width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+.card-title {
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: var(--arena-text-main);
+    margin: 0 0 6px 0;
+    letter-spacing: -0.015em;
+}
+
+.card-subtitle {
+    font-size: 0.88rem;
+    color: var(--arena-text-muted);
+    margin: 0 0 24px 0;
+    line-height: 1.5;
+}
+
+.card-subtitle b {
+    color: var(--arena-blue);
+    font-family: var(--font-mono);
+}
+
+/* Banner de Recursos do Host / Cluster */
+.resource-banner {
+    background: var(--arena-surface-input);
+    border: 1px solid var(--arena-lines);
+    border-radius: var(--r-md);
+    padding: 14px 18px;
+    margin-bottom: 26px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.resource-banner-label {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--arena-text-muted);
     display: flex;
     align-items: center;
     gap: 8px;
-    /* Separate the icon from the title. */
 }
 
-/* Standard profile accent. */
-.title-standard {
-    color: #58a6ff;
-    /* Blue identifies the standard option. */
+.resource-banner-label span.icon-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--arena-ok);
+    box-shadow: 0 0 6px rgba(63, 185, 80, 0.6);
 }
 
-/* Extreme profile accent. */
-.title-extreme {
-    color: #f85149;
-    /* Red identifies the higher-resource option. */
+.resource-banner-metrics {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
 }
 
-/* CPU and RAM specification block. */
-.machine-specs {
-    font-size: 0.9em;
-    color: #c9d1d9;
+.metric-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.metric-pill-label {
+    color: var(--arena-text-dim);
+    font-size: 0.75rem;
+}
+
+.metric-pill-val-cpu {
+    color: var(--arena-blue);
+    font-weight: 600;
+}
+
+.metric-pill-val-ram {
+    color: var(--arena-ok);
+    font-weight: 600;
+}
+
+/* Grid de Seleção de Máquinas */
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
+    margin-bottom: 28px;
+}
+
+.machine-card {
+    background: var(--arena-surface-input);
+    border: 1px solid var(--arena-lines);
+    border-radius: var(--r-md);
+    padding: 22px 20px;
+    cursor: pointer;
+    text-align: left;
+    position: relative;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.machine-card:hover:not(.is-disabled) {
+    border-color: rgba(88, 166, 255, 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.5);
+}
+
+.machine-card.selected {
+    border-color: var(--arena-orange);
+    background: linear-gradient(180deg, rgba(243, 146, 0, 0.05) 0%, rgba(22, 28, 40, 0.8) 100%);
+    box-shadow: 0 0 0 1px var(--arena-orange), 0 12px 30px -8px rgba(243, 146, 0, 0.2);
+    transform: translateY(-2px);
+}
+
+.machine-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 12px;
-    line-height: 1.6;
-    /* Improve readability of specification rows. */
-    background: #161b22;
-    /* Separate specifications from the card surface. */
-    padding: 10px;
-    border-radius: 5px;
-    border: 1px solid #30363d;
-    /* Define the specification block boundary. */
 }
 
-/* Profile description and usage guidance. */
+.machine-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.title-standard {
+    color: var(--arena-blue);
+}
+
+.title-extreme {
+    color: var(--arena-orange);
+}
+
+.profile-tag {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    padding: 2px 7px;
+    border-radius: var(--r-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.tag-standard {
+    background: rgba(88, 166, 255, 0.12);
+    color: var(--arena-blue);
+    border: 1px solid rgba(88, 166, 255, 0.25);
+}
+
+.tag-extreme {
+    background: rgba(243, 146, 0, 0.12);
+    color: var(--arena-orange);
+    border: 1px solid rgba(243, 146, 0, 0.25);
+}
+
+.machine-specs-box {
+    background: rgba(18, 22, 32, 0.6);
+    border: 1px solid rgba(39, 49, 66, 0.6);
+    border-radius: var(--r-sm);
+    padding: 10px 12px;
+    margin-bottom: 14px;
+    display: flex;
+    gap: 16px;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+}
+
+.spec-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.spec-key {
+    color: var(--arena-text-dim);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.spec-val {
+    color: var(--arena-text-main);
+    font-weight: 600;
+}
+
 .machine-desc {
-    font-size: 0.85em;
-    color: #8b949e;
-    /* Keep supporting copy visually secondary. */
-    line-height: 1.4;
-    /* Improve readability of longer descriptions. */
+    font-size: 0.82rem;
+    color: var(--arena-text-muted);
+    line-height: 1.45;
+    margin: 0;
+    flex-grow: 1;
 }
 
-/* Hide native radio controls because the card provides the visual selector. */
-input[type="radio"] {
+.insufficient-resource {
+    margin-top: 12px;
+    padding: 6px 10px;
+    border-radius: var(--r-sm);
+    background: rgba(248, 81, 73, 0.1);
+    border: 1px solid rgba(248, 81, 73, 0.25);
+    color: #ffa198;
+    font-size: 0.76rem;
+    font-weight: 500;
     display: none;
-    /* Selection is represented by the card state. */
 }
 
-/* Workspace launch and provisioning action. */
+/* Radio oculto nativo */
+input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Botão de Lançamento / CTA */
 .btn-launch {
     width: 100%;
-    padding: 14px;
-    background-color: #238636;
-    /* Success-oriented action color. */
-    color: white;
-    font-weight: bold;
+    padding: 13px 20px;
+    background-color: var(--arena-orange);
+    color: #000000;
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    font-weight: 600;
     border: none;
-    border-radius: 5px;
+    border-radius: var(--r-md);
     cursor: pointer;
-    font-size: 16px;
-    transition: 0.2s;
-    /* Animate button state changes. */
+    transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    letter-spacing: -0.01em;
 }
 
-.btn-launch:hover {
-    background-color: #2ea043;
-    /* Increase contrast on hover. */
+.btn-launch:hover:not(:disabled) {
+    background-color: var(--arena-orange-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(243, 146, 0, 0.3);
 }
 
-/* Disabled until a hardware profile is selected. */
+.btn-launch:active:not(:disabled) {
+    transform: translateY(0);
+}
+
 .btn-launch:disabled {
-    background-color: #21262d;
-    /* Reduce emphasis for the unavailable action. */
-    color: #8b949e;
-    /* Communicate the disabled state through contrast. */
+    background-color: #1e2533;
+    color: var(--arena-text-dim);
+    border: 1px solid var(--arena-lines);
     cursor: not-allowed;
-    /* Indicate that the action cannot be used yet. */
-    border: 1px solid #30363d;
-    /* Preserve the control boundary in the disabled state. */
+    box-shadow: none;
+    transform: none;
+}
+
+/* Rodapé */
+.setup-footer {
+    margin-top: 22px;
+    display: flex;
+    justify-content: center;
+}
+
+.btn-logout-link {
+    background: none;
+    border: none;
+    color: var(--arena-text-dim);
+    font-family: var(--font-sans);
+    font-size: 0.82rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: var(--r-sm);
+    transition: color 0.15s ease;
+}
+
+.btn-logout-link:hover {
+    color: var(--arena-danger);
+}
+
+/* Responsividade */
+@media (max-width: 600px) {
+    .setup-card {
+        padding: 28px 20px;
+    }
+
+    .card-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .resource-banner {
+        flex-direction: column;
+        align-items: flex-start;
+    }
 }

@@ -1,15 +1,53 @@
-/* portal-compute/static/js/admin.js */
+/* ============================================================================
+   ArenaLake — Scripts do Painel Administrativo (DBA Control Panel)
+   Design System Oficial: Modais Customizados, Gestão de Acessos e Telemetria
+   ============================================================================ */
 
 function showSection(targetSection) {
+    if (!targetSection) return;
+    const secEl = document.getElementById('sec-' + targetSection);
+    const navEl = document.getElementById('nav-' + targetSection);
+
+    if (!secEl) return;
+
     document.querySelectorAll('.admin-section').forEach(sec => sec.classList.remove('active'));
     document.querySelectorAll('.menu-item').forEach(li => li.classList.remove('active'));
 
-    document.getElementById('sec-' + targetSection).classList.add('active');
-    document.getElementById('nav-' + targetSection).classList.add('active');
+    secEl.classList.add('active');
+    if (navEl) navEl.classList.add('active');
+
+    // Persiste a aba selecionada no sessionStorage e na URL para sobreviver a F5 / Ctrl+R
+    try {
+        sessionStorage.setItem('arenalake_active_tab', targetSection);
+        const url = new URL(window.location);
+        url.searchParams.set('sec', targetSection);
+        window.history.replaceState({ section: targetSection }, '', url);
+    } catch (_) {}
 }
 
-const token = sessionStorage.getItem('access_token');
+function getInitialSection() {
+    const params = new URLSearchParams(window.location.search);
+    const urlSec = params.get('sec');
+    const hashSec = window.location.hash ? window.location.hash.substring(1) : null;
+    const storedSec = sessionStorage.getItem('arenalake_active_tab');
+
+    const candidate = urlSec || hashSec || storedSec;
+    if (candidate && document.getElementById('sec-' + candidate)) {
+        return candidate;
+    }
+    return 'register';
+}
+
+const urlParams = new URLSearchParams(window.location.search);
+let token = sessionStorage.getItem('access_token');
 if (!token) {
+    const queryToken = urlParams.get('token');
+    if (queryToken) {
+        token = queryToken;
+        sessionStorage.setItem('access_token', token);
+    }
+}
+if (window.location.pathname.includes('admin') && !token) {
     window.location.href = '/';
 }
 
@@ -21,13 +59,215 @@ let currentSortAsc = true;
 
 function logoutAdmin() {
     sessionStorage.removeItem('access_token');
+    sessionStorage.removeItem('arenalake_active_tab');
     window.location.href = '/';
 }
 
-// Gera e baixa o arquivo CSV
+// ----------------------------------------------------------------------------
+// SISTEMA DE MODAIS / POP-UPS DA IDENTIDADE VISUAL ARENALAKE
+// ----------------------------------------------------------------------------
+function createModalElement() {
+    let backdrop = document.getElementById('arena-modal-backdrop');
+    if (!backdrop) {
+        backdrop = document.createElement('div');
+        backdrop.id = 'arena-modal-backdrop';
+        backdrop.className = 'arena-modal-backdrop';
+        document.body.appendChild(backdrop);
+    }
+    backdrop.style.pointerEvents = '';
+    return backdrop;
+}
+
+function arenaAlert({ title = 'Aviso', message, type = 'info' }) {
+    return new Promise(resolve => {
+        const backdrop = createModalElement();
+
+        let iconClass = 'icon-info';
+        let iconSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+
+        if (type === 'success') {
+            iconClass = 'icon-success';
+            iconSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
+        } else if (type === 'error' || type === 'danger') {
+            iconClass = 'icon-danger';
+            iconSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+        } else if (type === 'warning') {
+            iconClass = 'icon-warning';
+            iconSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+        }
+
+        backdrop.innerHTML = `
+            <div class="arena-modal-card" role="dialog" aria-modal="true">
+                <div class="modal-header-row">
+                    <div class="modal-icon-badge ${iconClass}">
+                        ${iconSvg}
+                    </div>
+                    <div class="modal-title-area">
+                        <h3 class="modal-title">${title}</h3>
+                    </div>
+                    <button class="modal-close-btn" id="modal-btn-close" aria-label="Fechar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+                <div class="modal-message">${message}</div>
+                <div class="modal-footer">
+                    <button class="btn-primary" id="modal-btn-ok">Entendi</button>
+                </div>
+            </div>
+        `;
+
+        requestAnimationFrame(() => backdrop.classList.add('is-visible'));
+
+        function close() {
+            window.removeEventListener('keydown', onKeyDown);
+            backdrop.classList.remove('is-visible');
+            backdrop.style.pointerEvents = 'none';
+            setTimeout(() => {
+                backdrop.remove();
+                resolve();
+            }, 200);
+        }
+
+        function onKeyDown(e) {
+            if (e.key === 'Escape' || e.key === 'Enter') {
+                close();
+            }
+        }
+
+        window.addEventListener('keydown', onKeyDown);
+        document.getElementById('modal-btn-ok').onclick = close;
+        document.getElementById('modal-btn-close').onclick = close;
+        backdrop.onclick = (e) => {
+            if (e.target === backdrop) close();
+        };
+    });
+}
+
+function arenaConfirm({ title = 'Confirmação', message, confirmText = 'Confirmar', cancelText = 'Cancelar', isDanger = false }) {
+    return new Promise(resolve => {
+        const backdrop = createModalElement();
+
+        const iconClass = isDanger ? 'icon-danger' : 'icon-warning';
+        const iconSvg = isDanger
+            ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>'
+            : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
+
+        const confirmBtnClass = isDanger ? 'btn-danger' : 'btn-primary';
+
+        backdrop.innerHTML = `
+            <div class="arena-modal-card" role="dialog" aria-modal="true">
+                <div class="modal-header-row">
+                    <div class="modal-icon-badge ${iconClass}">
+                        ${iconSvg}
+                    </div>
+                    <div class="modal-title-area">
+                        <h3 class="modal-title">${title}</h3>
+                    </div>
+                    <button class="modal-close-btn" id="modal-btn-close" aria-label="Fechar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+                <div class="modal-message">${message}</div>
+                <div class="modal-footer">
+                    <button class="btn-secondary" id="modal-btn-cancel">${cancelText}</button>
+                    <button class="${confirmBtnClass}" id="modal-btn-confirm">${confirmText}</button>
+                </div>
+            </div>
+        `;
+
+        requestAnimationFrame(() => backdrop.classList.add('is-visible'));
+
+        function finish(confirmed) {
+            window.removeEventListener('keydown', onKeyDown);
+            backdrop.classList.remove('is-visible');
+            backdrop.style.pointerEvents = 'none';
+            setTimeout(() => {
+                backdrop.remove();
+                resolve(confirmed);
+            }, 200);
+        }
+
+        function onKeyDown(e) {
+            if (e.key === 'Escape') finish(false);
+        }
+
+        window.addEventListener('keydown', onKeyDown);
+        document.getElementById('modal-btn-confirm').onclick = () => finish(true);
+        document.getElementById('modal-btn-cancel').onclick = () => finish(false);
+        document.getElementById('modal-btn-close').onclick = () => finish(false);
+        backdrop.onclick = (e) => {
+            if (e.target === backdrop) finish(false);
+        };
+    });
+}
+
+function arenaPrompt({ title = 'Entrada de Dados', message, placeholder = '', inputType = 'text', confirmText = 'Confirmar', cancelText = 'Cancelar' }) {
+    return new Promise(resolve => {
+        const backdrop = createModalElement();
+
+        backdrop.innerHTML = `
+            <div class="arena-modal-card" role="dialog" aria-modal="true">
+                <div class="modal-header-row">
+                    <div class="modal-icon-badge icon-warning">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    </div>
+                    <div class="modal-title-area">
+                        <h3 class="modal-title">${title}</h3>
+                    </div>
+                    <button class="modal-close-btn" id="modal-btn-close" aria-label="Fechar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+                <div class="modal-message">${message}</div>
+                <div class="modal-input-area">
+                    <input type="${inputType}" id="modal-prompt-input" placeholder="${placeholder}" autocomplete="off">
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-secondary" id="modal-btn-cancel">${cancelText}</button>
+                    <button class="btn-primary" id="modal-btn-confirm">${confirmText}</button>
+                </div>
+            </div>
+        `;
+
+        requestAnimationFrame(() => {
+            backdrop.classList.add('is-visible');
+            const input = document.getElementById('modal-prompt-input');
+            if (input) input.focus();
+        });
+
+        function finish(val) {
+            backdrop.classList.remove('is-visible');
+            backdrop.style.pointerEvents = 'none';
+            setTimeout(() => {
+                backdrop.remove();
+                resolve(val);
+            }, 200);
+        }
+
+        const input = document.getElementById('modal-prompt-input');
+        input.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                finish(input.value);
+            } else if (e.key === 'Escape') {
+                finish(null);
+            }
+        };
+
+        document.getElementById('modal-btn-confirm').onclick = () => finish(input.value);
+        document.getElementById('modal-btn-cancel').onclick = () => finish(null);
+        document.getElementById('modal-btn-close').onclick = () => finish(null);
+        backdrop.onclick = (e) => {
+            if (e.target === backdrop) finish(null);
+        };
+    });
+}
+
+// ----------------------------------------------------------------------------
+// EXPORTAÇÃO DE USUÁRIOS (CSV)
+// ----------------------------------------------------------------------------
 function downloadCSV() {
     if (!allUsers || allUsers.length === 0) {
-        alert('No users to download.');
+        arenaAlert({ title: 'Exportação', message: 'Nenhum usuário encontrado para download.', type: 'info' });
         return;
     }
 
@@ -54,6 +294,9 @@ function downloadCSV() {
     document.body.removeChild(a);
 }
 
+// ----------------------------------------------------------------------------
+// GESTÃO DE WORKSPACES
+// ----------------------------------------------------------------------------
 async function carregarWorkspaces() {
     try {
         const res = await fetch('/api/admin/workspaces', {
@@ -69,28 +312,59 @@ async function carregarWorkspaces() {
             tbody.innerHTML = '';
 
             if (data.workspaces.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" style="padding: 15px; text-align: center; color: #8b949e;">No active workspace at the moment.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" style="padding: 24px; text-align: center; color: var(--arena-text-muted);">Nenhum workspace ativo no momento.</td></tr>';
                 return;
             }
 
             data.workspaces.forEach(w => {
                 tbody.innerHTML += `
-                    <tr style="border-bottom: 1px solid #21262d;">
-                        <td style="padding: 10px; color: #58a6ff; font-weight: bold;">${w.username}</td>
-                        <td style="padding: 10px; font-family: monospace; font-size: 0.9em;">${w.service_name}</td>
-                        <td style="padding: 10px;">${w.cpu} | ${w.ram}</td>
-                        <td style="padding: 10px; text-align: right;">
-                            <button onclick="killWorkspace('${w.username}')" style="background: #da3633; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer;">🛑 Derrubar Sessão</button>
+                    <tr>
+                        <td style="color: var(--arena-blue); font-weight: 600; font-family: var(--font-mono);">${w.username}</td>
+                        <td style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--arena-text-muted);">${w.service_name}</td>
+                        <td style="font-family: var(--font-mono); font-size: 0.85rem;">${w.cpu} | ${w.ram}</td>
+                        <td style="text-align: right;">
+                            <button onclick="killWorkspace('${w.username}')" class="btn-danger" style="padding: 5px 12px; font-size: 0.82rem;">Encerrar Sessão</button>
                         </td>
                     </tr>
                 `;
             });
         }
     } catch (e) {
-        console.error('Error on load workspaces', e);
+        console.error('Erro ao carregar workspaces:', e);
     }
 }
 
+async function killWorkspace(username) {
+    const confirmed = await arenaConfirm({
+        title: 'Encerrar Workspace',
+        message: `Deseja realmente derrubar a sessão ativa e o container do colaborador '${username}'?`,
+        confirmText: 'Encerrar Sessão',
+        cancelText: 'Cancelar',
+        isDanger: true
+    });
+    if (!confirmed) return;
+
+    try {
+        const res = await fetch(`/api/admin/workspaces/kill/${username}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        if (res.ok) {
+            await arenaAlert({ title: 'Sessão Encerrada', message: result.message || 'Workspace derrubado com sucesso.', type: 'success' });
+            carregarWorkspaces();
+        } else {
+            await arenaAlert({ title: 'Erro ao Encerrar', message: result.detail || 'Não foi possível derrubar o workspace.', type: 'error' });
+        }
+    } catch (e) {
+        await arenaAlert({ title: 'Erro de Conexão', message: 'Falha de comunicação ao tentar encerrar a sessão.', type: 'error' });
+    }
+}
+
+// ----------------------------------------------------------------------------
+// GESTÃO DE USUÁRIOS
+// ----------------------------------------------------------------------------
 async function carregarUsuarios() {
     try {
         const res = await fetch('/api/admin/users', {
@@ -104,13 +378,14 @@ async function carregarUsuarios() {
             const currentAdmin = allUsers.find(u => u.role === 'admin');
             if (currentAdmin) {
                 loggedAdminUsername = currentAdmin.username;
-                document.getElementById('expectedPhraseLabel').innerText = `DELETE ACCOUNT ${loggedAdminUsername}`;
+                const label = document.getElementById('expectedPhraseLabel');
+                if (label) label.innerText = `DELETE ACCOUNT ${loggedAdminUsername}`;
             }
 
             renderUserTable();
         }
     } catch (e) {
-        console.error('Erro ao carregar usuários', e);
+        console.error('Erro ao carregar usuários:', e);
     }
 }
 
@@ -157,37 +432,47 @@ function renderUserTable() {
         if (u.role !== 'admin') {
             actionBtn = `
                 <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                    <button onclick="resetarSenha(${u.id}, '${u.username}')" style="background: #1f6feb; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.85em; cursor: pointer; white-space: nowrap;">🔑 Reset Password</button>
-                    <button onclick="deletarUsuario(${u.id}, '${u.username}')" style="background: #da3633; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.85em; cursor: pointer; white-space: nowrap;">🗑️ Delete</button>
+                    <button onclick="resetarSenha(${u.id}, '${u.username}')" class="btn-secondary" style="padding: 5px 10px; font-size: 0.8rem;">Redefinir Senha</button>
+                    <button onclick="deletarUsuario(${u.id}, '${u.username}')" class="btn-danger" style="padding: 5px 10px; font-size: 0.8rem;">Excluir</button>
                 </div>
             `;
         } else {
-            actionBtn = `<div style="display: flex; justify-content: flex-end;"><span style="color: #8b949e; font-size: 0.8em; font-style: italic; padding: 6px 0;">Protected</span></div>`;
+            actionBtn = `<div style="display: flex; justify-content: flex-end;"><span style="color: var(--arena-text-dim); font-size: 0.8rem; font-style: italic;">Protegido</span></div>`;
         }
 
         const isOnline = activeUsernames.has(u.username);
         const statusDot = isOnline
-            ? '<span style="color: #2ea043; margin-right: 8px; font-size: 1.2em;" title="Online">●</span>'
-            : '<span style="color: #da3633; margin-right: 8px; font-size: 1.2em;" title="Offline">●</span>';
+            ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--arena-ok); margin-right: 6px; vertical-align: middle; box-shadow: 0 0 6px var(--arena-ok);" title="Online"></span>'
+            : '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--arena-text-dim); margin-right: 6px; vertical-align: middle;" title="Offline"></span>';
 
         const email = u.email || 'N/A';
+        const roleBadge = u.role === 'admin' 
+            ? '<span class="badge badge-admin">ADMIN</span>' 
+            : '<span class="badge badge-common">COMMON</span>';
 
         tbody.innerHTML += `
-            <tr style="border-bottom: 1px solid #21262d;">
-                <td style="padding: 10px;">${statusDot} #${u.id}</td>
-                <td style="padding: 10px; color: #58a6ff; font-weight: bold;">${u.username}</td>
-                <td style="padding: 10px; font-size: 0.9em; color: #8b949e;">${email}</td>
-                <td style="padding: 10px;">${u.full_name}</td>
-                <td style="padding: 10px;"><span style="background: ${u.role === 'admin' ? '#da3633' : '#1f6feb'}; padding: 3px 8px; border-radius: 4px; font-size: 0.8em;">${u.role.toUpperCase()}</span></td>
-                <td style="padding: 10px;">${u.is_2fa_verified ? '✅ Verified' : '⏳ Pending'}</td>
-                <td style="padding: 10px; text-align: right;">${actionBtn}</td>
+            <tr>
+                <td style="font-family: var(--font-mono); font-size: 0.85rem;">${statusDot} #${u.id}</td>
+                <td style="color: var(--arena-blue); font-weight: 600;">${u.username}</td>
+                <td style="color: var(--arena-text-muted); font-size: 0.85rem;">${email}</td>
+                <td>${u.full_name}</td>
+                <td>${roleBadge}</td>
+                <td style="font-size: 0.85rem;">${u.is_2fa_verified ? '<span style="color: var(--arena-ok); font-weight: 500;">Verificado</span>' : '<span style="color: var(--arena-warning); font-weight: 500;">Pendente</span>'}</td>
+                <td style="text-align: right;">${actionBtn}</td>
             </tr>
         `;
     });
 }
 
 async function deletarUsuario(userId, username) {
-    if (!confirm(`Are you sure you want to delete the regular user '${username}'?`)) return;
+    const confirmed = await arenaConfirm({
+        title: 'Excluir Colaborador',
+        message: `Tem certeza que deseja excluir permanentemente o acesso de '${username}'? Esta operação não pode ser revertida.`,
+        confirmText: 'Excluir Usuário',
+        cancelText: 'Cancelar',
+        isDanger: true
+    });
+    if (!confirmed) return;
 
     try {
         const res = await fetch(`/api/admin/users/${userId}`, {
@@ -197,13 +482,68 @@ async function deletarUsuario(userId, username) {
         const result = await res.json();
 
         if (res.ok) {
-            alert(result.message);
+            await arenaAlert({ title: 'Sucesso', message: result.message || 'Usuário excluído com sucesso.', type: 'success' });
             carregarUsuarios();
         } else {
-            alert('Error: ' + result.detail);
+            await arenaAlert({ title: 'Erro ao Excluir', message: result.detail || 'Não foi possível excluir o usuário.', type: 'error' });
         }
     } catch (e) {
-        alert('Communication error while trying to delete the user.');
+        await arenaAlert({ title: 'Erro de Conexão', message: 'Falha de comunicação ao tentar excluir o usuário.', type: 'error' });
+    }
+}
+
+async function resetarSenha(userId, username) {
+    const novaSenha = await arenaPrompt({
+        title: 'Redefinir Senha do Colaborador',
+        message: `Informe uma nova senha temporária para '${username}' (mínimo de 8 caracteres):`,
+        placeholder: '••••••••••••',
+        inputType: 'password',
+        confirmText: 'Salvar Nova Senha',
+        cancelText: 'Cancelar'
+    });
+
+    if (!novaSenha) return;
+
+    if (novaSenha.length < 8) {
+        await arenaAlert({
+            title: 'Senha Inválida',
+            message: 'A senha temporária deve conter no mínimo 8 caracteres.',
+            type: 'warning'
+        });
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/admin/users/${userId}/reset-password`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ new_password: novaSenha })
+        });
+        const result = await res.json();
+
+        if (res.ok) {
+            await arenaAlert({
+                title: 'Senha Redefinida',
+                message: result.message || `A senha de '${username}' foi redefinida com sucesso.`,
+                type: 'success'
+            });
+            carregarUsuarios();
+        } else {
+            await arenaAlert({
+                title: 'Erro ao Redefinir',
+                message: result.detail || 'Não foi possível redefinir a senha.',
+                type: 'error'
+            });
+        }
+    } catch (e) {
+        await arenaAlert({
+            title: 'Erro de Conexão',
+            message: 'Falha de comunicação ao tentar redefinir a senha.',
+            type: 'error'
+        });
     }
 }
 
@@ -218,46 +558,32 @@ document.getElementById('createUserForm').addEventListener('submit', async (e) =
         department: 'Infrastructure'
     };
 
-    const res = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-    });
+    try {
+        const res = await fetch('/api/admin/users', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
 
-    const result = await res.json();
-    if (res.ok) {
-        alert(result.message);
-        document.getElementById('createUserForm').reset();
-        carregarUsuarios();
-    } else {
-        alert('Erro: ' + result.detail);
+        const result = await res.json();
+        if (res.ok) {
+            await arenaAlert({ title: 'Acesso Criado', message: result.message || 'Colaborador registrado com sucesso no ecossistema.', type: 'success' });
+            document.getElementById('createUserForm').reset();
+            carregarUsuarios();
+        } else {
+            await arenaAlert({ title: 'Erro no Registro', message: result.detail || 'Não foi possível cadastrar o colaborador.', type: 'error' });
+        }
+    } catch (e) {
+        await arenaAlert({ title: 'Erro de Conexão', message: 'Falha de comunicação com o servidor.', type: 'error' });
     }
 });
 
-async function killWorkspace(username) {
-    if (!confirm(`Are you sure you want to terminate the session for '${username}' with the kill switch?`)) return;
-
-    try {
-        const res = await fetch(`/api/admin/workspaces/kill/${username}`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const result = await res.json();
-
-        if (res.ok) {
-            alert(result.message);
-            carregarWorkspaces();
-        } else {
-            alert('Error: ' + result.detail);
-        }
-    } catch (e) {
-        alert('Communication error while trying to terminate the session.');
-    }
-}
-
+// ----------------------------------------------------------------------------
+// TELEMETRIA DO CLUSTER SWARM
+// ----------------------------------------------------------------------------
 async function carregarClusterNodes() {
     try {
         const res = await fetch('/api/admin/cluster/nodes', {
@@ -273,7 +599,6 @@ async function carregarClusterNodes() {
             let totalRam = 0;
             let activeNodes = 0;
 
-            // Counters para os gráficos das Marcas de Processador
             let countIntel = 0;
             let countAmd = 0;
             let countOutros = 0;
@@ -283,138 +608,233 @@ async function carregarClusterNodes() {
                 totalRam += n.memory_gb;
                 if (n.status === 'ready') activeNodes++;
 
-                // Checa se o agente no Worker mandou a telemetria rica
                 const hasTelemetry = n.cpu_percent !== undefined && n.ram_percent !== undefined;
 
-                let cpuDisplay, ramDisplay, cpuBar, ramBar, storageDisplay, cpuModelStr;
-
                 if (hasTelemetry) {
-                    // Contabiliza arquiteturas apenas de nós responsivos
                     if (n.marca_cpu === 'Intel') countIntel++;
                     else if (n.marca_cpu === 'AMD') countAmd++;
                     else countOutros++;
+                }
 
-                    cpuModelStr = `<div style="font-size: 0.8em; color: #8b949e; margin-top: 4px; line-height: 1.2;">💻 ${n.marca_cpu} <br>${n.modelo_cpu}</div>`;
+                // 1. Identificação do Nó
+                const nodeCell = `
+                    <td>
+                        <div class="node-hostname">${n.hostname}</div>
+                        <div class="node-id-sub">#${n.id}</div>
+                    </td>
+                `;
 
-                    const cpuUsed = ((n.cpu_percent / 100) * n.cpus).toFixed(1);
-                    const ramUsed = ((n.ram_percent / 100) * n.memory_gb).toFixed(1);
+                // 2. Função no Cluster
+                const roleBadge = n.role === 'MANAGER'
+                    ? '<span class="badge badge-admin">MANAGER</span>'
+                    : '<span class="badge badge-common">WORKER</span>';
+                const roleCell = `<td class="col-center">${roleBadge}</td>`;
 
-                    const cpuColor = n.cpu_percent > 85 ? 'fill-danger' : (n.cpu_percent > 65 ? 'fill-warning' : 'fill-normal');
-                    const ramColor = n.ram_percent > 85 ? 'fill-danger' : (n.ram_percent > 65 ? 'fill-warning' : 'fill-normal');
+                // 3. Processador (Hardware)
+                let brandTagClass = 'cpu-brand-other';
+                if (n.marca_cpu === 'Intel') brandTagClass = 'cpu-brand-intel';
+                else if (n.marca_cpu === 'AMD') brandTagClass = 'cpu-brand-amd';
 
-                    cpuDisplay = `<span><span style="color: #c9d1d9;">${cpuUsed}</span> / ${n.cpus} Cores</span><span>${n.cpu_percent}%</span>`;
-                    cpuBar = `<div class="progress-fill ${cpuColor}" style="width: ${n.cpu_percent}%;"></div>`;
-
-                    ramDisplay = `<span><span style="color: #c9d1d9;">${ramUsed}</span> / ${n.memory_gb} GB</span><span>${n.ram_percent}%</span>`;
-                    ramBar = `<div class="progress-fill ${ramColor}" style="width: ${n.ram_percent}%;"></div>`;
-
-                    // Cálculo da barra de Storage
-                    const diskPercent = n.disk_gb > 0 ? ((n.disk_usado_gb / n.disk_gb) * 100).toFixed(1) : 0;
-                    const diskColor = diskPercent > 85 ? 'fill-danger' : (diskPercent > 65 ? 'fill-warning' : 'fill-normal');
-                    storageDisplay = `
-                        <div class="resource-container">
-                            <div class="resource-header">
-                                <span><span style="color: #c9d1d9;">${n.disk_usado_gb}</span> / ${n.disk_gb} GB</span>
-                                <span>${diskPercent}%</span>
+                let processorCell;
+                if (hasTelemetry && n.modelo_cpu) {
+                    const cleanModel = n.modelo_cpu
+                        .replace('Intel(R) Core(TM) ', 'Core ')
+                        .replace('AMD ', '');
+                    const threadInfo = n.threads ? `${n.threads} Threads • ` : '';
+                    processorCell = `
+                        <td>
+                            <div class="cpu-cell">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span class="cpu-brand-tag ${brandTagClass}">${n.marca_cpu || 'CPU'}</span>
+                                    <span class="cpu-model-title">${cleanModel}</span>
+                                </div>
+                                <div style="font-size: 0.74rem; font-family: var(--font-mono); color: var(--arena-text-dim); margin-top: 2px;">
+                                    ${threadInfo}${n.cpus} Cores
+                                </div>
                             </div>
-                            <div class="progress-bg">
-                                <div class="progress-fill ${diskColor}" style="width: ${diskPercent}%;"></div>
-                            </div>
-                        </div>
+                        </td>
                     `;
                 } else {
-                    cpuModelStr = `<div style="font-size: 0.8em; color: #da3633; margin-top: 4px; font-style: italic;">CPU Info Unavailable</div>`;
-
-                    cpuDisplay = `<span><span style="color: #da3633; font-style: italic;">Offline / No Data</span> / ${n.cpus} Cores</span><span style="color: #8b949e;">--%</span>`;
-                    cpuBar = `<div class="progress-fill" style="width: 0%; background: #30363d;"></div>`;
-
-                    ramDisplay = `<span><span style="color: #da3633; font-style: italic;">Offline / No Data</span> / ${n.memory_gb} GB</span><span style="color: #8b949e;">--%</span>`;
-                    ramBar = `<div class="progress-fill" style="width: 0%; background: #30363d;"></div>`;
-
-                    storageDisplay = `
-                        <div class="resource-container">
-                            <div class="resource-header">
-                                <span><span style="color: #da3633; font-style: italic;">Offline / No Data</span></span>
-                                <span style="color: #8b949e;">--%</span>
+                    processorCell = `
+                        <td>
+                            <div class="cpu-cell">
+                                <span style="color: var(--arena-text-dim); font-size: 0.82rem; font-style: italic;">Indisponível</span>
+                                <div style="font-size: 0.74rem; font-family: var(--font-mono); color: var(--arena-text-dim); margin-top: 2px;">
+                                    ${n.cpus} Cores
+                                </div>
                             </div>
-                            <div class="progress-bg">
-                                <div class="progress-fill" style="width: 0%; background: #30363d;"></div>
+                        </td>
+                    `;
+                }
+
+                // 4. Status em Destaque
+                const isReady = n.status === 'ready';
+                const statusBadge = isReady
+                    ? '<span class="node-status-badge status-operational"><span class="status-pulse-dot"></span>Operacional</span>'
+                    : '<span class="node-status-badge status-inactive"><span class="status-inactive-dot"></span>Inativo</span>';
+                const statusCell = `<td>${statusBadge}</td>`;
+
+                // 5. Consumo de CPU
+                let cpuCell;
+                if (hasTelemetry) {
+                    const cpuUsed = ((n.cpu_percent / 100) * n.cpus).toFixed(1);
+                    const cpuColor = n.cpu_percent > 85 ? 'fill-danger' : (n.cpu_percent > 65 ? 'fill-warning' : 'fill-normal');
+                    const cpuPctColor = n.cpu_percent > 85 ? 'var(--arena-danger)' : (n.cpu_percent > 65 ? 'var(--arena-orange)' : 'var(--arena-text-main)');
+                    cpuCell = `
+                        <td>
+                            <div class="resource-metric-box">
+                                <div class="resource-header-row">
+                                    <span class="resource-pct" style="color: ${cpuPctColor};">${n.cpu_percent}%</span>
+                                    <span class="resource-val">${cpuUsed} / ${n.cpus} cores</span>
+                                </div>
+                                <div class="progress-bg">
+                                    <div class="progress-fill ${cpuColor}" style="width: ${n.cpu_percent}%;"></div>
+                                </div>
                             </div>
-                        </div>
+                        </td>
+                    `;
+                } else {
+                    cpuCell = `
+                        <td>
+                            <div class="resource-metric-box">
+                                <div class="resource-header-row">
+                                    <span class="resource-pct" style="color: var(--arena-text-dim);">--%</span>
+                                    <span class="resource-val">${n.cpus} Cores</span>
+                                </div>
+                                <div class="progress-bg">
+                                    <div class="progress-fill" style="width: 0%; background: var(--arena-lines);"></div>
+                                </div>
+                            </div>
+                        </td>
+                    `;
+                }
+
+                // 6. Consumo de Memória RAM
+                let ramCell;
+                if (hasTelemetry) {
+                    const ramUsed = ((n.ram_percent / 100) * n.memory_gb).toFixed(1);
+                    const ramColor = n.ram_percent > 85 ? 'fill-danger' : (n.ram_percent > 65 ? 'fill-warning' : 'fill-normal');
+                    const ramPctColor = n.ram_percent > 85 ? 'var(--arena-danger)' : (n.ram_percent > 65 ? 'var(--arena-orange)' : 'var(--arena-text-main)');
+                    ramCell = `
+                        <td>
+                            <div class="resource-metric-box">
+                                <div class="resource-header-row">
+                                    <span class="resource-pct" style="color: ${ramPctColor};">${n.ram_percent}%</span>
+                                    <span class="resource-val">${ramUsed} / ${n.memory_gb} GB</span>
+                                </div>
+                                <div class="progress-bg">
+                                    <div class="progress-fill ${ramColor}" style="width: ${n.ram_percent}%;"></div>
+                                </div>
+                            </div>
+                        </td>
+                    `;
+                } else {
+                    ramCell = `
+                        <td>
+                            <div class="resource-metric-box">
+                                <div class="resource-header-row">
+                                    <span class="resource-pct" style="color: var(--arena-text-dim);">--%</span>
+                                    <span class="resource-val">${n.memory_gb} GB</span>
+                                </div>
+                                <div class="progress-bg">
+                                    <div class="progress-fill" style="width: 0%; background: var(--arena-lines);"></div>
+                                </div>
+                            </div>
+                        </td>
+                    `;
+                }
+
+                // 7. Armazenamento (Disco)
+                let storageCell;
+                if (hasTelemetry && n.disk_gb > 0) {
+                    const diskPercent = ((n.disk_usado_gb / n.disk_gb) * 100).toFixed(1);
+                    const diskColor = diskPercent > 85 ? 'fill-danger' : (diskPercent > 65 ? 'fill-warning' : 'fill-normal');
+                    const diskPctColor = diskPercent > 85 ? 'var(--arena-danger)' : (diskPercent > 65 ? 'var(--arena-orange)' : 'var(--arena-text-main)');
+                    storageCell = `
+                        <td>
+                            <div class="resource-metric-box">
+                                <div class="resource-header-row">
+                                    <span class="resource-pct" style="color: ${diskPctColor};">${diskPercent}%</span>
+                                    <span class="resource-val">${n.disk_usado_gb} / ${n.disk_gb} GB</span>
+                                </div>
+                                <div class="progress-bg">
+                                    <div class="progress-fill ${diskColor}" style="width: ${diskPercent}%;"></div>
+                                </div>
+                            </div>
+                        </td>
+                    `;
+                } else {
+                    storageCell = `
+                        <td>
+                            <div class="resource-metric-box">
+                                <div class="resource-header-row">
+                                    <span class="resource-pct" style="color: var(--arena-text-dim);">--%</span>
+                                    <span class="resource-val">Offline</span>
+                                </div>
+                                <div class="progress-bg">
+                                    <div class="progress-fill" style="width: 0%; background: var(--arena-lines);"></div>
+                                </div>
+                            </div>
+                        </td>
                     `;
                 }
 
                 tbody.innerHTML += `
-                    <tr style="border-bottom: 1px solid #21262d;">
-                        <td style="padding: 15px 10px;">
-                            <div style="font-family: monospace; color: #58a6ff; font-weight: bold; font-size: 1.1em; margin-bottom: 5px;">${n.hostname}</div>
-                            <span style="background: ${n.role === 'MANAGER' ? '#8957e5' : '#1f6feb'}; padding: 3px 8px; border-radius: 4px; font-size: 0.75em; color: white;">${n.role}</span>
-                            ${cpuModelStr}
-                        </td>
-                        <td style="padding: 15px 10px;">
-                            ${n.status === 'ready' ? '<span style="color: #2ea043; font-weight: bold;">🟢 Ready</span>' : '<span style="color: #da3633; font-weight: bold;">🔴 Down</span>'}
-                        </td>
-                        <td style="padding: 15px 10px;">
-                            <div class="resource-container">
-                                <div class="resource-header">${cpuDisplay}</div>
-                                <div class="progress-bg">${cpuBar}</div>
-                            </div>
-                        </td>
-                        <td style="padding: 15px 10px;">
-                            <div class="resource-container">
-                                <div class="resource-header">${ramDisplay}</div>
-                                <div class="progress-bg">${ramBar}</div>
-                            </div>
-                        </td>
-                        <td style="padding: 15px 10px;">
-                            ${storageDisplay}
-                        </td>
+                    <tr>
+                        ${nodeCell}
+                        ${roleCell}
+                        ${processorCell}
+                        ${statusCell}
+                        ${cpuCell}
+                        ${ramCell}
+                        ${storageCell}
                     </tr>
                 `;
             });
 
-            // --- Preenche os KPIs Superiores ---
             document.getElementById('kpi-nodes-count').innerText = `${activeNodes} / ${data.nodes.length}`;
             document.getElementById('kpi-total-cpu').innerText = totalCpus;
             document.getElementById('kpi-total-ram').innerText = `${totalRam.toFixed(1)} GB`;
 
             const healthEl = document.getElementById('kpi-cluster-health');
             if (activeNodes === data.nodes.length && activeNodes > 0) {
-                healthEl.innerText = "Healthy";
-                healthEl.style.color = "#2ea043";
+                healthEl.innerText = "Saudável";
+                healthEl.style.color = "var(--arena-ok)";
             } else if (activeNodes > 0) {
-                healthEl.innerText = "Degraded";
-                healthEl.style.color = "#d29922";
+                healthEl.innerText = "Degradado";
+                healthEl.style.color = "var(--arena-warning)";
             } else {
-                healthEl.innerText = "Critical";
-                healthEl.style.color = "#da3633";
+                healthEl.innerText = "Crítico";
+                healthEl.style.color = "var(--arena-danger)";
             }
 
-            // --- Preenche os KPIs de Arquitetura de Processador ---
             const totalCpusWithTelemetry = countIntel + countAmd + countOutros;
             const intelPct = totalCpusWithTelemetry > 0 ? Math.round((countIntel / totalCpusWithTelemetry) * 100) : 0;
             const amdPct = totalCpusWithTelemetry > 0 ? Math.round((countAmd / totalCpusWithTelemetry) * 100) : 0;
             const outrosPct = totalCpusWithTelemetry > 0 ? Math.round((countOutros / totalCpusWithTelemetry) * 100) : 0;
 
-            document.getElementById('kpi-cpu-intel').innerHTML = `Intel: ${countIntel} <span style="font-size: 0.6em; color: #8b949e;">(${intelPct}%)</span>`;
-            document.getElementById('kpi-cpu-amd').innerHTML = `AMD: ${countAmd} <span style="font-size: 0.6em; color: #8b949e;">(${amdPct}%)</span>`;
-            document.getElementById('kpi-cpu-outros').innerHTML = `Outros: ${countOutros} <span style="font-size: 0.6em; color: #8b949e;">(${outrosPct}%)</span>`;
+            document.getElementById('kpi-cpu-intel').innerHTML = `Intel: ${countIntel} <span style="font-size: 0.6em; color: var(--arena-text-dim);">(${intelPct}%)</span>`;
+            document.getElementById('kpi-cpu-amd').innerHTML = `AMD: ${countAmd} <span style="font-size: 0.6em; color: var(--arena-text-dim);">(${amdPct}%)</span>`;
+            document.getElementById('kpi-cpu-outros').innerHTML = `Outros: ${countOutros} <span style="font-size: 0.6em; color: var(--arena-text-dim);">(${outrosPct}%)</span>`;
         }
     } catch (e) {
-        console.error('Error on load cluster nodes', e);
+        console.error('Erro ao carregar telemetria do cluster:', e);
     }
 }
 
+// ----------------------------------------------------------------------------
+// AUDITORIA DE ARQUIVOS (FILE SPY)
+// ----------------------------------------------------------------------------
 async function auditarArquivos() {
     const username = document.getElementById('auditUsername').value.trim();
     const outputBox = document.getElementById('auditOutput');
     if (!username) {
-        alert('Enter a valid username for auditing.');
+        await arenaAlert({ title: 'Atenção', message: 'Por favor, informe um nome de usuário para auditoria.', type: 'warning' });
         return;
     }
 
     outputBox.style.display = 'block';
-    outputBox.innerText = 'Looking up files in the user\'s volume...';
+    outputBox.innerText = 'Consultando arquivos no volume persistente do usuário...';
 
     try {
         const res = await fetch(`/api/admin/files/${username}`, {
@@ -423,23 +843,33 @@ async function auditarArquivos() {
         const data = await res.json();
 
         if (res.ok) {
-            outputBox.innerText = data.files.join('\n');
+            outputBox.innerText = data.files.length > 0 ? data.files.join('\n') : 'Nenhum arquivo encontrado no volume.';
         } else {
-            outputBox.innerText = 'Error: ' + data.detail;
+            outputBox.innerText = 'Erro: ' + (data.detail || 'Não foi possível inspecionar o volume.');
         }
     } catch (e) {
-        outputBox.innerText = 'Connection error while inspecting the volume.';
+        outputBox.innerText = 'Falha de comunicação ao inspecionar o volume.';
     }
 }
 
+// ----------------------------------------------------------------------------
+// AUTODESTRUIÇÃO DO CLUSTER
+// ----------------------------------------------------------------------------
 async function executarAutodestruicao() {
     const confirmUser = document.getElementById('confirmDestroyUser').value.trim();
     if (!confirmUser) {
-        alert('You need to type your username to confirm self-destruction.');
+        await arenaAlert({ title: 'Atenção', message: 'Você precisa digitar seu nome de usuário para confirmar a autodestruição.', type: 'warning' });
         return;
     }
 
-    if (!confirm('WARNING: Do you really want to purge all active sessions and workspaces in the cluster? This action is irreversible!')) return;
+    const confirmed = await arenaConfirm({
+        title: 'Autodestruição Crítica',
+        message: 'AVISO CRÍTICO: Você tem certeza absoluta que deseja purgar todas as sessões e workspaces ativos em todo o cluster?',
+        confirmText: 'Executar Autodestruição',
+        cancelText: 'Cancelar',
+        isDanger: true
+    });
+    if (!confirmed) return;
 
     try {
         const res = await fetch('/api/admin/danger/destroy', {
@@ -453,17 +883,20 @@ async function executarAutodestruicao() {
         const result = await res.json();
 
         if (res.ok) {
-            alert(result.message);
+            await arenaAlert({ title: 'Comando Concluído', message: result.message || 'Todos os containers foram expurgados.', type: 'success' });
             document.getElementById('confirmDestroyUser').value = '';
             carregarWorkspaces();
         } else {
-            alert('Critical error: ' + result.detail);
+            await arenaAlert({ title: 'Erro Crítico', message: result.detail || 'Não foi possível executar a autodestruição.', type: 'error' });
         }
     } catch (e) {
-        alert('Communication error with the server.');
+        await arenaAlert({ title: 'Erro de Conexão', message: 'Falha de comunicação com o cluster.', type: 'error' });
     }
 }
 
+// ----------------------------------------------------------------------------
+// DATA CATALOG (MINIO)
+// ----------------------------------------------------------------------------
 async function carregarDataCatalog() {
     try {
         const res = await fetch('/api/admin/catalog', {
@@ -479,7 +912,7 @@ async function carregarDataCatalog() {
             const buckets = Object.keys(catalog);
 
             if (buckets.length === 0) {
-                container.innerHTML = '<p style="color: #8b949e;">No buckets found in MinIO.</p>';
+                container.innerHTML = '<p style="color: var(--arena-text-muted);">Nenhum bucket encontrado no MinIO.</p>';
                 return;
             }
 
@@ -488,14 +921,14 @@ async function carregarDataCatalog() {
                 const files = catalog[bucket];
 
                 if (files.length === 0) {
-                    filesHtml = '<tr><td colspan="2" style="padding: 8px; color: #8b949e; font-style: italic;">Bucket is empty.</td></tr>';
+                    filesHtml = '<tr><td colspan="2" style="padding: 10px; color: var(--arena-text-dim); font-style: italic;">Bucket vazio.</td></tr>';
                 } else {
                     files.forEach(file => {
                         filesHtml += `
-                            <tr style="border-bottom: 1px solid #21262d;">
-                                <td style="padding: 8px; font-family: monospace; color: #58a6ff;">${file}</td>
-                                <td style="padding: 8px; text-align: right;">
-                                    <button onclick="deletarArquivoCatalog('${bucket}', '${file}')" style="background: #da3633; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">🗑️ Delete</button>
+                            <tr>
+                                <td style="font-family: var(--font-mono); color: var(--arena-blue); font-size: 0.85rem;">${file}</td>
+                                <td style="text-align: right;">
+                                    <button onclick="deletarArquivoCatalog('${bucket}', '${file}')" class="btn-danger" style="padding: 3px 8px; font-size: 0.78rem;">Excluir</button>
                                 </td>
                             </tr>
                         `;
@@ -503,9 +936,12 @@ async function carregarDataCatalog() {
                 }
 
                 container.innerHTML += `
-                    <div style="background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 15px; margin-bottom: 15px;">
-                        <h4 style="margin: 0 0 10px 0; color: #79c0ff;">📦 Bucket: ${bucket}</h4>
-                        <table style="width: 100%; border-collapse: collapse;">
+                    <div style="background: var(--arena-surface-input); border: 1px solid var(--arena-lines); border-radius: var(--r-md); padding: 16px; margin-bottom: 16px;">
+                        <h4 style="margin: 0 0 12px 0; color: var(--arena-text-main); font-size: 0.95rem; font-family: var(--font-mono); display: flex; align-items: center; gap: 8px;">
+                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" style="color: var(--arena-blue);"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                            <span>${bucket}</span>
+                        </h4>
+                        <table style="width: 100%;">
                             <tbody>${filesHtml}</tbody>
                         </table>
                     </div>
@@ -513,12 +949,19 @@ async function carregarDataCatalog() {
             });
         }
     } catch (e) {
-        console.error('Error on load Data Catalog', e);
+        console.error('Erro ao carregar Data Catalog:', e);
     }
 }
 
 async function deletarArquivoCatalog(bucket, filename) {
-    if (!confirm(`Are you sure you want to delete the file '${filename}' from bucket '${bucket}'?`)) return;
+    const confirmed = await arenaConfirm({
+        title: 'Excluir Arquivo do Data Lake',
+        message: `Deseja realmente excluir permanentemente o arquivo '${filename}' do bucket '${bucket}'?`,
+        confirmText: 'Excluir Arquivo',
+        cancelText: 'Cancelar',
+        isDanger: true
+    });
+    if (!confirmed) return;
 
     const formData = new URLSearchParams();
     formData.append('bucket', bucket);
@@ -536,13 +979,13 @@ async function deletarArquivoCatalog(bucket, filename) {
         const result = await res.json();
 
         if (res.ok) {
-            alert(result.message);
+            await arenaAlert({ title: 'Arquivo Excluído', message: result.message || 'Arquivo removido com sucesso.', type: 'success' });
             carregarDataCatalog();
         } else {
-            alert('Error: ' + result.detail);
+            await arenaAlert({ title: 'Erro ao Excluir', message: result.detail || 'Falha ao remover o objeto.', type: 'error' });
         }
     } catch (e) {
-        alert('Communication error while trying to delete the file.');
+        await arenaAlert({ title: 'Erro de Conexão', message: 'Falha de comunicação com o serviço MinIO.', type: 'error' });
     }
 }
 
@@ -552,7 +995,7 @@ document.getElementById('uploadCatalogForm').addEventListener('submit', async (e
     const fileInput = document.getElementById('uploadFile').files[0];
 
     if (!bucket || !fileInput) {
-        alert('Enter the bucket and select a file.');
+        await arenaAlert({ title: 'Atenção', message: 'Informe o nome do bucket e selecione um arquivo para upload.', type: 'warning' });
         return;
     }
 
@@ -569,21 +1012,31 @@ document.getElementById('uploadCatalogForm').addEventListener('submit', async (e
         const result = await res.json();
 
         if (res.ok) {
-            alert(result.message);
+            await arenaAlert({ title: 'Upload Concluído', message: result.message || 'Arquivo enviado com sucesso para o Data Lake.', type: 'success' });
             document.getElementById('uploadCatalogForm').reset();
             carregarDataCatalog();
         } else {
-            alert('Error: ' + result.detail);
+            await arenaAlert({ title: 'Erro no Upload', message: result.detail || 'Falha ao enviar arquivo.', type: 'error' });
         }
     } catch (e) {
-        alert('Error while uploading the file to the Data Lake.');
+        await arenaAlert({ title: 'Erro de Conexão', message: 'Falha de comunicação com o servidor de storage.', type: 'error' });
     }
 });
 
+// ----------------------------------------------------------------------------
+// EXCLUSÃO DA CONTA DE ADMIN
+// ----------------------------------------------------------------------------
 async function executarAutodelecao() {
     const inputVal = document.getElementById('selfDeleteInput').value.trim();
 
-    if (!confirm('WARNING: Do you really want to delete your own administrator account? This action is irreversible!')) return;
+    const confirmed = await arenaConfirm({
+        title: 'Excluir Minha Conta de Administrador',
+        message: 'AVISO: Você tem certeza que deseja excluir sua própria conta de administrador? Esta ação é irreversível!',
+        confirmText: 'Excluir Minha Conta',
+        cancelText: 'Cancelar',
+        isDanger: true
+    });
+    if (!confirmed) return;
 
     try {
         const res = await fetch('/api/admin/account/self', {
@@ -597,48 +1050,20 @@ async function executarAutodelecao() {
         const result = await res.json();
 
         if (res.ok) {
-            alert(result.message);
+            await arenaAlert({ title: 'Conta Excluída', message: result.message || 'Sua conta foi excluída com sucesso.', type: 'info' });
             sessionStorage.removeItem('access_token');
             window.location.href = '/';
         } else {
-            alert('Error: ' + result.detail);
+            await arenaAlert({ title: 'Erro na Exclusão', message: result.detail || 'Não foi possível excluir sua conta.', type: 'error' });
         }
     } catch (e) {
-        alert('Communication error with the server.');
+        await arenaAlert({ title: 'Erro de Conexão', message: 'Falha de comunicação com o servidor.', type: 'error' });
     }
 }
 
-async function resetarSenha(userId, username) {
-    const novaSenha = prompt(`Enter the temporary new password for '${username}' (Min. 8 characters):`);
-    if (!novaSenha) return;
-
-    if (novaSenha.length < 8) {
-        alert('The temporary password must be at least 8 characters long.');
-        return;
-    }
-
-    try {
-        const res = await fetch(`/api/admin/users/${userId}/reset-password`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ new_password: novaSenha })
-        });
-        const result = await res.json();
-
-        if (res.ok) {
-            alert(result.message);
-            carregarUsuarios();
-        } else {
-            alert('Error: ' + result.detail);
-        }
-    } catch (e) {
-        alert('Communication error while resetting the password.');
-    }
-}
-
+// ----------------------------------------------------------------------------
+// REDE TAILSCALE E WEB TERMINAL
+// ----------------------------------------------------------------------------
 async function carregarTailscale() {
     try {
         const res = await fetch('/api/admin/tailscale/status', {
@@ -654,72 +1079,79 @@ async function carregarTailscale() {
             select.innerHTML = '<option value="">Selecione um Servidor...</option>';
 
             data.network.forEach(node => {
-                // Popula a Tabela
-                const statusColor = node.status === 'Connected' ? '#2ea043' : '#8b949e';
+                const statusBadge = node.status === 'Connected' 
+                    ? '<span style="display: inline-flex; align-items: center; gap: 6px; color: var(--arena-ok); font-weight: 600;"><span style="width: 6px; height: 6px; border-radius: 50%; background: var(--arena-ok); box-shadow: 0 0 6px var(--arena-ok);"></span>Conectado</span>' 
+                    : '<span style="display: inline-flex; align-items: center; gap: 6px; color: var(--arena-text-dim);"><span style="width: 6px; height: 6px; border-radius: 50%; background: var(--arena-text-dim);"></span>Desconectado</span>';
 
                 tbody.innerHTML += `
-                    <tr style="border-bottom: 1px solid #21262d;">
-                        <td style="padding: 15px 10px;">
-                            <div style="color: #c9d1d9; font-weight: bold;">${node.hostname} ${node.is_self ? '<span style="font-size: 0.7em; background: #30363d; padding: 2px 6px; border-radius: 10px; margin-left: 5px;">This Node</span>' : ''}</div>
-                            <div style="font-size: 0.8em; margin-top: 5px;">
-                                <span style="background: #1f6feb; padding: 2px 6px; border-radius: 4px; color: white;">tag:servers</span>
+                    <tr>
+                        <td>
+                            <div style="color: var(--arena-text-main); font-weight: 600; font-family: var(--font-mono);">${node.hostname} ${node.is_self ? '<span style="font-size: 0.68rem; background: var(--arena-surface-input); border: 1px solid var(--arena-lines); padding: 1px 6px; border-radius: 4px; color: var(--arena-orange); margin-left: 6px;">Este Nó</span>' : ''}</div>
+                            <div style="font-size: 0.75rem; margin-top: 4px;">
+                                <span class="badge badge-common">tag:servers</span>
                             </div>
                         </td>
-                        <td style="padding: 15px 10px; font-family: monospace; color: #58a6ff;">
-                            ${node.ip} ⌵
+                        <td style="font-family: var(--font-mono); color: var(--arena-blue); font-size: 0.85rem;">
+                            ${node.ip}
                         </td>
-                        <td style="padding: 15px 10px; color: #8b949e; font-size: 0.9em;">
-                            v${node.version}<br>${node.os}
+                        <td style="color: var(--arena-text-muted); font-size: 0.85rem;">
+                            v${node.version} · ${node.os}
                         </td>
-                        <td style="padding: 15px 10px; color: ${statusColor};">
-                            ● ${node.status}
+                        <td style="font-size: 0.85rem;">
+                            ${statusBadge}
                         </td>
                     </tr>
                 `;
 
-                // Popula o Dropdown do Terminal
                 if (node.status === 'Connected') {
                     select.innerHTML += `<option value="${node.ip}">${node.hostname} (${node.ip})</option>`;
                 }
             });
         }
     } catch (e) {
-        console.error('Erro ao carregar rede Tailscale', e);
+        console.error('Erro ao carregar rede Tailscale:', e);
     }
 }
 
-// Ações dos Botões (Rascunhos para a próxima fase)
-function addTailscaleNode() {
-    const link = document.getElementById('ts-add-link').value;
-    if (!link) return alert("Cole o link primeiro!");
+async function addTailscaleNode() {
+    const link = document.getElementById('ts-add-link').value.trim();
+    if (!link) {
+        await arenaAlert({ title: 'Atenção', message: 'Por favor, cole o link de autenticação do Tailscale primeiro.', type: 'warning' });
+        return;
+    }
     window.open(link, '_blank');
 }
 
 let currentTerm = null;
 let currentWs = null;
 
-function openWebTerminal() {
+async function openWebTerminal() {
     const ip = document.getElementById('ts-terminal-select').value;
-    if (!ip) return alert("Selecione um servidor na lista!");
+    if (!ip) {
+        await arenaAlert({ title: 'Atenção', message: 'Selecione um servidor na lista para conectar via SSH.', type: 'warning' });
+        return;
+    }
 
     document.getElementById('terminal-container').style.display = 'block';
-    document.getElementById('terminal-title').innerText = `Root Shell ➔ root@${ip}`;
+    document.getElementById('terminal-title').innerText = `Root Shell: root@${ip}`;
 
     const screen = document.getElementById('terminal-screen');
-    screen.innerHTML = ''; // Limpa o canvas
+    screen.innerHTML = '';
 
-    // Inicializa a interface gráfica do Terminal
     currentTerm = new Terminal({
         cursorBlink: true,
-        fontFamily: 'Consolas, monospace',
-        theme: { background: '#0d1117' }
+        fontFamily: 'JetBrains Mono, Consolas, monospace',
+        theme: { 
+            background: '#090c12',
+            foreground: '#f8fafc',
+            cursor: '#f39200'
+        }
     });
     const fitAddon = new FitAddon.FitAddon();
     currentTerm.loadAddon(fitAddon);
     currentTerm.open(screen);
     fitAddon.fit();
 
-    // Inicia o WebSocket apontando para o FastAPI
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     currentWs = new WebSocket(`${wsProtocol}//${window.location.host}/api/admin/terminal/${ip}?token=${token}`);
 
@@ -727,12 +1159,10 @@ function openWebTerminal() {
         currentTerm.write(`\r\n[ ArenaLake Web Terminal ] Conectando via SSH em ${ip}...\r\n`);
     };
 
-    // Imprime na tela tudo que o servidor responder
     currentWs.onmessage = (event) => {
         currentTerm.write(event.data);
     };
 
-    // Envia para o servidor tudo que o usuário digitar
     currentTerm.onData(data => {
         if (currentWs.readyState === WebSocket.OPEN) {
             currentWs.send(data);
@@ -756,18 +1186,41 @@ function closeWebTerminal() {
     document.getElementById('terminal-container').style.display = 'none';
 }
 
+// ----------------------------------------------------------------------------
+// INICIALIZAÇÃO
+// ----------------------------------------------------------------------------
 async function init() {
-    carregarDataCatalog();
-    await carregarWorkspaces();
-    await carregarUsuarios();
-    await carregarClusterNodes();
-    await carregarTailscale();
+    // 1. Restaura imediatamente a aba em que o usuário estava (sem aguardar rede)
+    const initialSec = getInitialSection();
+    showSection(initialSec);
 
-    // Atualiza as sessões e o monitoramento de Nodes em TEMPO REAL (a cada 10 seg)
+    // 2. Carrega todos os dados do painel em segundo plano
+    carregarDataCatalog();
+    carregarTailscale();
+    await Promise.allSettled([
+        carregarWorkspaces(),
+        carregarUsuarios(),
+        carregarClusterNodes()
+    ]);
+
     setInterval(() => {
         carregarWorkspaces();
         carregarClusterNodes();
     }, 10000);
 }
 
-init();
+// Suporte para navegação pelo histórico (botões Voltar / Avançar do navegador)
+window.addEventListener('popstate', (e) => {
+    const sec = (e.state && e.state.section) || getInitialSection();
+    showSection(sec);
+});
+
+// Aplica a aba salva imediatamente antes do render completo para evitar piscar de tela
+(() => {
+    const startupSec = getInitialSection();
+    if (startupSec && startupSec !== 'register') {
+        showSection(startupSec);
+    }
+})();
+
+document.addEventListener('DOMContentLoaded', init);

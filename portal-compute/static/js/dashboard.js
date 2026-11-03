@@ -1,3 +1,143 @@
+
+/* ============================================================================
+   ArenaLake Design System - Modais e Notificações Oficiais (Substitutos de alert/confirm/prompt)
+   ============================================================================ */
+
+function createModalElement() {
+    let backdrop = document.getElementById('arena-modal-backdrop');
+    if (!backdrop) {
+        backdrop = document.createElement('div');
+        backdrop.id = 'arena-modal-backdrop';
+        backdrop.className = 'arena-modal-backdrop';
+        document.body.appendChild(backdrop);
+    }
+    backdrop.style.pointerEvents = '';
+    return backdrop;
+}
+
+function arenaAlert({ title = 'Aviso', message, type = 'info' }) {
+    return new Promise(resolve => {
+        const backdrop = createModalElement();
+
+        let iconClass = 'icon-info';
+        let iconSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+
+        if (type === 'success') {
+            iconClass = 'icon-success';
+            iconSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
+        } else if (type === 'error' || type === 'danger') {
+            iconClass = 'icon-danger';
+            iconSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+        } else if (type === 'warning') {
+            iconClass = 'icon-warning';
+            iconSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+        }
+
+        backdrop.innerHTML = `
+            <div class="arena-modal-card" role="dialog" aria-modal="true">
+                <div class="modal-header-row">
+                    <div class="modal-icon-badge ${iconClass}">
+                        ${iconSvg}
+                    </div>
+                    <div class="modal-title-area">
+                        <h3 class="modal-title">${title}</h3>
+                    </div>
+                    <button class="modal-close-btn" id="modal-btn-close" aria-label="Fechar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+                <div class="modal-message">${message}</div>
+                <div class="modal-footer">
+                    <button class="btn-primary" id="modal-btn-ok">Entendi</button>
+                </div>
+            </div>
+        `;
+
+        requestAnimationFrame(() => backdrop.classList.add('is-visible'));
+
+        function close() {
+            window.removeEventListener('keydown', onKeyDown);
+            backdrop.classList.remove('is-visible');
+            backdrop.style.pointerEvents = 'none';
+            setTimeout(() => {
+                backdrop.remove();
+                resolve();
+            }, 200);
+        }
+
+        function onKeyDown(e) {
+            if (e.key === 'Escape' || e.key === 'Enter') {
+                close();
+            }
+        }
+
+        window.addEventListener('keydown', onKeyDown);
+        document.getElementById('modal-btn-ok').onclick = close;
+        document.getElementById('modal-btn-close').onclick = close;
+        backdrop.onclick = (e) => {
+            if (e.target === backdrop) close();
+        };
+    });
+}
+
+function arenaConfirm({ title = 'Confirmação', message, confirmText = 'Confirmar', cancelText = 'Cancelar', isDanger = false }) {
+    return new Promise(resolve => {
+        const backdrop = createModalElement();
+
+        const iconClass = isDanger ? 'icon-danger' : 'icon-warning';
+        const iconSvg = isDanger
+            ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>'
+            : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
+
+        const confirmBtnClass = isDanger ? 'btn-danger' : 'btn-primary';
+
+        backdrop.innerHTML = `
+            <div class="arena-modal-card" role="dialog" aria-modal="true">
+                <div class="modal-header-row">
+                    <div class="modal-icon-badge ${iconClass}">
+                        ${iconSvg}
+                    </div>
+                    <div class="modal-title-area">
+                        <h3 class="modal-title">${title}</h3>
+                    </div>
+                    <button class="modal-close-btn" id="modal-btn-close" aria-label="Fechar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+                <div class="modal-message">${message}</div>
+                <div class="modal-footer">
+                    <button class="btn-secondary" id="modal-btn-cancel">${cancelText}</button>
+                    <button class="${confirmBtnClass}" id="modal-btn-confirm">${confirmText}</button>
+                </div>
+            </div>
+        `;
+
+        requestAnimationFrame(() => backdrop.classList.add('is-visible'));
+
+        function finish(confirmed) {
+            window.removeEventListener('keydown', onKeyDown);
+            backdrop.classList.remove('is-visible');
+            backdrop.style.pointerEvents = 'none';
+            setTimeout(() => {
+                backdrop.remove();
+                resolve(confirmed);
+            }, 200);
+        }
+
+        function onKeyDown(e) {
+            if (e.key === 'Escape') finish(false);
+        }
+
+        window.addEventListener('keydown', onKeyDown);
+        document.getElementById('modal-btn-confirm').onclick = () => finish(true);
+        document.getElementById('modal-btn-cancel').onclick = () => finish(false);
+        document.getElementById('modal-btn-close').onclick = () => finish(false);
+        backdrop.onclick = (e) => {
+            if (e.target === backdrop) finish(false);
+        };
+    });
+}
+
 /* ============================================================================
    ArenaLake Dashboard JavaScript - Main Interface Logic
    ============================================================================
@@ -119,24 +259,50 @@ let biGridInicializado = false;
 let biGrid = null;
 
 function switchTab(tabId, element) {
+    if (!element) {
+        element = document.querySelector(`.menu-item[onclick*="'${tabId}'"]`);
+    }
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
 
-    document.getElementById(tabId).classList.add('active');
-    element.classList.add('active');
+    const targetTab = document.getElementById(tabId);
+    if (targetTab) targetTab.classList.add('active');
+    if (element) element.classList.add('active');
     closePanel();
+
+    try {
+        sessionStorage.setItem('arena_dashboard_active_tab', tabId);
+        const url = new URL(window.location);
+        url.searchParams.set('tab', tabId);
+        window.history.replaceState({}, '', url);
+    } catch (e) {}
 
     if (tabId === 'data') loadCatalog();
     if (tabId === 'compute') initCharts();
+    if (tabId === 'scheduler') loadSchedulerData();
 
     // Initialize the BI grid only when its tab is opened for the first time.
-    if (tabId === 'bi' && !biGridInicializado) {
-        biGrid = GridStack.init({
-            cellHeight: 120,
-            margin: 10,
-            resizable: { handles: 'e, se, s, sw, w' }
-        }, '.grid-stack');
-        biGridInicializado = true;
+    if (tabId === 'bi') {
+        if (!biGridInicializado) {
+            const gridElem = document.querySelector('.grid-stack');
+            if (gridElem && typeof GridStack !== 'undefined') {
+                try {
+                    biGrid = GridStack.init({
+                        cellHeight: 120,
+                        margin: 10,
+                        resizable: { handles: 'e, se, s, sw, w' }
+                    }, gridElem);
+                } catch (e) {
+                    console.warn('GridStack init skipped:', e);
+                }
+            }
+            biGridInicializado = true;
+        }
+        if (!globalCatalogData) {
+            loadCatalog();
+        } else {
+            atualizarListaDatasetsBI();
+        }
     }
 }
 
@@ -196,9 +362,9 @@ function updateFolderDropdown() {
     });
 
     // Build options for the bucket root and each discovered folder.
-    let optionsHtml = '<option value="/">📁 (Root - Loose Files)</option>';
+    let optionsHtml = '<option value="/">/ (Raiz - Arquivos Avulsos)</option>';
     folders.forEach(folder => {
-        optionsHtml += `<option value="${folder}">📁 ${folder}</option>`;
+        optionsHtml += `<option value="${folder}">${folder}/</option>`;
     });
 
     folderSelect.innerHTML = optionsHtml;
@@ -237,7 +403,7 @@ function renderCatalogTable() {
                     // Display each logical dataset only once.
                     if (!displayedDatasets.has(datasetKey)) {
                         displayedDatasets.add(datasetKey);
-                        filteredFiles.push({ name: f, display: `📁 ${datasetName} (Dataset Spark)` });
+                        filteredFiles.push({ name: f, display: `${datasetName} (Dataset Spark)` });
                     }
                 } else {
                     // Display regular files using their relative path.
@@ -270,7 +436,7 @@ function renderCatalogTable() {
 async function uploadFile() {
     const fileInput = document.getElementById('fileInput');
     const bucket = document.getElementById('bucketSelect').value;
-    if (fileInput.files.length === 0) return alert('Select a file first!');
+    if (fileInput.files.length === 0) { arenaAlert({ title: 'Atenção', message: 'Selecione um arquivo primeiro para enviar.', type: 'warning' }); return; }
 
     const formData = new FormData();
     formData.append('file', fileInput.files[0]);
@@ -284,10 +450,10 @@ async function uploadFile() {
             fileInput.value = '';
             loadCatalog();
         } else {
-            alert('Error: ' + result.message);
+            arenaAlert({ title: 'Erro', message: result.message || 'Falha no upload do arquivo.', type: 'error' });
         }
     } catch (e) {
-        alert('Error uploading the file.');
+        arenaAlert({ title: 'Erro de Conexão', message: 'Não foi possível enviar o arquivo ao servidor MinIO.', type: 'error' });
     }
 }
 
@@ -438,9 +604,15 @@ function formatDuration(ms) {
     return (seconds / 60).toFixed(1) + ' min';
 }
 
-const tableStyle = 'width: 100%; text-align: left; border-collapse: collapse;';
-const thStyle = 'border-bottom: 1px solid #30363d; padding-bottom: 8px; color: #8b949e; font-weight: normal;';
-const tdStyle = 'padding: 10px 0; border-bottom: 1px solid #21262d;';
+function escapeSparkHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
 
 let expandedAppId = null;
 
@@ -451,79 +623,349 @@ async function updateSparkDashboard() {
 
         if (data.status !== 'success') return;
 
-        let workersHtml = '';
-        if (data.workers && data.workers.length === 0) {
-            workersHtml = '<span style="color: #8b949e;">No worker allocated/active at the moment.</span>';
-        } else {
-            data.workers.forEach(w => {
-                workersHtml += `
-                    <div style="margin-bottom: 5px;">
-                        <span style="color: #c9d1d9;"><strong>ID:</strong> ${w.id}</span><br>
-                        <span style="color: #8b949e;"><strong>Host:</strong> ${w.host}:${w.port}</span> | 
-                        <span style="color: #8b949e;"><strong>Cores:</strong> ${w.coresused} / ${w.cores}</span> | 
-                        <span style="color: #8b949e;"><strong>Memory:</strong> ${w.memoryused} / ${w.memory} MB</span>
-                    </div>`;
-            });
+        // 1. Render Cluster Quick KPI Strip if summary container exists
+        const summaryStrip = document.getElementById('spark-summary-strip');
+        if (summaryStrip && data.workers) {
+            const totalWorkers = data.workers.length;
+            const activeWorkers = data.workers.filter(w => {
+                const s = (w.state || 'ALIVE').toUpperCase();
+                return s === 'ALIVE';
+            }).length;
+
+            const totalCores = data.workers.reduce((acc, w) => acc + (Number(w.cores) || 0), 0);
+            const usedCores = data.workers.reduce((acc, w) => acc + (Number(w.coresused) || 0), 0);
+            const totalMem = data.workers.reduce((acc, w) => acc + (Number(w.memory) || 0), 0);
+            const usedMem = data.workers.reduce((acc, w) => acc + (Number(w.memoryused) || 0), 0);
+
+            const formatMem = (mb) => {
+                if (mb >= 1024) return (mb / 1024).toFixed(1) + ' GB';
+                return mb + ' MB';
+            };
+
+            summaryStrip.innerHTML = `
+                <div class="spark-summary-card">
+                    <div class="spark-summary-icon">
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                            <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                            <line x1="6" y1="18" x2="6.01" y2="18"></line>
+                        </svg>
+                    </div>
+                    <div class="spark-summary-meta">
+                        <span class="spark-summary-label">Nós Ativos</span>
+                        <span class="spark-summary-val">${activeWorkers} <small>/ ${totalWorkers}</small></span>
+                    </div>
+                </div>
+
+                <div class="spark-summary-card">
+                    <div class="spark-summary-icon icon-orange">
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                            <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                            <rect x="9" y="9" width="6" height="6"></rect>
+                            <line x1="9" y1="1" x2="9" y2="4"></line>
+                            <line x1="15" y1="1" x2="15" y2="4"></line>
+                            <line x1="9" y1="20" x2="9" y2="23"></line>
+                            <line x1="15" y1="20" x2="15" y2="23"></line>
+                        </svg>
+                    </div>
+                    <div class="spark-summary-meta">
+                        <span class="spark-summary-label">Cores do Cluster</span>
+                        <span class="spark-summary-val">${usedCores} <small>/ ${totalCores} alocados</small></span>
+                    </div>
+                </div>
+
+                <div class="spark-summary-card">
+                    <div class="spark-summary-icon icon-green">
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                            <path d="M6 19v-3"></path>
+                            <path d="M10 19v-3"></path>
+                            <path d="M14 19v-3"></path>
+                            <path d="M18 19v-3"></path>
+                            <rect x="3" y="5" width="18" height="11" rx="2"></rect>
+                        </svg>
+                    </div>
+                    <div class="spark-summary-meta">
+                        <span class="spark-summary-label">Memória Alocada</span>
+                        <span class="spark-summary-val">${formatMem(usedMem)} <small>/ ${formatMem(totalMem)}</small></span>
+                    </div>
+                </div>
+            `;
         }
-        document.getElementById('spark-workers-content').innerHTML = workersHtml;
 
-        let activeHtml = '';
-        if (data.active_apps && data.active_apps.length === 0) {
-            activeHtml = '<span style="color: #8b949e;">No application is running right now. Start a process in your Jupyter session.</span>';
-            expandedAppId = null;
-        } else {
-            activeHtml = `<table style="${tableStyle}">
-                    <tr><th style="${thStyle}">Job Name</th><th style="${thStyle}">User</th><th style="${thStyle}">Used Cores</th><th style="${thStyle}">Memory/Node</th><th style="${thStyle}">Duration</th></tr>`;
+        // 2. Render Workers Cards
+        const workersContainer = document.getElementById('spark-workers-content');
+        if (workersContainer) {
+            if (!data.workers || data.workers.length === 0) {
+                workersContainer.innerHTML = `
+                    <div class="spark-panel spark-panel-empty">
+                        <svg viewBox="0 0 24 24" width="32" height="32" stroke="currentColor" stroke-width="1.5" fill="none">
+                            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                            <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                            <line x1="6" y1="18" x2="6.01" y2="18"></line>
+                        </svg>
+                        <span>Nenhum nó de processamento (Worker) ativo no cluster no momento.</span>
+                    </div>
+                `;
+            } else {
+                let workersCardsHtml = '<div class="spark-workers-grid">';
+                data.workers.forEach((w, idx) => {
+                    const cores = Number(w.cores) || 0;
+                    const coresUsed = Number(w.coresused) || 0;
+                    const memory = Number(w.memory) || 0;
+                    const memoryUsed = Number(w.memoryused) || 0;
 
-            data.active_apps.forEach(app => {
-                let isExpanded = (expandedAppId === app.id);
-                let displayState = isExpanded ? 'table-row' : 'none';
-                let bgHover = isExpanded ? '#21262d' : 'transparent';
-                let seta = isExpanded ? '▼' : '▶';
+                    const coresPct = cores > 0 ? Math.min(100, Math.round((coresUsed / cores) * 100)) : 0;
+                    const memPct = memory > 0 ? Math.min(100, Math.round((memoryUsed / memory) * 100)) : 0;
 
-                activeHtml += `<tr style="cursor: pointer; background: ${bgHover}; transition: 0.2s;" 
-                           onclick="toggleAppDetails('${app.id}')" 
-                           onmouseover="this.style.background='#21262d'" 
-                           onmouseout="this.style.background='${isExpanded ? '#21262d' : 'transparent'}'">
-                    <td style="${tdStyle} color: #58a6ff; font-weight: bold;">${seta} ${app.name}</td>
-                    <td style="${tdStyle} color: #c9d1d9;">${app.user}</td>
-                    <td style="${tdStyle} color: #c9d1d9;">${app.cores}</td>
-                    <td style="${tdStyle} color: #c9d1d9;">${app.memoryperslave} MB</td>
-                    <td style="${tdStyle} color: #c9d1d9;">⏳ ${formatDuration(app.duration)}</td>
-                </tr>`;
+                    const rawState = (w.state || 'ALIVE').toUpperCase();
+                    let statusClass = 'status-alive';
+                    let statusLabel = 'Ativo';
 
-                activeHtml += `<tr id="details-${app.id}" style="display: ${displayState}; background: #0d1117;">
-                     <td colspan="5" style="padding: 15px; border-bottom: 1px solid #30363d;" id="content-${app.id}">
-                        <span style="color: #8b949e;">Fetching real-time parallelism metrics...</span>
-                     </td>
-                   </tr>`;
-            });
-            activeHtml += `</table>`;
+                    if (rawState === 'DEAD' || rawState === 'DECOMMISSIONED' || rawState === 'INACTIVE') {
+                        statusClass = 'status-dead';
+                        statusLabel = 'Inativo';
+                    } else if (rawState === 'UNKNOWN' || rawState === 'UNAVAILABLE') {
+                        statusClass = 'status-unavailable';
+                        statusLabel = 'Indisponível';
+                    }
+
+                    const workerNum = String(idx + 1).padStart(2, '0');
+
+                    workersCardsHtml += `
+                        <div class="worker-card">
+                            <div class="worker-card-header">
+                                <div class="worker-identity">
+                                    <div class="worker-icon-box">
+                                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                                            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                                            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                                            <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                                            <line x1="6" y1="18" x2="6.01" y2="18"></line>
+                                        </svg>
+                                    </div>
+                                    <div class="worker-name-group">
+                                        <div class="worker-title">Worker ${workerNum}</div>
+                                        <div class="worker-host-badge" title="Host e porta de comunicação">
+                                            <svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" stroke-width="2" fill="none">
+                                                <circle cx="12" cy="12" r="10"></circle>
+                                                <line x1="2" y1="12" x2="22" y2="12"></line>
+                                                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                                            </svg>
+                                            <span>${escapeSparkHtml(w.host)}:${escapeSparkHtml(String(w.port))}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <span class="worker-status-badge ${statusClass}">
+                                    <span class="status-dot-mini"></span>
+                                    ${statusLabel}
+                                </span>
+                            </div>
+
+                            <div class="worker-id-row">
+                                <span class="worker-id-tag">ID</span>
+                                <span class="worker-id-text" title="${escapeSparkHtml(w.id)}">${escapeSparkHtml(w.id)}</span>
+                            </div>
+
+                            <div class="worker-metrics-grid">
+                                <div class="worker-metric-box">
+                                    <div class="worker-metric-header">
+                                        <span class="worker-metric-title">
+                                            <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none">
+                                                <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                                                <rect x="9" y="9" width="6" height="6"></rect>
+                                                <line x1="9" y1="1" x2="9" y2="4"></line>
+                                                <line x1="15" y1="1" x2="15" y2="4"></line>
+                                                <line x1="9" y1="20" x2="9" y2="23"></line>
+                                                <line x1="15" y1="20" x2="15" y2="23"></line>
+                                            </svg>
+                                            Cores
+                                        </span>
+                                        <span class="worker-metric-val">
+                                            <strong>${coresUsed}</strong> / ${cores}
+                                            <span class="worker-metric-pct">(${coresPct}%)</span>
+                                        </span>
+                                    </div>
+                                    <div class="worker-track">
+                                        <div class="worker-bar bar-cpu" style="width: ${coresPct}%;"></div>
+                                    </div>
+                                </div>
+
+                                <div class="worker-metric-box">
+                                    <div class="worker-metric-header">
+                                        <span class="worker-metric-title">
+                                            <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none">
+                                                <path d="M6 19v-3"></path>
+                                                <path d="M10 19v-3"></path>
+                                                <path d="M14 19v-3"></path>
+                                                <path d="M18 19v-3"></path>
+                                                <rect x="3" y="5" width="18" height="11" rx="2"></rect>
+                                            </svg>
+                                            Memória
+                                        </span>
+                                        <span class="worker-metric-val">
+                                            <strong>${memoryUsed}</strong> / ${memory} MB
+                                            <span class="worker-metric-pct">(${memPct}%)</span>
+                                        </span>
+                                    </div>
+                                    <div class="worker-track">
+                                        <div class="worker-bar bar-mem" style="width: ${memPct}%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                workersCardsHtml += '</div>';
+                workersContainer.innerHTML = workersCardsHtml;
+            }
         }
-        document.getElementById('spark-active-apps').innerHTML = activeHtml;
+
+        // 3. Render Active Applications
+        const activeContainer = document.getElementById('spark-active-apps');
+        if (activeContainer) {
+            if (!data.active_apps || data.active_apps.length === 0) {
+                activeContainer.innerHTML = `
+                    <div class="spark-panel-empty">
+                        <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="1.5" fill="none">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                        <span>Nenhuma aplicação em execução no momento. Inicie um processamento via Jupyter ou Scheduler.</span>
+                    </div>
+                `;
+                expandedAppId = null;
+            } else {
+                let activeHtml = `
+                    <table class="spark-table">
+                        <thead>
+                            <tr>
+                                <th>Job / Aplicação</th>
+                                <th>Usuário</th>
+                                <th>Cores Usados</th>
+                                <th>Memória / Nó</th>
+                                <th>Duração</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                data.active_apps.forEach(app => {
+                    const isExpanded = (expandedAppId === app.id);
+                    const displayState = isExpanded ? 'table-row' : 'none';
+                    const expandedClass = isExpanded ? 'is-expanded' : '';
+
+                    activeHtml += `
+                        <tr class="spark-row-interactive ${expandedClass}" onclick="toggleAppDetails('${escapeSparkHtml(app.id)}')">
+                            <td>
+                                <span class="spark-app-name">
+                                    <svg class="spark-chevron ${isExpanded ? 'rotated' : ''}" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+                                        <polyline points="9 18 15 12 9 6"></polyline>
+                                    </svg>
+                                    ${escapeSparkHtml(app.name)}
+                                </span>
+                            </td>
+                            <td class="spark-mono">${escapeSparkHtml(app.user)}</td>
+                            <td class="spark-mono"><strong>${app.cores}</strong></td>
+                            <td class="spark-mono">${app.memoryperslave} MB</td>
+                            <td>
+                                <span class="spark-duration">
+                                    <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>
+                                    ${formatDuration(app.duration)}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr id="details-${escapeSparkHtml(app.id)}" style="display: ${displayState};">
+                            <td colspan="5" class="spark-details-container" id="content-${escapeSparkHtml(app.id)}">
+                                <div class="spark-panel-empty" style="padding: 12px;">
+                                    <span>Carregando métricas de paralelismo em tempo real...</span>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                activeHtml += `
+                        </tbody>
+                    </table>
+                `;
+                activeContainer.innerHTML = activeHtml;
+            }
+        }
 
         if (expandedAppId) {
             refreshJobProgress(expandedAppId);
         }
 
-        let completedHtml = '';
-        if (data.completed_apps && data.completed_apps.length === 0) {
-            completedHtml = '<span style="color: #8b949e;">No recent execution history.</span>';
-        } else {
-            completedHtml = `<table style="${tableStyle}">
-                    <tr><th style="${thStyle}">Job Name</th><th style="${thStyle}">User</th><th style="${thStyle}">Status</th><th style="${thStyle}">Duration</th></tr>`;
-            data.completed_apps.forEach(app => {
-                let stateColor = app.state === 'FINISHED' ? '#3fb950' : (app.state === 'FAILED' || app.state === 'KILLED' ? '#f85149' : '#d29922');
-                completedHtml += `<tr>
-                            <td style="${tdStyle} color: #c9d1d9;">${app.name}</td>
-                            <td style="${tdStyle} color: #c9d1d9;">${app.user}</td>
-                            <td style="${tdStyle} font-weight: bold; color: ${stateColor};">${app.state}</td>
-                            <td style="${tdStyle} color: #c9d1d9;">⏱️ ${formatDuration(app.duration)}</td>
-                        </tr>`;
-            });
-            completedHtml += `</table>`;
+        // 4. Render Completed Applications
+        const completedContainer = document.getElementById('spark-completed-apps');
+        if (completedContainer) {
+            if (!data.completed_apps || data.completed_apps.length === 0) {
+                completedContainer.innerHTML = `
+                    <div class="spark-panel-empty">
+                        <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="1.5" fill="none">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        <span>Nenhum histórico recente de execuções finalizadas.</span>
+                    </div>
+                `;
+            } else {
+                let completedHtml = `
+                    <table class="spark-table">
+                        <thead>
+                            <tr>
+                                <th>Job / Aplicação</th>
+                                <th>Usuário</th>
+                                <th>Status</th>
+                                <th>Duração</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                data.completed_apps.forEach(app => {
+                    const state = (app.state || 'FINISHED').toUpperCase();
+                    let badgeClass = 'badge-success';
+
+                    if (state === 'FINISHED' || state === 'SUCCEEDED') {
+                        badgeClass = 'badge-success';
+                    } else if (state === 'FAILED' || state === 'KILLED') {
+                        badgeClass = 'badge-danger';
+                    } else {
+                        badgeClass = 'badge-warning';
+                    }
+
+                    completedHtml += `
+                        <tr>
+                            <td><strong style="color: #ffffff;">${escapeSparkHtml(app.name)}</strong></td>
+                            <td class="spark-mono">${escapeSparkHtml(app.user)}</td>
+                            <td>
+                                <span class="spark-badge ${badgeClass}">${escapeSparkHtml(state)}</span>
+                            </td>
+                            <td>
+                                <span class="spark-duration">
+                                    <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>
+                                    ${formatDuration(app.duration)}
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                completedHtml += `
+                        </tbody>
+                    </table>
+                `;
+                completedContainer.innerHTML = completedHtml;
+            }
         }
-        document.getElementById('spark-completed-apps').innerHTML = completedHtml;
 
     } catch (error) {
         console.error('Dashboard engine error:', error);
@@ -549,17 +991,29 @@ async function refreshJobProgress(appId) {
         const data = await res.json();
 
         if (data.status !== 'success') {
-            contentDiv.innerHTML = `<span style="color:#f85149">❌ Failed to fetch metrics: ${data.message}</span>`;
+            contentDiv.innerHTML = `
+                <div class="spark-panel-empty" style="padding: 12px; color: var(--arena-danger);">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    <span>Falha ao consultar métricas: ${escapeSparkHtml(data.message || 'Erro')}</span>
+                </div>
+            `;
             return;
         }
 
         if (!data.jobs || data.jobs.length === 0) {
-            contentDiv.innerHTML = '<span style="color:#8b949e">Waiting for processing to begin... Run an action in Jupyter (such as .show() or .write).</span>';
+            contentDiv.innerHTML = `
+                <div class="spark-panel-empty" style="padding: 12px;">
+                    <span>Aguardando início do processamento... Execute uma ação no Jupyter (como .show() ou .write).</span>
+                </div>
+            `;
             return;
         }
 
-        let jobsHtml = '<div style="display: flex; flex-direction: column; gap: 12px; margin-top: 5px;">';
-
+        let jobsHtml = '<div style="display: flex; flex-direction: column; gap: 10px;">';
         const sortedJobs = data.jobs.sort((a, b) => b.jobId - a.jobId);
 
         sortedJobs.forEach(job => {
@@ -567,25 +1021,30 @@ async function refreshJobProgress(appId) {
             const completed = job.numCompletedTasks || 0;
             const active = job.numActiveTasks || 0;
 
-            const percComp = (completed / total) * 100;
-            const percAct = (active / total) * 100;
+            const percComp = Math.min(100, (completed / total) * 100);
+            const percAct = Math.min(100, (active / total) * 100);
 
-            const statusColor = job.status === 'SUCCEEDED' ? '#3fb950' : (job.status === 'RUNNING' ? '#58a6ff' : '#8b949e');
+            const status = (job.status || '').toUpperCase();
+            let badgeClass = 'badge-success';
+            if (status === 'RUNNING') badgeClass = 'badge-running';
+            else if (status === 'FAILED') badgeClass = 'badge-danger';
+            else if (status !== 'SUCCEEDED') badgeClass = 'badge-warning';
 
             jobsHtml += `
-                <div style="background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 12px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                        <strong style="color: #c9d1d9; font-size: 13px;">Job ID ${job.jobId} 
-                            <span style="color: ${statusColor}; font-size: 11px; margin-left: 8px; border: 1px solid ${statusColor}40; padding: 2px 6px; border-radius: 10px;">${job.status}</span>
-                        </strong>
-                        <span style="font-size: 12px; color: #8b949e;">${completed}/${total} Completed Tasks</span>
+                <div class="spark-job-card">
+                    <div class="spark-job-header">
+                        <span class="spark-job-title">
+                            Job ID ${job.jobId}
+                            <span class="spark-badge ${badgeClass}">${escapeSparkHtml(job.status)}</span>
+                        </span>
+                        <span class="spark-job-tasks">${completed}/${total} Tarefas Concluídas</span>
                     </div>
-                    
-                    <div style="font-size: 12px; color: #8b949e; margin-bottom: 10px; font-family: monospace;">${job.name}</div>
-                    
-                    <div style="background: #0d1117; border-radius: 4px; width: 100%; height: 14px; overflow: hidden; display: flex; border: 1px solid #30363d;">
-                        <div style="background: #3fb950; width: ${percComp}%; height: 100%; transition: width 0.5s ease-in-out;" title="Completas"></div>
-                        <div style="background: #58a6ff; width: ${percAct}%; height: 100%; transition: width 0.5s ease-in-out;" title="Processando"></div>
+
+                    <div class="spark-job-name">${escapeSparkHtml(job.name)}</div>
+
+                    <div class="spark-multi-bar">
+                        <div class="bar-comp" style="width: ${percComp}%;" title="Concluídas: ${completed}/${total}"></div>
+                        <div class="bar-act" style="width: ${percAct}%;" title="Em processamento: ${active}/${total}"></div>
                     </div>
                 </div>
             `;
@@ -595,7 +1054,11 @@ async function refreshJobProgress(appId) {
         contentDiv.innerHTML = jobsHtml;
 
     } catch (error) {
-        contentDiv.innerHTML = '<span style="color:#f85149">Error processing metrics for display.</span>';
+        contentDiv.innerHTML = `
+            <div class="spark-panel-empty" style="padding: 12px; color: var(--arena-danger);">
+                <span>Erro ao processar métricas para exibição.</span>
+            </div>
+        `;
     }
 }
 
@@ -604,6 +1067,18 @@ async function refreshJobProgress(appId) {
    ============================================================================ */
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Restore active tab if previously selected or from query string
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialTab = urlParams.get('tab') || sessionStorage.getItem('arena_dashboard_active_tab');
+        if (initialTab && initialTab !== 'workspace') {
+            const menuItem = document.querySelector(`.menu-item[onclick*="'${initialTab}'"]`);
+            if (menuItem) {
+                switchTab(initialTab, menuItem);
+            }
+        }
+    } catch (e) {}
+
     // Load and poll workspace metrics every 3 seconds
     loadMetrics();
     metricsInterval = setInterval(loadMetrics, 3000);
@@ -617,6 +1092,16 @@ document.addEventListener('DOMContentLoaded', () => {
 // ArenaLake scheduler - job execution and recurring schedule management.
 // ==============================================================
 
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 async function loadSchedulerData() {
     try {
         const res = await fetch('/api/jobs');
@@ -624,90 +1109,246 @@ async function loadSchedulerData() {
 
         if (data.status !== 'success') return;
 
-        // Render the scripts available in the shared jobs directory.
+        // Render available scripts
         let scriptsHtml = '';
-        if (data.scripts.length === 0) {
-            scriptsHtml = '<p style="color: #8b949e; font-style: italic;">No .py scripts found in the host /jobs folder.</p>';
+        const scriptsCountBadge = document.getElementById('scripts-count-badge');
+        if (scriptsCountBadge) {
+            const count = (data.scripts && data.scripts.length) || 0;
+            scriptsCountBadge.textContent = `${count} ${count === 1 ? 'script' : 'scripts'}`;
+        }
+
+        if (!data.scripts || data.scripts.length === 0) {
+            scriptsHtml = `
+            <div class="scheduler-empty-state">
+                <div class="empty-state-icon">
+                    <svg viewBox="0 0 24 24" width="26" height="26" stroke="currentColor" stroke-width="1.8" fill="none">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                </div>
+                <h4 class="empty-state-title">Nenhum script encontrado</h4>
+                <p class="empty-state-desc">Nenhum arquivo <code>.py</code> localizado na pasta compartilhada <code>/jobs</code> do host.</p>
+            </div>`;
         } else {
             data.scripts.forEach(script => {
+                const sName = escapeHtml(script);
                 scriptsHtml += `
-                <div style="display: flex; justify-content: space-between; align-items: center; background: #0d1117; padding: 12px; margin-bottom: 8px; border-radius: 6px; border: 1px solid #30363d;">
-                    <span style="color: #c9d1d9; font-family: monospace; font-size: 14px;">${script}</span>
-                    <div>
-                        <button onclick="runJobNow('${script}')" class="btn" style="background: #238636; border: none; padding: 6px 12px; font-size: 12px; margin-right: 5px;">▶️ Run Now</button>
-                        <button onclick="promptScheduleJob('${script}')" class="btn" style="background: #1f6feb; border: none; padding: 6px 12px; font-size: 12px;">⏰ Schedule (Cron)</button>
+                <div class="script-card">
+                    <div class="script-card-main">
+                        <div class="script-file-icon">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <polyline points="10 13 8 15 10 17"></polyline>
+                                <polyline points="14 13 16 15 14 17"></polyline>
+                            </svg>
+                        </div>
+                        <div class="script-info">
+                            <span class="script-name">${sName}</span>
+                            <span class="script-tag">Script Python • Apache Spark Driver</span>
+                        </div>
+                    </div>
+                    <div class="script-actions-group">
+                        <button onclick="runJobNow('${sName}')" class="btn-job-action btn-job-run" title="Executar imediatamente no cluster Spark">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2">
+                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                            </svg>
+                            <span>Executar agora</span>
+                        </button>
+                        <button onclick="openScheduleModal('${sName}')" class="btn-job-action btn-job-schedule" title="Criar ou substituir agendamento recorrente (Cron)">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            <span>Agendar (Cron)</span>
+                        </button>
                     </div>
                 </div>`;
             });
         }
-        document.getElementById('available-scripts-list').innerHTML = scriptsHtml;
+        const scriptsListElem = document.getElementById('available-scripts-list');
+        if (scriptsListElem) scriptsListElem.innerHTML = scriptsHtml;
 
-        // Render currently active schedules.
+        // Render currently active schedules
         let schedHtml = '';
-        if (data.scheduled.length === 0) {
-            schedHtml = '<p style="color: #8b949e; font-style: italic;">No jobs scheduled at the moment.</p>';
+        const cronCountBadge = document.getElementById('cron-count-badge');
+        if (cronCountBadge) {
+            const count = (data.scheduled && data.scheduled.length) || 0;
+            cronCountBadge.textContent = `${count} ${count === 1 ? 'ativo' : 'ativos'}`;
+        }
+
+        if (!data.scheduled || data.scheduled.length === 0) {
+            schedHtml = `
+            <div class="scheduler-empty-state">
+                <div class="empty-state-icon icon-muted">
+                    <svg viewBox="0 0 24 24" width="26" height="26" stroke="currentColor" stroke-width="1.8" fill="none">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                </div>
+                <h4 class="empty-state-title">Nenhum agendamento ativo</h4>
+                <p class="empty-state-desc">Selecione um script na lista e clique em <strong>Agendar (Cron)</strong> para automatizar sua rotina.</p>
+            </div>`;
         } else {
             data.scheduled.forEach(job => {
+                const jId = escapeHtml(job.id);
+                const jName = escapeHtml(job.name);
+                const jNext = escapeHtml(job.next_run || 'Pausado');
                 schedHtml += `
-                <div style="display: flex; justify-content: space-between; align-items: center; background: #0d1117; padding: 12px; margin-bottom: 8px; border-radius: 6px; border: 1px solid #30363d;">
-                    <div>
-                        <div style="color: #c9d1d9; font-weight: bold;">${job.name}</div>
-                        <div style="color: #8b949e; font-size: 12px; margin-top: 4px;">Next run: <span style="color: #e6edf3;">${job.next_run}</span></div>
+                <div class="schedule-card">
+                    <div class="schedule-card-main">
+                        <div class="schedule-file-icon">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                        </div>
+                        <div class="schedule-info">
+                            <span class="schedule-name">${jName}</span>
+                            <div class="schedule-meta-row">
+                                <span class="badge-cron-frequency">
+                                    <span class="mini-pulse-dot"></span>
+                                    <span>Recorrente (Cron)</span>
+                                </span>
+                                <span class="badge-next-run">
+                                    <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none">
+                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>
+                                    <span>Próxima:</span>
+                                    <strong class="next-run-time">${jNext}</strong>
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                    <button onclick="cancelSchedule('${job.id}')" class="btn" style="background: #da3633; border: none; padding: 6px 12px; font-size: 12px;">❌ Cancel</button>
+                    <div class="schedule-actions-group">
+                        <button onclick="cancelSchedule('${jId}')" class="btn-job-action btn-job-cancel" title="Cancelar este agendamento automático">
+                            <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                            <span>Cancelar</span>
+                        </button>
+                    </div>
                 </div>`;
             });
         }
-        document.getElementById('scheduled-jobs-list').innerHTML = schedHtml;
+        const schedListElem = document.getElementById('scheduled-jobs-list');
+        if (schedListElem) schedListElem.innerHTML = schedHtml;
 
     } catch (e) {
-        console.error("Error loading scheduler data:", e);
+        console.error("Erro ao carregar dados do agendador:", e);
     }
 }
 
 async function runJobNow(scriptName) {
-    if (!confirm(`Do you want to send the script "${scriptName}" to the Spark cluster now?`)) return;
+    const confirmed = await arenaConfirm({ title: 'Executar Script', message: `Deseja enviar o script "${scriptName}" para execução imediata no cluster Spark?`, confirmText: 'Executar Agora', cancelText: 'Cancelar' }); if (!confirmed) return;
 
     try {
         const res = await fetch(`/api/jobs/run/${scriptName}`, { method: 'POST' });
         const data = await res.json();
-        alert(data.message);
+        await arenaAlert({ title: data.status === 'success' ? 'Sucesso' : 'Erro', message: data.message, type: data.status === 'success' ? 'success' : 'error' });
 
         if (data.status === 'success') {
-            document.querySelectorAll('.menu-item')[4].click();
+            switchTab('spark');
         }
     } catch (e) {
-        alert("Fatal error while trying to execute the script.");
+        arenaAlert({ title: "Erro no Cluster", message: "Erro fatal ao tentar executar o script no cluster Spark.", type: "error" });
     }
 }
 
-async function promptScheduleJob(scriptName) {
-    const cron = prompt(`⏰ Schedule: ${scriptName}\n\nEnter the Cron expression.\nExample: "0 2 * * *" (Every day at 02:00)`, "0 2 * * *");
-    if (!cron) return;
+let currentSchedulingScript = '';
+
+function openScheduleModal(scriptName) {
+    currentSchedulingScript = scriptName;
+    const targetEl = document.getElementById('scheduleTargetScriptName');
+    if (targetEl) targetEl.textContent = scriptName;
+
+    const input = document.getElementById('customCronInput');
+    if (input) input.value = '0 2 * * *';
+    updateCronExplanation('0 2 * * *', 'Diariamente às 02:00');
+
+    const modal = document.getElementById('scheduleCronModal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeScheduleModal() {
+    const modal = document.getElementById('scheduleCronModal');
+    if (modal) modal.style.display = 'none';
+    currentSchedulingScript = '';
+}
+
+function applyCronPreset(expr, desc) {
+    const input = document.getElementById('customCronInput');
+    if (input) input.value = expr;
+    updateCronExplanation(expr, desc);
+}
+
+function updateCronExplanation(expr, presetDesc) {
+    const expl = document.getElementById('cronExplanationText');
+    if (!expl) return;
+    if (presetDesc) {
+        expl.innerHTML = `Periodicidade: <strong>${presetDesc}</strong> (<code>${escapeHtml(expr)}</code>)`;
+        return;
+    }
+    const map = {
+        '0 * * * *': 'Executa no início de cada hora.',
+        '0 2 * * *': 'Executa todos os dias às 02:00.',
+        '0 6 * * *': 'Executa todos os dias às 06:00.',
+        '0 8 * * 1-5': 'Executa de segunda a sexta-feira às 08:00.',
+        '*/30 * * * *': 'Executa a cada 30 minutos.',
+        '0 0 * * 0': 'Executa uma vez por semana (aos domingos às 00:00).'
+    };
+    expl.innerHTML = map[expr] || `Expressão crontab personalizada: <code>${escapeHtml(expr)}</code>`;
+}
+
+// Retrocompatibilidade para chamadas diretas
+function promptScheduleJob(scriptName) {
+    openScheduleModal(scriptName);
+}
+
+async function confirmScheduleJob() {
+    if (!currentSchedulingScript) return;
+    const cronInput = document.getElementById('customCronInput');
+    const cron = cronInput ? cronInput.value.trim() : '';
+    if (!cron) {
+        arenaAlert({ title: "Expressão Inválida", message: "Por favor, informe uma expressão Cron válida (ex: 0 2 * * *).", type: "warning" });
+        return;
+    }
+
+    const btn = document.getElementById('btnConfirmSchedule');
+    if (btn) btn.disabled = true;
 
     const formData = new FormData();
-    formData.append('job_name', scriptName);
+    formData.append('job_name', currentSchedulingScript);
     formData.append('cron_expr', cron);
 
     try {
-        const res = await fetch(`/api/jobs/schedule`, { method: 'POST', body: formData });
+        const res = await fetch('/api/jobs/schedule', { method: 'POST', body: formData });
         const data = await res.json();
-        alert(data.message);
-        loadSchedulerData();
+        await arenaAlert({ title: data.status === 'success' ? 'Sucesso' : 'Erro', message: data.message, type: data.status === 'success' ? 'success' : 'error' });
+
+        if (data.status === 'success') {
+            closeScheduleModal();
+            loadSchedulerData();
+        }
     } catch (e) {
-        alert("Error while trying to schedule the script.");
+        arenaAlert({ title: "Falha de Conexão", message: "Erro de comunicação ao tentar agendar a rotina no servidor.", type: "error" });
+    } finally {
+        if (btn) btn.disabled = false;
     }
 }
 
 async function cancelSchedule(jobId) {
-    if (!confirm("Do you really want to cancel this schedule? It will no longer run automatically.")) return;
+    const confirmed = await arenaConfirm({ title: "Cancelar Agendamento", message: "Deseja realmente cancelar este agendamento? Ele não será mais executado automaticamente.", confirmText: "Sim, Cancelar", cancelText: "Voltar", isDanger: true }); if (!confirmed) return;
 
     try {
         const res = await fetch(`/api/jobs/schedule/${jobId}`, { method: 'DELETE' });
         const data = await res.json();
         loadSchedulerData();
     } catch (e) {
-        alert("Error while trying to cancel the schedule.");
+        arenaAlert({ title: "Erro", message: "Erro ao tentar cancelar o agendamento no servidor.", type: "error" });
     }
 }
 
@@ -729,7 +1370,7 @@ setInterval(() => {
 function abrirModalVisual() {
     const tabela = document.getElementById('biDatasetSelector').value;
     if (!tabela) {
-        alert("Please select a table or dataset first!");
+        arenaAlert({ title: "Seleção Necessária", message: "Selecione primeiro uma tabela ou fonte de dados no menu superior.", type: "warning" });
         return;
     }
     document.getElementById('biModal').style.display = 'flex';
@@ -754,11 +1395,11 @@ async function confirmarNovoVisual() {
     const limiteLinhas = parseInt(document.getElementById('biLimiteLinhas').value) || 100;
     const colunasSelecionadas = Array.from(document.getElementById('biColunasTabela').selectedOptions).map(opt => opt.value);
 
-    if (!selector) return alert("Select a table.");
+    if (!selector) { arenaAlert({ title: "Aviso", message: "Selecione uma tabela primeiro.", type: "warning" }); return; }
 
-    if (tipo === 'table' && colunasSelecionadas.length === 0) return alert("Select at least 1 column for the table.");
-    if (tipo === 'kpi' && !eixoY) return alert("Select the metric (Y Axis).");
-    if (tipo !== 'table' && tipo !== 'kpi' && (!eixoX || !eixoY)) return alert("Select the X and Y axes.");
+    if (tipo === 'table' && colunasSelecionadas.length === 0) { arenaAlert({ title: "Aviso", message: "Selecione pelo menos 1 coluna para a tabela.", type: "warning" }); return; }
+    if (tipo === 'kpi' && !eixoY) { arenaAlert({ title: "Aviso", message: "Selecione a métrica (Eixo Y) para o cartão KPI.", type: "warning" }); return; }
+    if (tipo !== 'table' && tipo !== 'kpi' && (!eixoX || !eixoY)) { arenaAlert({ title: "Aviso", message: "Selecione os eixos X (Categoria) e Y (Métrica).", type: "warning" }); return; }
 
     const [bucket, filename] = selector.split('|');
     fecharModalVisual();
@@ -790,10 +1431,10 @@ async function confirmarNovoVisual() {
             const config = { bucket, filename, eixo_x: eixoX, eixo_y: eixoY, eixo_z: eixoZ, agregacao, tipo, colunas_tabela: colunasSelecionadas, tema: tema, ordenar_por: ordenarPor, ordem, limite_linhas: limiteLinhas };
             adicionarGraficoGrid(idUnico, titulo, tipo, result.data, config);
         } else {
-            alert("Error processing the data: " + result.message);
+            arenaAlert({ title: "Erro Analítico", message: "Erro ao processar os dados: " + result.message, type: "error" });
         }
     } catch (e) {
-        alert("Error connecting to the analytical engine.");
+        arenaAlert({ title: "Erro de Conexão", message: "Falha ao comunicar com o motor analítico.", type: "error" });
     }
 }
 
@@ -1267,10 +1908,10 @@ async function salvarEdicaoGrafico() {
                     chart.setOption(getEchartsOption(config.tipo, result.data), true);
                 }
             } else {
-                alert("Erro ao recalcular os dados: " + result.message);
+                arenaAlert({ title: "Erro", message: "Erro ao recalcular os dados: " + result.message, type: "error" });
             }
         } catch (e) {
-            alert("Falha de conexão.");
+            arenaAlert({ title: "Falha de Conexão", message: "Não foi possível atualizar o gráfico.", type: "error" });
         }
     } else if (config.tipo !== 'table' && config.tipo !== 'matrix') {
         // When data is unchanged, update only the chart colors.
@@ -1371,10 +2012,10 @@ async function carregarColunasDataset() {
             ['biEixoX', 'biEixoY', 'biEixoZ', 'biOrdenarPor'].forEach(el => document.getElementById(el).innerHTML = colsHtml);
             document.getElementById('biColunasTabela').innerHTML = colsMultiHtml;
         } else {
-            alert("Error extracting columns: " + data.message);
+            arenaAlert({ title: "Erro no Dataset", message: "Erro ao extrair colunas do dataset: " + data.message, type: "error" });
         }
     } catch (e) {
-        alert("Connection failure with the backend.");
+        arenaAlert({ title: "Falha de Comunicação", message: "Falha ao obter metadados do dataset.", type: "error" });
     }
 }
 
@@ -1386,7 +2027,7 @@ async function exportarDashboard(formato) {
 
     // Do not export an empty dashboard.
     if (biGrid.engine.nodes.length === 0) {
-        alert("The dashboard is empty. Add charts before exporting.");
+        arenaAlert({ title: "Dashboard Vazio", message: "O dashboard está vazio. Adicione visuais antes de exportar.", type: "warning" });
         return;
     }
 
@@ -1425,7 +2066,7 @@ async function exportarDashboard(formato) {
             pdf.save(`ArenaLake_Relatorio_${new Date().toISOString().slice(0, 10)}.pdf`);
         }
     } catch (error) {
-        alert("An error occurred while generating the report.");
+        arenaAlert({ title: "Erro na Exportação", message: "Ocorreu um erro ao gerar o documento exportado.", type: "error" });
         console.error(error);
     } finally {
         // Restore the dashboard grid border after capture.
@@ -1476,7 +2117,7 @@ window.globalFiltroValor = "";
 
 async function abrirModalFiltroGlobal() {
     const selector = document.getElementById('biDatasetSelector').value;
-    if (!selector) return alert("Select a data source from the top bar first.");
+    if (!selector) { arenaAlert({ title: "Fonte de Dados", message: "Selecione uma fonte de dados na barra superior antes de aplicar filtros globais.", type: "warning" }); return; }
 
     const [bucket, filename] = selector.split('|');
     const res = await fetch('/api/bi/colunas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bucket, filename }) });
