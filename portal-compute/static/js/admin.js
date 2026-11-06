@@ -16,6 +16,10 @@ function showSection(targetSection) {
     secEl.classList.add('active');
     if (navEl) navEl.classList.add('active');
 
+    if (targetSection === 'dldash') {
+        carregarDataLakeDashboard();
+    }
+
     // Persiste a aba selecionada no sessionStorage e na URL para sobreviver a F5 / Ctrl+R
     try {
         sessionStorage.setItem('arenalake_active_tab', targetSection);
@@ -427,6 +431,11 @@ function renderUserTable() {
     const tbody = document.getElementById('userTableBody');
     tbody.innerHTML = '';
 
+    if (sortedUsers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="padding: 32px; text-align: center; color: var(--arena-text-muted);">Nenhum colaborador registrado. Utilize o formulário para criar o primeiro acesso.</td></tr>';
+        return;
+    }
+
     sortedUsers.forEach(u => {
         let actionBtn = '';
         if (u.role !== 'admin') {
@@ -594,6 +603,17 @@ async function carregarClusterNodes() {
         if (data.status === 'success') {
             const tbody = document.getElementById('nodesTableBody');
             tbody.innerHTML = '';
+
+            if (!data.nodes || data.nodes.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="padding: 32px; text-align: center; color: var(--arena-text-muted);">Nenhum nó do Swarm detectado ou cluster offline.</td></tr>';
+                document.getElementById('kpi-nodes-count').innerText = "0 / 0";
+                document.getElementById('kpi-total-cpu').innerText = "0";
+                document.getElementById('kpi-total-ram').innerText = "0 GB";
+                const healthEl = document.getElementById('kpi-cluster-health');
+                healthEl.innerText = "Offline";
+                healthEl.style.color = "var(--arena-text-dim)";
+                return;
+            }
 
             let totalCpus = 0;
             let totalRam = 0;
@@ -960,7 +980,7 @@ function renderizarCatalog() {
     let bucketsToRender = Object.keys(globalAdminCatalog);
 
     if (bucketsToRender.length === 0) {
-        container.innerHTML = '<p style="color: #8b949e;">No buckets found in MinIO.</p>';
+        container.innerHTML = '<div style="background: var(--arena-surface-input); border: 1px dashed var(--arena-lines); border-radius: var(--r-md); padding: 32px; text-align: center; color: var(--arena-text-muted);"><div style="font-weight: 600; margin-bottom: 6px; color: var(--arena-text-main);">Nenhum bucket encontrado no MinIO</div><div>Crie um novo bucket acima para começar a armazenar datasets.</div></div>';
         return;
     }
 
@@ -973,15 +993,15 @@ function renderizarCatalog() {
         const files = globalAdminCatalog[bucket];
 
         if (files.length === 0) {
-            filesHtml = '<tr><td colspan="2" style="padding: 15px; color: #8b949e; font-style: italic;">Bucket is empty.</td></tr>';
+            filesHtml = '<tr><td colspan="2" style="padding: 14px; color: var(--arena-text-dim); font-style: italic;">Bucket vazio.</td></tr>';
         } else {
             files.forEach(file => {
                 filesHtml += `
-                    <tr style="border-bottom: 1px solid #21262d; transition: background 0.2s;" onmouseover="this.style.background='#1c2128'" onmouseout="this.style.background='transparent'">
-                        <td style="padding: 10px; font-family: monospace; color: #58a6ff; font-size: 0.9em;">${file}</td>
-                        <td style="padding: 10px; text-align: right; white-space: nowrap;">
-                            <button onclick="abrirPreview('${bucket}', '${file}')" style="background: #21262d; color: #58a6ff; border: 1px solid #30363d; padding: 4px 10px; border-radius: 4px; font-size: 0.85em; cursor: pointer; margin-right: 5px;">👁️ Preview</button>
-                            <button onclick="deletarArquivoCatalog('${bucket}', '${file}')" style="background: #da3633; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.85em; cursor: pointer;">🗑️ Delete</button>
+                    <tr>
+                        <td style="font-family: var(--font-mono); color: var(--arena-blue); font-size: 0.85rem;">${file}</td>
+                        <td style="text-align: right; white-space: nowrap;">
+                            <button type="button" onclick="abrirPreview('${bucket}', '${file}')" class="btn-secondary" style="padding: 4px 10px; font-size: 0.78rem; margin-right: 6px;">Preview</button>
+                            <button type="button" onclick="deletarArquivoCatalog('${bucket}', '${file}')" class="btn-danger" style="padding: 4px 10px; font-size: 0.78rem;">Excluir</button>
                         </td>
                     </tr>
                 `;
@@ -989,12 +1009,15 @@ function renderizarCatalog() {
         }
 
         container.innerHTML += `
-            <div style="background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #21262d; padding-bottom: 10px;">
-                    <h4 style="margin: 0; color: #79c0ff; font-size: 1.1em;">📦 Bucket: ${bucket}</h4>
-                    <button onclick="deletarBucketAdmin('${bucket}')" style="background: transparent; color: #f85149; border: 1px solid #f85149; padding: 4px 12px; border-radius: 4px; font-size: 0.8em; font-weight: bold; cursor: pointer;">❌ Excluir Bucket</button>
+            <div style="background: var(--arena-surface-input); border: 1px solid var(--arena-lines); border-radius: var(--r-md); padding: 16px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--arena-lines); flex-wrap: wrap; gap: 8px;">
+                    <h4 style="margin: 0; color: var(--arena-text-main); font-size: 0.95rem; font-family: var(--font-mono); display: flex; align-items: center; gap: 8px;">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" style="color: var(--arena-blue);"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                        <span>${bucket}</span>
+                    </h4>
+                    <button type="button" onclick="deletarBucketAdmin('${bucket}')" class="btn-danger" style="padding: 3px 10px; font-size: 0.78rem;">Excluir Bucket</button>
                 </div>
-                <table style="width: 100%; border-collapse: collapse;">
+                <table style="width: 100%;">
                     <tbody>${filesHtml}</tbody>
                 </table>
             </div>
@@ -1003,12 +1026,25 @@ function renderizarCatalog() {
 }
 
 async function deletarBucketAdmin(bucket) {
-    if (!confirm(`ATENÇÃO: Você está prestes a excluir o bucket '${bucket}'. Isso removerá TODOS os arquivos dentro dele e quebrará análises que dependem desses dados.\n\nDeseja prosseguir?`)) return;
+    const confirmed = await arenaConfirm({
+        title: 'Excluir Bucket',
+        message: `ATENÇÃO: Você está prestes a excluir o bucket '${bucket}'. Isso removerá todos os arquivos e partições contidos nele no MinIO.`,
+        confirmText: 'Prosseguir',
+        cancelText: 'Cancelar',
+        danger: true
+    });
+    if (!confirmed) return;
 
-    // Dupla verificação
-    const confirmacao = prompt(`Para confirmar a exclusão, digite o nome do bucket exatamente como está escrito (${bucket}):`);
+    const confirmacao = await arenaPrompt({
+        title: 'Confirmação de Segurança',
+        message: `Para confirmar a exclusão definitiva, digite o nome exato do bucket (${bucket}):`,
+        placeholder: bucket,
+        confirmText: 'Excluir Bucket Definitivamente',
+        cancelText: 'Cancelar'
+    });
+
     if (confirmacao !== bucket) {
-        alert('Nome incorreto. Exclusão cancelada por segurança.');
+        await arenaAlert({ title: 'Operação Cancelada', message: 'Nome digitado não confere. Exclusão cancelada por segurança.', type: 'warning' });
         return;
     }
 
@@ -1020,14 +1056,14 @@ async function deletarBucketAdmin(bucket) {
         const result = await res.json();
 
         if (res.ok) {
-            alert(result.message);
-            document.getElementById('bucketDropdown').value = 'all'; // Reseta o filtro
+            await arenaAlert({ title: 'Bucket Excluído', message: result.message || 'Bucket excluído com sucesso.', type: 'success' });
+            document.getElementById('bucketDropdown').value = 'all';
             carregarDataCatalog();
         } else {
-            alert('Erro: ' + result.detail);
+            await arenaAlert({ title: 'Erro ao Excluir', message: result.detail || 'Não foi possível excluir o bucket.', type: 'error' });
         }
     } catch (e) {
-        alert('Erro de comunicação ao tentar excluir o bucket.');
+        await arenaAlert({ title: 'Erro de Conexão', message: 'Falha de comunicação ao tentar excluir o bucket.', type: 'error' });
     }
 }
 
@@ -1077,7 +1113,7 @@ async function handleCreateBucket() {
     const bucketName = input.value.trim();
 
     if (!bucketName) {
-        alert("Please enter a valid bucket name.");
+        await arenaAlert({ title: 'Atenção', message: 'Informe um nome válido para o novo bucket.', type: 'warning' });
         return;
     }
 
@@ -1094,20 +1130,19 @@ async function handleCreateBucket() {
         const result = await res.json();
 
         if (res.ok) {
-            alert(result.message);
+            await arenaAlert({ title: 'Bucket Criado', message: result.message || 'Bucket criado com sucesso!', type: 'success' });
             input.value = "";
 
-            // Recarrega o catálogo e já força o dropdown a focar no novo bucket
             carregarDataCatalog().then(() => {
                 const cleanName = bucketName.toLowerCase().replace(/_/g, "-");
                 document.getElementById('bucketDropdown').value = cleanName;
                 renderizarCatalog();
             });
         } else {
-            alert("Error: " + result.detail);
+            await arenaAlert({ title: 'Erro ao Criar Bucket', message: result.detail || 'Não foi possível criar o bucket.', type: 'error' });
         }
     } catch (error) {
-        alert("Communication error while creating the bucket.");
+        await arenaAlert({ title: 'Erro de Conexão', message: 'Falha de comunicação ao criar o bucket.', type: 'error' });
     }
 }
 
@@ -1160,8 +1195,6 @@ document.getElementById('uploadCatalogForm').addEventListener('submit', async (e
 
     if (!fileInput) {
         await arenaAlert({ title: 'Atenção', message: 'Selecione um arquivo para upload.', type: 'warning' });
-        return;
-    }
         return;
     }
 
@@ -1243,6 +1276,11 @@ async function carregarTailscale() {
 
             tbody.innerHTML = '';
             select.innerHTML = '<option value="">Selecione um Servidor...</option>';
+
+            if (!data.network || data.network.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="padding: 32px; text-align: center; color: var(--arena-text-muted);">Nenhuma máquina conectada à malha Tailscale no momento.</td></tr>';
+                return;
+            }
 
             data.network.forEach(node => {
                 const statusBadge = node.status === 'Connected' 
@@ -1353,25 +1391,257 @@ function closeWebTerminal() {
 }
 
 // =========================================================
-// INICIALIZAÇÃO E INTEGRAÇÃO DE FEATURES
+// DATALAKE DASHBOARD MGR
 // =========================================================
-//
+let chartBucketsInst = null;
+let chartTypesInst = null;
+let chartBytesInst = null;
 
-// Suporte para navegação pelo histórico (botões Voltar / Avançar do navegador)
-window.addEventListener('popstate', (e) => {
-    const sec = (e.state && e.state.section) || getInitialSection();
-    showSection(sec);
-});
+function formatBytesLabel(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
 
-// Aplica a aba salva imediatamente antes do render completo para evitar piscar de tela
-(() => {
-    const startupSec = getInitialSection();
-    if (startupSec && startupSec !== 'register') {
-        showSection(startupSec);
+async function carregarDataLakeDashboard() {
+    try {
+        const res = await fetch('/api/admin/catalog/dashboard', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        const data = (result && result.status === 'success' && result.data) ? result.data : null;
+
+        if (data) {
+            document.getElementById('kpi-dl-size').innerText = data.total_bytes_fmt || '0 B';
+            document.getElementById('kpi-dl-files').innerText = data.total_files ?? '0';
+            document.getElementById('kpi-dl-buckets').innerText = data.total_buckets ?? '0';
+
+            let topUser = "Nenhum";
+            let topUserMax = 0;
+            for (const [user, count] of Object.entries(data.files_by_uploader || {})) {
+                if (count > topUserMax && user !== "Desconhecido") {
+                    topUserMax = count;
+                    topUser = user;
+                }
+            }
+            document.getElementById('kpi-dl-topuser').innerText = topUser;
+
+            Chart.defaults.color = '#8b949e';
+            Chart.defaults.borderColor = '#30363d';
+            const colors = ['#007acc', '#22c55e', '#a855f7', '#eab308', '#ef4444', '#38bdf8', '#f97316'];
+
+            if (chartBucketsInst) chartBucketsInst.destroy();
+            if (chartTypesInst) chartTypesInst.destroy();
+            if (chartBytesInst) chartBytesInst.destroy();
+
+            const canvasBuckets = document.getElementById('chartBuckets');
+            if (canvasBuckets) {
+                chartBucketsInst = new Chart(canvasBuckets.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(data.files_by_bucket || {}),
+                        datasets: [{
+                            label: 'Qtd. de Arquivos',
+                            data: Object.values(data.files_by_bucket || {}),
+                            backgroundColor: colors[0],
+                            borderRadius: 4
+                        }]
+                    },
+                    options: { responsive: true, plugins: { legend: { display: false } } }
+                });
+            }
+
+            const canvasTypes = document.getElementById('chartTypes');
+            if (canvasTypes) {
+                chartTypesInst = new Chart(canvasTypes.getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(data.files_by_type || {}).map(x => x.toUpperCase()),
+                        datasets: [{
+                            data: Object.values(data.files_by_type || {}),
+                            backgroundColor: colors,
+                            borderWidth: 1,
+                            borderColor: '#0b1424'
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            }
+
+            const canvasBytes = document.getElementById('chartBytes');
+            if (canvasBytes) {
+                chartBytesInst = new Chart(canvasBytes.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(data.bytes_by_type || {}).map(x => x.toUpperCase()),
+                        datasets: [{
+                            label: 'Volume em Bytes',
+                            data: Object.values(data.bytes_by_type || {}),
+                            backgroundColor: colors[2],
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function (context) { return formatBytesLabel(context.raw); }
+                                }
+                            },
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                ticks: { callback: function (value) { return formatBytesLabel(value); } }
+                            }
+                        }
+                    }
+                });
+            }
+        } else {
+            // Storage vazio ou offline
+            document.getElementById('kpi-dl-size').innerText = '0 B';
+            document.getElementById('kpi-dl-files').innerText = '0';
+            document.getElementById('kpi-dl-buckets').innerText = '0';
+            document.getElementById('kpi-dl-topuser').innerText = 'Sem dados';
+
+            renderEmptyDLDashboard();
+        }
+    } catch (e) {
+        console.error("Erro ao carregar o dashboard do datalake", e);
+        document.getElementById('kpi-dl-size').innerText = '0 B';
+        document.getElementById('kpi-dl-files').innerText = '0';
+        document.getElementById('kpi-dl-buckets').innerText = '0';
+        document.getElementById('kpi-dl-topuser').innerText = 'Offline';
+        renderEmptyDLDashboard();
     }
-})();
+}
 
-document.addEventListener('DOMContentLoaded', init);
+function renderEmptyDLDashboard() {
+    if (chartBucketsInst) chartBucketsInst.destroy();
+    if (chartTypesInst) chartTypesInst.destroy();
+    if (chartBytesInst) chartBytesInst.destroy();
+
+    const canvasBuckets = document.getElementById('chartBuckets');
+    if (canvasBuckets) {
+        chartBucketsInst = new Chart(canvasBuckets.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: ['Nenhum Bucket'],
+                datasets: [{
+                    label: 'Arquivos',
+                    data: [0],
+                    backgroundColor: ['rgba(0, 122, 204, 0.25)'],
+                    borderColor: ['#007acc'],
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false }
+                },
+                scales: {
+                    y: { beginAtZero: true, max: 5, ticks: { stepSize: 1 } }
+                }
+            }
+        });
+    }
+
+    const canvasTypes = document.getElementById('chartTypes');
+    if (canvasTypes) {
+        chartTypesInst = new Chart(canvasTypes.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Sem Arquivos'],
+                datasets: [{
+                    data: [1],
+                    backgroundColor: ['rgba(139, 148, 158, 0.15)'],
+                    borderWidth: 1,
+                    borderColor: '#30363d'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: { enabled: false }
+                }
+            }
+        });
+    }
+
+    const canvasBytes = document.getElementById('chartBytes');
+    if (canvasBytes) {
+        chartBytesInst = new Chart(canvasBytes.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: ['Nenhum Registro'],
+                datasets: [{
+                    label: 'Bytes',
+                    data: [0],
+                    backgroundColor: ['rgba(168, 85, 247, 0.25)'],
+                    borderColor: ['#a855f7'],
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false }
+                },
+                scales: {
+                    y: { beginAtZero: true, max: 100 }
+                }
+            }
+        });
+    }
+}
+
+function baixarDashboardImagem() {
+    const targetElement = document.getElementById('dashboard-export-area');
+    if (!targetElement) return;
+
+    html2canvas(targetElement, {
+        backgroundColor: '#0b1424',
+        scale: 2
+    }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = `datalake_dashboard_${new Date().toISOString().split('T')[0]}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    });
+}
+
+// =========================================================
+// INICIALIZAÇÃO
+// =========================================================
+async function init() {
+    // 1. Restaura imediatamente a aba em que o usuário estava (sem aguardar rede)
+    const initialSec = getInitialSection();
+    showSection(initialSec);
+
+    // 2. Carrega todos os dados do painel em segundo plano
+    carregarDataCatalog();
+    carregarDataLakeDashboard();
+    carregarGatewayEndpoints();
+    carregarTailscale();
+    await Promise.allSettled([
+        carregarWorkspaces(),
+        carregarUsuarios(),
+        carregarClusterNodes()
+    ]);
 
     setInterval(() => {
         carregarWorkspaces();
@@ -1394,7 +1664,7 @@ async function baixarRelatorioCatalog(event) {
         if (result.status === 'success') {
             const data = result.report;
             if (data.length === 0) {
-                alert("Nenhum arquivo encontrado no catálogo.");
+                await arenaAlert({ title: 'Exportação', message: 'Nenhum arquivo encontrado no catálogo para exportar.', type: 'info' });
                 return;
             }
 
@@ -1429,10 +1699,10 @@ async function baixarRelatorioCatalog(event) {
             a.click();
             document.body.removeChild(a);
         } else {
-            alert("Erro ao gerar relatório: " + result.message);
+            await arenaAlert({ title: "Erro na Exportação", message: result.message || "Erro ao gerar relatório.", type: "error" });
         }
     } catch (e) {
-        alert("Erro de comunicação ao baixar relatório.");
+        await arenaAlert({ title: "Erro de Conexão", message: "Falha de comunicação ao baixar relatório.", type: "error" });
     } finally {
         btn.innerHTML = originalText;
         btn.disabled = false;
@@ -1453,26 +1723,31 @@ async function carregarGatewayEndpoints() {
             const tbody = document.getElementById('gwTableBody');
             tbody.innerHTML = '';
 
+            if (!result.data || result.data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="padding: 32px; text-align: center; color: var(--arena-text-muted);">Nenhum endpoint de ingestão ativo. Crie um endpoint acima para receber dados externos via API.</td></tr>';
+                return;
+            }
+
             result.data.forEach(ep => {
                 const urlGet = `${window.location.origin}/api/v1/get/${ep.endpoint_hash}/`;
                 const urlPost = `${window.location.origin}/api/v1/post/${ep.endpoint_hash}/${ep.target_bucket}/${ep.target_format}`;
                 const urlFormat = `${window.location.origin}/api/v1/format/${ep.endpoint_hash}/`;
 
                 const tr = document.createElement('tr');
-                tr.style.borderBottom = '1px solid #30363d';
                 tr.innerHTML = `
-                    <td style="padding: 10px; color: #c9d1d9;">${ep.target_bucket}</td>
-                    <td style="padding: 10px;"><span class="meta-tag" style="margin:0;">${ep.target_format.toUpperCase()}</span></td>
-                    <td style="padding: 10px;">
-                        <div style="margin-bottom: 4px;"><span style="color:#8b949e">POST:</span> <a href="javascript:void(0)" style="color:#58a6ff" onclick="alert('${urlPost}')">${ep.endpoint_hash.substring(0, 8)}...</a></div>
-                        <div style="margin-bottom: 4px;"><span style="color:#8b949e">GET:</span> <a href="javascript:void(0)" style="color:#58a6ff" onclick="alert('${urlGet}')">...${ep.endpoint_hash.substring(ep.endpoint_hash.length - 8)}</a></div>
-                        <div><span style="color:#8b949e">Token:</span> <span style="color:#da3633; cursor:pointer;" onclick="alert('Token: ${ep.access_token}')">Revelar 👁️</span></div>
-                        <div style="margin-top: 4px;"><span style="color:#8b949e">Docs:</span> <a href="${urlFormat}" target="_blank" style="color:#3fb950">/format/</a></div>
+                    <td style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--arena-blue);">${ep.target_bucket}</td>
+                    <td><span class="meta-tag" style="display:inline-block; margin:0; font-family: var(--font-mono);">${ep.target_format.toUpperCase()}</span></td>
+                    <td style="font-size: 0.82rem;">
+                        <div style="margin-bottom: 4px;"><span style="color:var(--arena-text-muted)">POST:</span> <a href="javascript:void(0)" style="color:var(--arena-blue); font-family: var(--font-mono);" onclick="arenaAlert({ title: 'Endpoint POST', message: '${urlPost}', type: 'info' })">${ep.endpoint_hash.substring(0, 8)}...</a></div>
+                        <div style="margin-bottom: 4px;"><span style="color:var(--arena-text-muted)">GET:</span> <a href="javascript:void(0)" style="color:var(--arena-blue); font-family: var(--font-mono);" onclick="arenaAlert({ title: 'Endpoint GET', message: '${urlGet}', type: 'info' })">...${ep.endpoint_hash.substring(ep.endpoint_hash.length - 8)}</a></div>
+                        <div style="margin-bottom: 4px;"><span style="color:var(--arena-text-muted)">Token:</span> <span style="color:var(--arena-gold); cursor:pointer; font-weight: 600;" onclick="arenaAlert({ title: 'Token Bearer', message: '${ep.access_token}', type: 'warning' })">Revelar Token</span></div>
+                        <div><span style="color:var(--arena-text-muted)">Docs:</span> <a href="${urlFormat}" target="_blank" style="color:var(--arena-ok); font-family: var(--font-mono);">/format/</a></div>
                     </td>
-                    <td style="padding: 10px; color: #c9d1d9;">${ep.request_count}</td>
-                    <td style="padding: 10px; color: #8b949e; position: relative;">
-                        ${ep.created_by}<br><small>${ep.created_at}</small>
-                        <button onclick="deletarGatewayEndpoint(${ep.id})" style="background: transparent; color: #da3633; border: none; cursor: pointer; font-size: 1.2em; position: absolute; right: 10px; top: 10px;" title="Excluir Endpoint">🗑️</button>
+                    <td style="font-family: var(--font-mono); font-size: 0.85rem;">${ep.request_count}</td>
+                    <td style="text-align: right; color: var(--arena-text-dim); font-size: 0.8rem;">
+                        <div>${ep.created_by}</div>
+                        <div style="font-size: 0.75rem; margin-bottom: 6px;">${ep.created_at}</div>
+                        <button type="button" onclick="deletarGatewayEndpoint(${ep.id})" class="btn-danger" style="padding: 4px 10px; font-size: 0.78rem;">Excluir</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -1488,13 +1763,13 @@ async function carregarGatewayEndpoints() {
 // =========================================================
 let currentGatewaySchema = {};
 
-function addSchemaColumn() {
+async function addSchemaColumn() {
     const colNameInput = document.getElementById('gwColName');
     const colType = document.getElementById('gwColType').value;
     let colName = colNameInput.value.trim();
 
     if (!colName) {
-        alert("Digite um nome para a coluna.");
+        await arenaAlert({ title: "Atenção", message: "Digite um nome para a coluna.", type: "warning" });
         return;
     }
 
@@ -1502,12 +1777,12 @@ function addSchemaColumn() {
     colName = colName.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
 
     if (colName.toLowerCase() === 'dathorrefcarga') {
-        alert("A coluna 'datHorRefCarga' é reservada e gerenciada pelo sistema.");
+        await arenaAlert({ title: "Campo Reservado", message: "A coluna 'datHorRefCarga' é reservada e gerenciada automaticamente pelo sistema.", type: "warning" });
         return;
     }
 
     if (currentGatewaySchema[colName]) {
-        alert("Esta coluna já existe no schema.");
+        await arenaAlert({ title: "Coluna Existente", message: "Esta coluna já existe na estrutura do dado.", type: "warning" });
         return;
     }
 
@@ -1524,22 +1799,24 @@ function removeSchemaColumn(colName) {
 function renderGatewaySchema() {
     const tbody = document.getElementById('gwSchemaTableBody');
 
-    // Sempre renderiza a coluna fixa do sistema no topo
     let html = `
-        <tr style="border-bottom: 1px solid #30363d; background: #0d1117;">
-            <td style="padding: 8px; color: #c9d1d9;">datHorRefCarga <span style="font-size: 0.7em; background: #238636; padding: 2px 5px; border-radius: 4px; margin-left: 5px;">Sistema</span></td>
-            <td style="padding: 8px; color: #58a6ff;">datetime</td>
-            <td style="padding: 8px; text-align: right; color: #8b949e; font-style: italic;">Automático</td>
+        <tr>
+            <td style="font-family: var(--font-mono); font-size: 0.85rem;">
+                datHorRefCarga
+                <span style="font-size: 0.7rem; background: rgba(34,197,94,0.15); color: var(--arena-ok); border: 1px solid rgba(34,197,94,0.3); padding: 2px 6px; border-radius: 4px; margin-left: 6px;">Sistema</span>
+            </td>
+            <td style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--arena-blue);">datetime</td>
+            <td style="text-align: right; color: var(--arena-text-dim); font-size: 0.8rem; font-style: italic;">Automático</td>
         </tr>
     `;
 
     for (const [col, type] of Object.entries(currentGatewaySchema)) {
         html += `
-            <tr style="border-bottom: 1px solid #30363d;">
-                <td style="padding: 8px; color: #c9d1d9;">${col}</td>
-                <td style="padding: 8px; color: #58a6ff;">${type}</td>
-                <td style="padding: 8px; text-align: right;">
-                    <button onclick="removeSchemaColumn('${col}')" style="background: transparent; color: #da3633; border: none; cursor: pointer; font-size: 1.2em;" title="Remover">🗑️</button>
+            <tr>
+                <td style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--arena-text-main);">${col}</td>
+                <td style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--arena-blue);">${type}</td>
+                <td style="text-align: right;">
+                    <button type="button" onclick="removeSchemaColumn('${col}')" class="btn-danger" style="padding: 3px 8px; font-size: 0.75rem;">Remover</button>
                 </td>
             </tr>
         `;
@@ -1553,17 +1830,17 @@ async function criarGatewayEndpoint() {
     const filename = document.getElementById('gwFilename').value.trim()
 
     if (!bucket) {
-        alert("Por favor, selecione o Bucket de Destino.");
+        await arenaAlert({ title: "Atenção", message: "Selecione o bucket de destino.", type: "warning" });
         return;
     }
 
     if (!filename) {
-        alert("Por favor, defina o Nome do Arquivo.");
+        await arenaAlert({ title: "Atenção", message: "Defina o nome do arquivo para gravação.", type: "warning" });
         return;
     }
 
     if (Object.keys(currentGatewaySchema).length === 0) {
-        alert("Adicione pelo menos uma coluna além da coluna do sistema na Estrutura do Dado.");
+        await arenaAlert({ title: "Atenção", message: "Adicione pelo menos uma coluna além da coluna do sistema na estrutura do dado.", type: "warning" });
         return;
     }
 
@@ -1590,21 +1867,29 @@ async function criarGatewayEndpoint() {
 
         const result = await res.json();
         if (result.status === 'success') {
-            alert(result.message);
+            await arenaAlert({ title: 'Endpoint Criado', message: result.message || 'Endpoint gerado com sucesso!', type: 'success' });
             document.getElementById('gwBucket').value = '';
-            currentGatewaySchema = {}; // Reseta o estado do construtor
+            document.getElementById('gwFilename').value = '';
+            currentGatewaySchema = {};
             renderGatewaySchema();
             carregarGatewayEndpoints();
         } else {
-            alert(result.message);
+            await arenaAlert({ title: 'Erro na Criação', message: result.message || 'Não foi possível criar o endpoint.', type: 'error' });
         }
     } catch (e) {
-        alert("Erro ao criar endpoint.");
+        await arenaAlert({ title: "Erro", message: "Falha ao criar o endpoint de ingestão.", type: "error" });
     }
 }
 
 async function deletarGatewayEndpoint(id) {
-    if (!confirm("Tem certeza que deseja excluir este endpoint? O acesso externo (GET/POST) via Token será revogado IMEDIATAMENTE!")) return;
+    const confirmed = await arenaConfirm({
+        title: 'Revogar Endpoint',
+        message: 'Tem certeza que deseja excluir este endpoint? O acesso externo (GET/POST) via token será revogado imediatamente.',
+        confirmText: 'Revogar Endpoint',
+        cancelText: 'Cancelar',
+        danger: true
+    });
+    if (!confirmed) return;
 
     try {
         const res = await fetch(`/api/admin/gateway/endpoints/${id}`, {
@@ -1614,16 +1899,15 @@ async function deletarGatewayEndpoint(id) {
         const result = await res.json();
 
         if (res.ok) {
-            alert(result.message);
-            carregarGatewayEndpoints(); // Recarrega a tabela
+            await arenaAlert({ title: 'Endpoint Revogado', message: result.message || 'Endpoint excluído com sucesso.', type: 'success' });
+            carregarGatewayEndpoints();
         } else {
-            alert("Erro: " + result.message);
+            await arenaAlert({ title: 'Erro ao Revogar', message: result.message || 'Não foi possível revogar o endpoint.', type: 'error' });
         }
     } catch (e) {
-        alert("Erro de comunicação ao excluir endpoint.");
+        await arenaAlert({ title: 'Erro de Conexão', message: 'Falha de comunicação ao excluir endpoint.', type: 'error' });
     }
 }
-
 
 // Suporte para navegação pelo histórico (botões Voltar / Avançar do navegador)
 window.addEventListener('popstate', (e) => {
