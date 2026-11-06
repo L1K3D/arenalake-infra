@@ -86,6 +86,15 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         "/home/coder/project",
     ]
 
+    # Detecta se existem nós workers no cluster; caso contrário, permite agendar no manager (single-node)
+    try:
+        nodes = client.nodes.list(filters={"role": "worker"})
+        has_workers = len(nodes) > 0
+    except Exception:
+        has_workers = False
+
+    placement_constraints = ["node.role == worker"] if has_workers else []
+
     client.services.create(
         image=workspace_image,
         name=container_name_vscode,
@@ -104,12 +113,11 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
             cpu_limit=cpu_limit, mem_limit=parse_memory(vscode_ram),
             cpu_reservation=cpu_limit, mem_reservation=parse_memory(vscode_ram)
         ),
-        # Docker assigns this role automatically when a node joins as a worker.
-        constraints=["node.role == worker"],
-        endpoint_spec=EndpointSpec(mode="dnsrr"),
+        constraints=placement_constraints,
+        endpoint_spec=EndpointSpec(mode="vip"),
         labels={
             "traefik.enable": "true",
-            "traefik.docker.lbswarm": "false",
+            "traefik.docker.lbswarm": "true",
             f"traefik.http.routers.vscode-{usuario}.rule": f"PathPrefix(`/workspace/{usuario}`)",
             f"traefik.http.routers.vscode-{usuario}.entrypoints": "web",
             f"traefik.http.middlewares.strip-{usuario}.stripprefix.prefixes": f"/workspace/{usuario}",
@@ -142,7 +150,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
             cpu_limit=cpu_limit, mem_limit=parse_memory(worker_ram),
             cpu_reservation=cpu_limit, mem_reservation=parse_memory(worker_ram)
         ),
-        constraints=["node.role == worker"]
+        constraints=placement_constraints
     )
 
     return f"/workspace/{usuario}"
@@ -187,13 +195,52 @@ def get_workspace_metrics(usuario: str):
         }
 
     mem_mb = round(allocated_mem / (1024 * 1024), 2)
-    # Return a stable fallback load when live worker metrics are unavailable.
+    cpu_percent = 1.0
+    mem_usage_mb = round(mem_mb * 0.05, 2)
+    mem_percent = 5.0
+
+    # Coleta telemetria em tempo real diretamente dos containers do workspace
+    try:
+        live_cpu_total = 0.0
+        live_mem_bytes = 0
+        found_live = False
+
+        for c in client.containers.list(filters={"status": "running"}):
+            c_name = c.name or ""
+            if f"vscode-{usuario}" in c_name or f"spark-worker-{usuario}" in c_name:
+                stats = c.stats(stream=False)
+                # Memória real: desconta cache inativo do kernel
+                mem_data = stats.get("memory_stats", {})
+                usage = mem_data.get("usage", 0)
+                cache = mem_data.get("stats", {}).get("inactive_file", 0) or mem_data.get("stats", {}).get("cache", 0)
+                real_mem = max(usage - cache, 0)
+                live_mem_bytes += real_mem
+
+                # CPU real ponderada pelos núcleos online
+                cpu_stats = stats.get("cpu_stats", {})
+                precpu_stats = stats.get("precpu_stats", {})
+                cpu_delta = cpu_stats.get("cpu_usage", {}).get("total_usage", 0) - precpu_stats.get("cpu_usage", {}).get("total_usage", 0)
+                system_delta = cpu_stats.get("system_cpu_usage", 0) - precpu_stats.get("system_cpu_usage", 0)
+                online_cpus = cpu_stats.get("online_cpus", 1) or len(cpu_stats.get("cpu_usage", {}).get("percpu_usage", []) or [1])
+
+                if system_delta > 0 and cpu_delta > 0:
+                    live_cpu_total += (cpu_delta / system_delta) * online_cpus * 100.0
+                found_live = True
+
+        if found_live and live_mem_bytes > 0:
+            mem_usage_mb = round(live_mem_bytes / (1024 * 1024), 2)
+            cpu_percent = round(live_cpu_total, 2)
+            limit_bytes = allocated_mem if allocated_mem > 0 else (1024 * 1024 * 1024)
+            mem_percent = round((live_mem_bytes / limit_bytes) * 100.0, 2)
+    except Exception:
+        pass
+
     return {
         "status": "online",
-        "cpu_percent": 1.0,
-        "memory_usage_mb": round(mem_mb * 0.05, 2),
+        "cpu_percent": cpu_percent,
+        "memory_usage_mb": mem_usage_mb,
         "memory_limit_mb": max(mem_mb, 1),
-        "memory_percent": 5.0,
+        "memory_percent": min(mem_percent, 100.0),
     }
 
 def list_spark_jobs():
