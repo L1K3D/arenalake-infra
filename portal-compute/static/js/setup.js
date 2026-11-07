@@ -1,25 +1,54 @@
 /* ============================================================================
-   ArenaLake Hardware Setup JavaScript
-   ============================================================================
-   Manages hardware profile selection (Standard vs Extreme) for workspace provisioning.
-   Updates button state, fetches system resources with JWT, and provisions workspaces.
+   ArenaLake — Script de Seleção de Perfil de Hardware (setup.js)
+   Identidade Visual Oficial: Lago de Partículas, Telemetria de Recursos,
+   Seleção Interativa e Provisionamento de Workspace
    ============================================================================ */
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Load current cluster capacity when the setup page becomes available.
+    // ------------------------------------------------------------------------
+    // 1. GUARDA DE AUTENTICAÇÃO E LEITURA DE USUÁRIO
+    // ------------------------------------------------------------------------
+    const token = sessionStorage.getItem('access_token') || localStorage.getItem('access_token');
+    if (!token) {
+        window.location.href = '/';
+        return;
+    }
+
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.sub) {
+            const userInput = document.querySelector('input[name="usuario"]');
+            if (userInput && (!userInput.value || userInput.value.includes('{{'))) {
+                userInput.value = payload.sub;
+            }
+
+            const welcomeEl = document.getElementById('welcome-username');
+            if (welcomeEl && (!welcomeEl.innerText.trim() || welcomeEl.innerText.includes('{{'))) {
+                welcomeEl.innerText = payload.sub;
+            }
+        }
+    } catch (e) {
+        console.warn('Erro ao ler dados da sessão:', e);
+    }
+
+    // ------------------------------------------------------------------------
+    // 2. INICIALIZAÇÃO DAS ONDAS DO LAGO DE PARTÍCULAS
+    // ------------------------------------------------------------------------
+    initParticleLake();
+
+    // ------------------------------------------------------------------------
+    // 3. TELEMETRIA DE RECURSOS EM TEMPO REAL
+    // ------------------------------------------------------------------------
     fetchSystemResources();
+    setInterval(fetchSystemResources, 5000);
 });
 
 /**
- * Fetches allocatable system resources (CPU/RAM) from API using JWT authentication
+ * Consulta recursos disponíveis no host / cluster via JWT
  */
 async function fetchSystemResources() {
-    // Resource information is protected and requires the current JWT.
-    const token = sessionStorage.getItem('access_token');
-    const resourcesContainer = document.getElementById('resources-status') || document.querySelector('.resources-info');
-
+    const token = sessionStorage.getItem('access_token') || localStorage.getItem('access_token');
     if (!token) {
-        console.warn('JWT token not found. Redirecting to login...');
         window.location.href = '/';
         return;
     }
@@ -34,68 +63,138 @@ async function fetchSystemResources() {
         });
 
         if (response.status === 401) {
-            console.error('Session expired or unauthorized.');
             window.location.href = '/';
             return;
         }
 
-        if (!response.ok) {
-            throw new Error(`Error ${response.status}: Failed to fetch cluster resources.`);
-        }
-
         const result = await response.json();
-
         if (result.status === 'success' && result.data) {
-            // Render only a successful, complete resource response.
             updateResourcesUI(result.data);
+            verificarDisponibilidade(result.data.available_cpus, result.data.available_mem_gb);
         }
     } catch (error) {
-        console.error('Error loading system resources:', error);
-        if (resourcesContainer) {
-            resourcesContainer.innerHTML = `<span style="color: #ff7b72;">⚠️ Error loading server resources.</span>`;
-        }
+        console.error('Erro ao consultar capacidade do cluster:', error);
     }
 }
 
 /**
- * Updates the UI with CPU and Memory availability
- * @param {Object} data - Resource metrics from backend
+ * Atualiza o banner com as métricas do cluster
  */
 function updateResourcesUI(data) {
-    // Replace the status placeholder with the latest free CPU and RAM values.
-    const resourcesContainer = document.getElementById('resources-status') || document.querySelector('.resources-info');
-    if (resourcesContainer) {
-        resourcesContainer.innerHTML = `
-            <span>💡 <strong>Resources available in the cluster:</strong> ${data.available_cpus} CPU cores | ${data.available_mem_gb} GB RAM free</span>
-        `;
+    const metricsContainer = document.getElementById('resource-metrics-content');
+    if (!metricsContainer) return;
+
+    metricsContainer.innerHTML = `
+        <div class="metric-pill">
+            <span class="metric-pill-label">CPU:</span>
+            <span class="metric-pill-val-cpu">${data.available_cpus.toFixed(1)} Cores livres</span>
+        </div>
+        <div class="metric-pill">
+            <span class="metric-pill-label">RAM:</span>
+            <span class="metric-pill-val-ram">${data.available_mem_gb.toFixed(1)} GB livres</span>
+        </div>
+    `;
+}
+
+/**
+ * Verifica se os nós possuem capacidade mínima para cada perfil
+ */
+function verificarDisponibilidade(cpusLivres, ramLivre) {
+    const cardStandard = document.getElementById('card-standard');
+    const warnStandard = document.getElementById('warn-standard');
+
+    const cardExtreme = document.getElementById('card-extreme');
+    const warnExtreme = document.getElementById('warn-extreme');
+
+    const btnLaunch = document.getElementById('btnLaunch');
+    const perfilInput = document.getElementById('perfilInput');
+
+    // Standard requer 2 Cores e 4 GB RAM
+    if (cpusLivres < 2 || ramLivre < 4) {
+        if (cardStandard) {
+            cardStandard.classList.add('is-disabled');
+            cardStandard.style.opacity = '0.4';
+            cardStandard.style.pointerEvents = 'none';
+        }
+        if (warnStandard) warnStandard.style.display = 'block';
+
+        if (perfilInput && perfilInput.value === 'standard') {
+            cardStandard.classList.remove('selected');
+            perfilInput.value = '';
+            if (btnLaunch) {
+                btnLaunch.disabled = true;
+                btnLaunch.innerText = 'Selecione um perfil acima';
+            }
+        }
+    } else {
+        if (cardStandard) {
+            cardStandard.classList.remove('is-disabled');
+            cardStandard.style.opacity = '1';
+            cardStandard.style.pointerEvents = 'auto';
+        }
+        if (warnStandard) warnStandard.style.display = 'none';
+    }
+
+    // Extreme requer 6 Cores e 8 GB RAM
+    if (cpusLivres < 6 || ramLivre < 8) {
+        if (cardExtreme) {
+            cardExtreme.classList.add('is-disabled');
+            cardExtreme.style.opacity = '0.4';
+            cardExtreme.style.pointerEvents = 'none';
+        }
+        if (warnExtreme) warnExtreme.style.display = 'block';
+
+        if (perfilInput && perfilInput.value === 'extreme') {
+            cardExtreme.classList.remove('selected');
+            perfilInput.value = '';
+            if (btnLaunch) {
+                btnLaunch.disabled = true;
+                btnLaunch.innerText = 'Selecione um perfil acima';
+            }
+        }
+    } else {
+        if (cardExtreme) {
+            cardExtreme.classList.remove('is-disabled');
+            cardExtreme.style.opacity = '1';
+            cardExtreme.style.pointerEvents = 'auto';
+        }
+        if (warnExtreme) warnExtreme.style.display = 'none';
     }
 }
 
 /**
- * Handle machine card selection for hardware profile
- * @param {string} perfil - Selected profile ('standard' or 'extreme')
+ * Seleciona o perfil de hardware e atualiza o botão
  */
 function selectCard(perfil) {
-    // Keep exactly one hardware profile visually selected.
-    document.getElementById('card-standard').classList.remove('selected');
-    document.getElementById('card-extreme').classList.remove('selected');
+    const cardStd = document.getElementById('card-standard');
+    const cardExt = document.getElementById('card-extreme');
+    const perfilInput = document.getElementById('perfilInput');
+    const btnLaunch = document.getElementById('btnLaunch');
 
-    document.getElementById('card-' + perfil).classList.add('selected');
+    if (cardStd) cardStd.classList.remove('selected');
+    if (cardExt) cardExt.classList.remove('selected');
 
-    const profileInput = document.getElementById('perfilInput');
-    if (profileInput) {
-        // Store the selected profile in the provisioning form.
-        profileInput.value = perfil;
-    }
+    const targetCard = document.getElementById('card-' + perfil);
+    if (targetCard && !targetCard.classList.contains('is-disabled')) {
+        targetCard.classList.add('selected');
+        if (perfilInput) perfilInput.value = perfil;
 
-    const btn = document.getElementById('btnLaunch');
-    if (btn) {
-        // Enable the launch action after a valid profile is selected.
-        btn.disabled = false;
-        if (perfil === 'standard') {
-            btn.innerText = "🚀 Start Standard Environment";
-        } else {
-            btn.innerText = "🚀 Start Extreme Environment";
+        if (btnLaunch) {
+            btnLaunch.disabled = false;
+            if (perfil === 'standard') {
+                btnLaunch.innerText = 'Inicializar Ambiente Standard';
+            } else {
+                btnLaunch.innerText = 'Inicializar Ambiente Extreme';
+            }
         }
     }
+}
+
+/**
+ * Encerra a sessão e retorna ao login
+ */
+function logoutSession() {
+    sessionStorage.removeItem('access_token');
+    localStorage.removeItem('access_token');
+    window.location.href = '/';
 }

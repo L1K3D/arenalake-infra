@@ -1,12 +1,20 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 
 <head>
     <meta charset="UTF-8">
-    <title>ArenaLake - DBA Control Panel</title>
-    <!-- CSS Originais e Novo -->
-    <link rel="stylesheet" href="/static/css/dashboard.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArenaLake — DBA Control Panel</title>
+
+    <!-- Tipografia Canônica do Manual de Identidade Visual -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Folha de Estilos Oficial do Painel Administrativo -->
     <link rel="stylesheet" href="/static/css/admin.css">
+    <link rel="icon" type="image/png" href="/static/img/logo-simbolo-recorte.png">
+
     <!-- Terminal Xterm.js e Addon de Redimensionamento -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
@@ -18,591 +26,572 @@
 
 <body>
     <div class="admin-layout">
-        <!-- Sidebar / Menu -->
+        <!-- Sidebar / Menu de Navegação -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h2>👑 DBA Control Panel</h2>
-                <p>ArenaLake Management</p>
+                <a href="/admin" class="sidebar-brand-link" aria-label="ArenaLake">
+                    <img src="/static/img/logo-reverse-proposta.png" 
+                         alt="ArenaLake" 
+                         class="sidebar-logo"
+                         width="160"
+                         height="56">
+                </a>
+                <div class="sidebar-title-badge">
+                    <span class="sidebar-badge">DBA Control Panel</span>
+                </div>
             </div>
 
             <ul class="sidebar-menu">
-                <li class="menu-header">👥 Identity & Access</li>
-                <li id="nav-register" class="menu-item active" onclick="showSection('register')">Register Collaborator
-                </li>
-                <li id="nav-users" class="menu-item" onclick="showSection('users')">Users Registered</li>
-                <li id="nav-deladmin" class="menu-item danger-item" onclick="showSection('deladmin')">Delete Admin
-                    Account</li>
+                <li class="menu-header">Identidade & Acesso</li>
+                <li id="nav-register" class="menu-item active" onclick="showSection('register')">Registrar Colaborador</li>
+                <li id="nav-users" class="menu-item" onclick="showSection('users')">Usuários Registrados</li>
+                <li id="nav-deladmin" class="menu-item danger-item" onclick="showSection('deladmin')">Excluir Conta Admin</li>
 
-                <li class="menu-header">⚡ Session Management</li>
-                <li id="nav-workspaces" class="menu-item" onclick="showSection('workspaces')">Active Workspaces</li>
-                <li id="nav-filespy" class="menu-item" onclick="showSection('filespy')">File Spy (Audit)</li>
+                <li class="menu-header">Sessões & Auditoria</li>
+                <li id="nav-workspaces" class="menu-item" onclick="showSection('workspaces')">Workspaces Ativos</li>
+                <li id="nav-filespy" class="menu-item" onclick="showSection('filespy')">File Spy (Auditoria)</li>
 
-                <li class="menu-header">🖥️ Infrastructure</li>
-                <li id="nav-nodes" class="menu-item" onclick="showSection('nodes')">Swarm Nodes</li>
-                <li id="nav-tailscale" class="menu-item" onclick="showSection('tailscale')">Tailscale Network</li>
+                <li class="menu-header">Infraestrutura</li>
+                <li id="nav-nodes" class="menu-item" onclick="showSection('nodes')">Nós do Swarm</li>
+                <li id="nav-tailscale" class="menu-item" onclick="showSection('tailscale')">Rede Tailscale</li>
 
-                <li class="menu-header">🗄️ Data Governance</li>
+                <li class="menu-header">Data Governance</li>
                 <li id="nav-catalog" class="menu-item" onclick="showSection('catalog')">Data Catalog (MinIO)</li>
                 <li id="nav-dldash" class="menu-item" onclick="showSection('dldash')">DataLake Dashboard</li>
                 <li id="nav-gateway" class="menu-item" onclick="showSection('gateway')">API Ingestion Gateway</li>
 
-                <li class="menu-header" style="color: #da3633;">🚨 Danger Zone</li>
-                <li id="nav-destroy" class="menu-item danger-item" onclick="showSection('destroy')">Critical
-                    Self-Destruction</li>
+                <li class="menu-header">Área Crítica</li>
+                <li id="nav-destroy" class="menu-item danger-item" onclick="showSection('destroy')">Autodestruição Crítica</li>
             </ul>
 
             <div class="sidebar-footer">
-                <button onclick="logoutAdmin()"
-                    style="padding: 10px; background: #da3633; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">🔌
-                    Shut Down / Sign Out</button>
+                <button onclick="logoutAdmin()" class="btn-logout" title="Encerrar Sessão">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    Encerrar Sessão
+                </button>
             </div>
         </aside>
 
-        <!-- Main Workspace -->
+        <!-- Conteúdo Principal do Painel -->
         <main class="main-content">
 
-            <!-- IDENTIY: REGISTER -->
-            <div id="sec-register" class="admin-section active">
-                <h1 style="margin-top:0; color: #c9d1d9;">Register New Collaborator</h1>
-                <p style="color: #8b949e; margin-bottom: 25px;">Provision a new corporate identity in the ecosystem.</p>
-                <div class="card">
-                    <form id="createUserForm"
-                        style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%;">
-                        <input type="text" id="username" placeholder="Username (e.g. carlos.silva)" required
-                            style="width: 100%; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                        <input type="password" id="password" placeholder="Temporary Password (Min. 8 chars)" required
-                            style="width: 100%; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                        <input type="text" id="full_name" placeholder="Full Name" required
-                            style="width: 100%; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                        <input type="email" id="email" placeholder="Corporate Email" required
-                            style="width: 100%; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+            <!-- IDENTIDADE: REGISTRAR COLABORADOR -->
+            <section id="sec-register" class="admin-section active">
+                <div class="section-header">
+                    <h1 class="section-title">Registrar Novo Colaborador</h1>
+                    <p class="section-desc">Provisione uma nova identidade corporativa no ecossistema.</p>
+                </div>
 
-                        <select id="roleSelect" required
-                            style="width: 100%; grid-column: span 2; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                            <option value="common">👤 Standard Profile (Workspace and Data Catalog Access)</option>
-                            <option value="admin">👑 Administrator / DBA Profile (Full Infrastructure Control)</option>
+                <div class="card">
+                    <form id="createUserForm" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <input type="text" id="username" placeholder="Usuário (ex: carlos.silva)" required>
+                        <input type="password" id="password" placeholder="Senha Temporária (mín. 8 caracteres)" required>
+                        <input type="text" id="full_name" placeholder="Nome Completo" required>
+                        <input type="email" id="email" placeholder="E-mail Corporativo" required>
+
+                        <select id="roleSelect" required style="grid-column: span 2;">
+                            <option value="common">Perfil Padrão (Acesso ao Workspace e Catálogo de Dados)</option>
+                            <option value="admin">Administrador / DBA (Controle Total da Infraestrutura)</option>
                         </select>
 
-                        <button type="submit"
-                            style="grid-column: span 2; padding: 12px; background: #238636; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Create
-                            Corporate Access</button>
+                        <div style="grid-column: span 2; display: flex; justify-content: flex-end; margin-top: 8px;">
+                            <button type="submit" class="btn-primary">Criar Acesso Corporativo</button>
+                        </div>
                     </form>
                 </div>
-            </div>
+            </section>
 
-            <!-- IDENTITY: USERS -->
-            <div id="sec-users" class="admin-section">
-                <h1 style="margin-top:0; color: #c9d1d9;">Users Registered</h1>
-                <p style="color: #8b949e; margin-bottom: 25px;">Manage roles, 2FA status, and access.</p>
+            <!-- IDENTIDADE: USUÁRIOS REGISTRADOS -->
+            <section id="sec-users" class="admin-section">
+                <div class="section-header">
+                    <h1 class="section-title">Usuários Registrados</h1>
+                    <p class="section-desc">Gerenciamento de papéis, status de 2FA e credenciais de acesso.</p>
+                </div>
 
-                <!-- KPIs Section -->
+                <!-- KPIs de Usuários -->
                 <div class="kpi-container">
                     <div class="kpi-card">
-                        <div class="kpi-label">Total Users</div>
+                        <div class="kpi-label">Total de Usuários</div>
                         <div class="kpi-value" id="kpi-total">-</div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-label">Administrators</div>
+                        <div class="kpi-label">Administradores</div>
                         <div class="kpi-value" id="kpi-admins">-</div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-label">Common Users</div>
+                        <div class="kpi-label">Usuários Comuns</div>
                         <div class="kpi-value" id="kpi-common">-</div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-label">Online (Active Sessions)</div>
-                        <div class="kpi-value" style="color: #2ea043;" id="kpi-online">-</div>
+                        <div class="kpi-label">Sessões Ativas</div>
+                        <div class="kpi-value" id="kpi-online" style="color: var(--arena-ok);">-</div>
                     </div>
                 </div>
 
                 <div class="card">
-                    <div
-                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h3 style="margin: 0; color: #58a6ff;">Ecosystem Users</h3>
-                        <button onclick="downloadCSV()"
-                            style="background: #238636; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; transition: background 0.2s;">📥
-                            Baixar .csv</button>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="margin: 0; font-size: 1.05rem; font-weight: 600;">Diretório de Acessos</h3>
+                        <button onclick="downloadCSV()" class="btn-secondary">Exportar .CSV</button>
                     </div>
 
-                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <table>
                         <thead>
-                            <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
-                                <th class="sortable" onclick="sortUsers('id')" style="padding: 10px;">ID ↕</th>
-                                <th class="sortable" onclick="sortUsers('username')" style="padding: 10px;">Username ↕
-                                </th>
-                                <th class="sortable" onclick="sortUsers('email')" style="padding: 10px;">Email ↕</th>
-                                <th class="sortable" onclick="sortUsers('full_name')" style="padding: 10px;">Name ↕</th>
-                                <th class="sortable" onclick="sortUsers('role')" style="padding: 10px;">Role ↕</th>
-                                <th class="sortable" onclick="sortUsers('is_2fa_verified')" style="padding: 10px;">2FA
-                                    Status ↕</th>
-                                <th style="padding: 10px; text-align: right;">Actions</th>
+                            <tr>
+                                <th class="sortable" onclick="sortUsers('id')">ID ↕</th>
+                                <th class="sortable" onclick="sortUsers('username')">Usuário ↕</th>
+                                <th class="sortable" onclick="sortUsers('email')">E-mail ↕</th>
+                                <th class="sortable" onclick="sortUsers('full_name')">Nome ↕</th>
+                                <th class="sortable" onclick="sortUsers('role')">Perfil ↕</th>
+                                <th class="sortable" onclick="sortUsers('is_2fa_verified')">Status 2FA ↕</th>
+                                <th style="text-align: right;">Ações</th>
                             </tr>
                         </thead>
                         <tbody id="userTableBody">
                             <tr>
-                                <td colspan="7" style="padding: 15px; text-align: center; color: #8b949e;">Loading
-                                    users...</td>
+                                <td colspan="7" style="padding: 24px; text-align: center; color: var(--arena-text-muted);">Carregando usuários...</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </section>
 
-            <!-- IDENTITY: DELETE ADMIN -->
-            <div id="sec-deladmin" class="admin-section">
-                <h1 style="margin-top:0; color: #f85149;">Delete My Administrator Account</h1>
-                <p style="color: #8b949e; margin-bottom: 25px;">Permanently remove your own access from the cluster.</p>
+            <!-- IDENTIDADE: EXCLUIR CONTA ADMIN -->
+            <section id="sec-deladmin" class="admin-section">
+                <div class="section-header">
+                    <h1 class="section-title" style="color: var(--arena-danger);">Excluir Conta de Administrador</h1>
+                    <p class="section-desc">Revogue permanentemente o seu próprio acesso ao cluster.</p>
+                </div>
+
                 <div class="card card-danger">
-                    <p style="color: #8b949e; font-size: 0.9em; margin-bottom: 15px;">
-                        To delete your own account, type the exact phrase: <code id="expectedPhraseLabel"
-                            style="color: #58a6ff; background: #0d1117; padding: 2px 6px; border-radius: 4px;">DELETE ACCOUNT [your-username]</code>
+                    <p style="color: var(--arena-text-muted); font-size: 0.9rem; margin-bottom: 16px;">
+                        Para confirmar a exclusão, digite exatamente a frase: <code id="expectedPhraseLabel" style="color: var(--arena-blue); background: var(--arena-surface-input); padding: 3px 8px; border-radius: 4px; font-family: var(--font-mono);">DELETE ACCOUNT [seu-usuario]</code>
                     </p>
-                    <div style="display: flex; gap: 10px; align-items: center; width: 100%;">
-                        <input type="text" id="selfDeleteInput" placeholder="Enter the exact confirmation phrase"
-                            style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                        <button onclick="executarAutodelecao()"
-                            style="padding: 10px 20px; background: #da3633; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap;">Delete
-                            My Account</button>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <input type="text" id="selfDeleteInput" placeholder="Digite a frase de confirmação exatamente como indicada">
+                        <button onclick="executarAutodelecao()" class="btn-danger" style="white-space: nowrap;">Excluir Minha Conta</button>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- SESSIONS: WORKSPACES -->
-            <div id="sec-workspaces" class="admin-section">
-                <h1 style="margin-top:0; color: #c9d1d9;">Active Workspaces</h1>
-                <p style="color: #8b949e; margin-bottom: 25px;">Monitor active session consumption and kill running
-                    containers.</p>
+            <!-- SESSÕES: WORKSPACES ATIVOS -->
+            <section id="sec-workspaces" class="admin-section">
+                <div class="section-header">
+                    <h1 class="section-title">Workspaces Ativos</h1>
+                    <p class="section-desc">Monitore o consumo das sessões em execução e encerre containers.</p>
+                </div>
+
                 <div class="card">
-                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <table>
                         <thead>
-                            <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
-                                <th style="padding: 10px;">User</th>
-                                <th style="padding: 10px;">Swarm Service</th>
-                                <th style="padding: 10px;">Quota (CPU / RAM)</th>
-                                <th style="padding: 10px; text-align: right;">Session Actions</th>
+                            <tr>
+                                <th>Usuário</th>
+                                <th>Serviço Swarm</th>
+                                <th>Quota (CPU / RAM)</th>
+                                <th style="text-align: right;">Ações</th>
                             </tr>
                         </thead>
                         <tbody id="workspaceTableBody">
                             <tr>
-                                <td colspan="4" style="padding: 15px; text-align: center; color: #8b949e;">Looking up
-                                    active Docker sessions...</td>
+                                <td colspan="4" style="padding: 24px; text-align: center; color: var(--arena-text-muted);">Consultando sessões ativas do Docker...</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </section>
 
-            <!-- SESSIONS: FILE SPY -->
-            <div id="sec-filespy" class="admin-section">
-                <h1 style="margin-top:0; color: #c9d1d9;">File Spy (Volume Audit)</h1>
-                <p style="color: #8b949e; margin-bottom: 25px;">Inspect temporary files in user persistent volumes.</p>
-                <div class="card">
-                    <div style="display: flex; gap: 10px; margin-bottom: 15px; width: 100%;">
-                        <input type="text" id="auditUsername" placeholder="Enter username (e.g. carlos.silva)"
-                            style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                        <button onclick="auditarArquivos()"
-                            style="padding: 10px 20px; background: #1f6feb; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap;">Inspect
-                            Volume</button>
-                    </div>
-                    <pre id="auditOutput"
-                        style="background: #0d1117; padding: 15px; border-radius: 6px; border: 1px solid #30363d; color: #58a6ff; max-height: 200px; overflow-y: auto; font-size: 0.85em; display: none; width: 100%;"></pre>
+            <!-- SESSÕES: FILE SPY -->
+            <section id="sec-filespy" class="admin-section">
+                <div class="section-header">
+                    <h1 class="section-title">File Spy (Auditoria de Volumes)</h1>
+                    <p class="section-desc">Inspecione arquivos temporários nos volumes persistentes dos usuários.</p>
                 </div>
-            </div>
 
-            <!-- INFRASTRUCTURE: NODES -->
-            <div id="sec-nodes" class="admin-section">
-                <h1 style="margin-top:0; color: #c9d1d9;">Swarm Nodes Telemetry</h1>
-                <p style="color: #8b949e; margin-bottom: 25px;">Real-time monitoring of cluster capacity and resource
-                    consumption.</p>
+                <div class="card">
+                    <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                        <input type="text" id="auditUsername" placeholder="Digite o nome de usuário (ex: carlos.silva)">
+                        <button onclick="auditarArquivos()" class="btn-primary" style="white-space: nowrap;">Inspecionar Volume</button>
+                    </div>
+                    <pre id="auditOutput" style="background: var(--arena-surface-input); padding: 16px; border-radius: var(--r-md); border: 1px solid var(--arena-lines); color: var(--arena-blue); max-height: 260px; overflow-y: auto; font-family: var(--font-mono); font-size: 0.82rem; display: none;"></pre>
+                </div>
+            </section>
 
-                <!-- Cluster Overview KPIs -->
+            <!-- INFRAESTRUTURA: NÓS DO SWARM -->
+            <section id="sec-nodes" class="admin-section">
+                <div class="section-header">
+                    <h1 class="section-title">Telemetria dos Nós do Swarm</h1>
+                    <p class="section-desc">Monitoramento em tempo real de capacidade de processamento e consumo de recursos.</p>
+                </div>
+
+                <!-- Visão Geral do Cluster -->
                 <div class="kpi-container" id="cluster-kpis">
                     <div class="kpi-card">
-                        <div class="kpi-label">Active Nodes</div>
+                        <div class="kpi-label">Nós Ativos</div>
                         <div class="kpi-value" id="kpi-nodes-count">-</div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-label">Total CPU Cores</div>
+                        <div class="kpi-label">Cores de CPU</div>
                         <div class="kpi-value" id="kpi-total-cpu">-</div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-label">Total RAM Capacity</div>
+                        <div class="kpi-label">Capacidade RAM</div>
                         <div class="kpi-value" id="kpi-total-ram">-</div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-label">Cluster Health</div>
-                        <div class="kpi-value" id="kpi-cluster-health" style="color: #2ea043;">-</div>
+                        <div class="kpi-label">Saúde do Cluster</div>
+                        <div class="kpi-value" id="kpi-cluster-health" style="color: var(--arena-ok);">-</div>
                     </div>
                 </div>
 
-                <!-- CPU Architecture Breakdown KPIs -->
-                <div class="kpi-container" style="grid-template-columns: repeat(3, 1fr);">
+                <!-- Distribuição de Arquitetura CPU -->
+                <div class="kpi-container" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
                     <div class="kpi-card">
-                        <div class="kpi-label" style="color: #0071c5;">🟦 Arquitetura Intel</div>
+                        <div class="kpi-label" style="color: #38bdf8;">Arquitetura Intel</div>
                         <div class="kpi-value" id="kpi-cpu-intel">-</div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-label" style="color: #ed1c24;">🟥 Arquitetura AMD</div>
+                        <div class="kpi-label" style="color: #f87171;">Arquitetura AMD</div>
                         <div class="kpi-value" id="kpi-cpu-amd">-</div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-label" style="color: #8b949e;">⬜ Outros / ARM</div>
+                        <div class="kpi-label" style="color: var(--arena-text-muted);">Outros / ARM</div>
                         <div class="kpi-value" id="kpi-cpu-outros">-</div>
                     </div>
                 </div>
 
-                <div class="card">
-                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
-                        <thead>
-                            <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
-                                <th style="padding: 10px; width: 20%;">Node / Role / CPU Info</th>
-                                <th style="padding: 10px; width: 10%;">Status</th>
-                                <th style="padding: 10px; width: 25%;">CPU Consumption</th>
-                                <th style="padding: 10px; width: 25%;">RAM Consumption</th>
-                                <th style="padding: 10px; width: 20%;">Storage (Disk)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="nodesTableBody">
-                            <tr>
-                                <td colspan="5" style="padding: 15px; text-align: center; color: #8b949e;">Analyzing
-                                    cluster telemetry...</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="table-responsive-card">
+                    <div class="table-responsive-wrapper">
+                        <table class="nodes-telemetry-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 17%;">Nó</th>
+                                    <th style="width: 10%; text-align: center;">Função</th>
+                                    <th style="width: 19%;">Processador</th>
+                                    <th style="width: 14%;">Status</th>
+                                    <th style="width: 13%;">CPU</th>
+                                    <th style="width: 13%;">Memória RAM</th>
+                                    <th style="width: 14%;">Armazenamento</th>
+                                </tr>
+                            </thead>
+                            <tbody id="nodesTableBody">
+                                <tr>
+                                    <td colspan="7" style="padding: 32px; text-align: center; color: var(--arena-text-muted);">Analisando telemetria do cluster...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- INFRASTRUCTURE: TAILSCALE -->
-            <div id="sec-tailscale" class="admin-section">
-                <h1 style="margin-top:0; color: #c9d1d9;">Tailscale Network</h1>
-                <p style="color: #8b949e; margin-bottom: 25px;">Gerencie conexões VPN e acesse o prompt dos nós do
-                    cluster.</p>
+            <!-- INFRAESTRUTURA: TAILSCALE -->
+            <section id="sec-tailscale" class="admin-section">
+                <div class="section-header">
+                    <h1 class="section-title">Rede Tailscale</h1>
+                    <p class="section-desc">Gerencie conexões VPN e conecte-se ao console dos nós do cluster.</p>
+                </div>
 
-                <!-- Barra de Ações Superiores (Add Node & Web Terminal) -->
-                <div style="display: flex; gap: 20px; margin-bottom: 20px;">
-
-                    <!-- Bloco: Add New -->
-                    <div class="card" style="flex: 1; display: flex; align-items: center; padding: 15px;">
-                        <input type="text" id="ts-add-link"
-                            placeholder="Cole o link de autenticação do Tailscale aqui..."
-                            style="flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: white; margin-right: 10px;">
-                        <button onclick="addTailscaleNode()"
-                            style="background: #2ea043; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">
-                            Adicionar Node ➔
-                        </button>
+                <div style="display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;">
+                    <div class="card" style="flex: 1; min-width: 300px; display: flex; align-items: center; padding: 16px; margin-bottom: 0;">
+                        <input type="text" id="ts-add-link" placeholder="Cole o link de autenticação do Tailscale..." style="margin-right: 12px;">
+                        <button onclick="addTailscaleNode()" class="btn-primary" style="white-space: nowrap;">Adicionar Nó</button>
                     </div>
 
-                    <!-- Bloco: Web Terminal Connection -->
-                    <div class="card" style="flex: 1; display: flex; align-items: center; padding: 15px;">
-                        <select id="ts-terminal-select"
-                            style="flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: white; margin-right: 10px;">
+                    <div class="card" style="flex: 1; min-width: 300px; display: flex; align-items: center; padding: 16px; margin-bottom: 0;">
+                        <select id="ts-terminal-select" style="margin-right: 12px;">
                             <option value="">Selecione um Servidor...</option>
                         </select>
-                        <button onclick="openWebTerminal()"
-                            style="background: #1f6feb; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">
-                            Conectar SSH ➔
-                        </button>
+                        <button onclick="openWebTerminal()" class="btn-secondary" style="white-space: nowrap;">Conectar SSH</button>
                     </div>
                 </div>
 
-                <!-- Tabela de Máquinas -->
                 <div class="card">
-                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <table>
                         <thead>
-                            <tr
-                                style="border-bottom: 1px solid #30363d; color: #8b949e; font-size: 0.85em; text-transform: uppercase;">
-                                <th style="padding: 15px 10px;">Machine</th>
-                                <th style="padding: 15px 10px;">Addresses</th>
-                                <th style="padding: 15px 10px;">Version / OS</th>
-                                <th style="padding: 15px 10px;">Last Seen</th>
+                            <tr>
+                                <th>Máquina</th>
+                                <th>Endereços IP</th>
+                                <th>Versão / SO</th>
+                                <th>Última Conexão</th>
                             </tr>
                         </thead>
                         <tbody id="tailscaleTableBody">
                             <tr>
-                                <td colspan="4" style="padding: 15px; text-align: center; color: #8b949e;">Carregando
-                                    rede Tailscale...</td>
+                                <td colspan="4" style="padding: 24px; text-align: center; color: var(--arena-text-muted);">Carregando rede Tailscale...</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
-                <!-- Container do Web Terminal (Escondido por padrão) -->
-                <div id="terminal-container" class="card"
-                    style="display: none; margin-top: 20px; padding: 0; background: #000; overflow: hidden; border: 1px solid #30363d;">
-                    <div
-                        style="background: #161b22; padding: 10px; color: #c9d1d9; font-family: monospace; display: flex; justify-content: space-between;">
-                        <span id="terminal-title">Root Shell</span>
-                        <button onclick="closeWebTerminal()"
-                            style="background: transparent; border: none; color: #da3633; cursor: pointer; font-weight: bold;">✖
-                            Fechar</button>
+                <div id="terminal-container" style="display: none; margin-top: 24px;">
+                    <div style="background: var(--arena-surface); padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--arena-lines);">
+                        <span id="terminal-title" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--arena-blue);">Root Shell</span>
+                        <button onclick="closeWebTerminal()" style="background: none; border: none; color: var(--arena-danger); cursor: pointer; font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                            <span>Fechar Terminal</span>
+                            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
                     </div>
-                    <div id="terminal-screen"
-                        style="height: 400px; padding: 10px; color: #00ff00; font-family: monospace; overflow-y: auto;">
-                        <!-- O console do Xterm.js será injetado aqui -->
-                    </div>
+                    <div id="terminal-screen" style="height: 380px;"></div>
                 </div>
-            </div>
+            </section>
 
-            <!-- DATA GOVERNANCE: CATALOG -->
-            <div id="sec-catalog" class="admin-section">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <div>
-                        <h1 style="margin: 0; color: #c9d1d9;">Data Catalog Governance</h1>
-                        <p style="color: #8b949e; margin: 5px 0 0 0;">Manage raw and processed layers in MinIO.</p>
-                    </div>
-                    <button onclick="baixarRelatorioCatalog(event)"
-                        style="background: #238636; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                        📥 Baixar Relatório (.csv)
-                    </button>
+            <!-- DATA GOVERNANCE: DATA CATALOG -->
+            <section id="sec-catalog" class="admin-section">
+                <div class="section-header">
+                    <h1 class="section-title">Governança do Data Catalog</h1>
+                    <p class="section-desc">Gerenciamento de camadas raw e processed no armazenamento de objetos (MinIO).</p>
                 </div>
-                <h1 style="margin-top:0; color: #c9d1d9;">Data Catalog Governance</h1>
-                <p style="color: #8b949e; margin-bottom: 25px;">Manage raw and processed layers in MinIO.</p>
+
                 <div class="card">
-                    <!-- Linha 1: Criar Novo Bucket -->
-                    <div class="create-bucket-section"
-                        style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px;">
-                        <input type="text" id="newBucketInput" placeholder="New Bucket Name (e.g. raw-data-2026)"
-                            style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                        <button onclick="handleCreateBucket()"
-                            style="padding: 10px 20px; background: #1f6feb; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap;">
-                            ➕ Create Bucket
+                    <!-- Linha 1: Criar Novo Bucket & Baixar Relatorio -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
+                        <div style="display: flex; gap: 10px; flex: 1; min-width: 280px;">
+                            <input type="text" id="newBucketInput" placeholder="Novo Bucket (ex: analise-dados)" style="flex: 1;">
+                            <button type="button" onclick="handleCreateBucket()" class="btn-primary" style="white-space: nowrap;">Criar Bucket</button>
+                        </div>
+                        <button type="button" onclick="baixarRelatorioCatalog(event)" class="btn-secondary" style="white-space: nowrap;">
+                            Baixar Relatório (.csv)
                         </button>
                     </div>
 
-                    <hr style="border-color: #30363d; margin-bottom: 20px;">
+                    <hr style="border: none; border-top: 1px solid var(--arena-border); margin: 0 0 20px 0;">
 
                     <!-- Linha 2: Filtro de View e Upload -->
-                    <form id="uploadCatalogForm" style="display: flex; gap: 10px; margin-bottom: 20px; width: 100%;">
-                        <select id="bucketDropdown" required onchange="handleFilterChange()"
-                            style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                            <option value="all">📁 All Buckets</option>
+                    <form id="uploadCatalogForm" style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
+                        <select id="bucketDropdown" required onchange="handleFilterChange()" style="flex: 1; min-width: 180px;">
+                            <option value="all">Todos os Buckets</option>
                         </select>
-
-                        <input type="file" id="uploadFile" required
-                            style="flex: 1; padding: 8px; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; border-radius: 4px;">
-
-                        <button type="submit"
-                            style="padding: 10px 20px; background: #238636; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap;">
-                            📤 Upload File
-                        </button>
+                        <input type="file" id="uploadFile" required style="flex: 1; min-width: 200px;">
+                        <button type="submit" class="btn-primary" style="white-space: nowrap;">Fazer Upload</button>
                     </form>
 
-                    <div id="catalogContainer" style="color: #c9d1d9; font-size: 0.9em; width: 100%;">
-                        <p style="color: #8b949e;">Loading bucket structure...</p>
+                    <div id="catalogContainer" style="width: 100%;">
+                        <p style="color: var(--arena-text-muted);">Carregando estrutura de buckets...</p>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <div id="sec-dldash" class="admin-section">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <!-- DATA GOVERNANCE: DATALAKE DASHBOARD -->
+            <section id="sec-dldash" class="admin-section">
+                <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap;">
                     <div>
-                        <h1 style="margin: 0; color: #c9d1d9;">DataLake Metrics & Insights</h1>
-                        <p style="color: #8b949e; margin: 5px 0 0 0;">Visão gerencial de armazenamento e uso do MinIO.
-                        </p>
+                        <h1 class="section-title">DataLake Metrics & Insights</h1>
+                        <p class="section-desc">Visão gerencial de armazenamento, distribuição de tipos e uso do MinIO.</p>
                     </div>
-                    <button onclick="baixarDashboardImagem()"
-                        style="background: #8957e5; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                        📸 Exportar Dashboard (.png)
+                    <button type="button" onclick="baixarDashboardImagem()" class="btn-secondary" style="display: inline-flex; align-items: center; gap: 8px;">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                        <span>Exportar Dashboard (.png)</span>
                     </button>
                 </div>
 
-                <!-- Área que será 'fotografada' pelo HTML2Canvas -->
-                <div id="dashboard-export-area" style="padding-bottom: 20px;">
+                <!-- Área fotografada pelo HTML2Canvas -->
+                <div id="dashboard-export-area" style="padding-bottom: 8px;">
                     <!-- KPIs -->
-                    <div class="kpi-container">
-                        <div class="kpi-card">
-                            <div class="kpi-label">Storage Consumido</div>
-                            <div class="kpi-value" id="kpi-dl-size" style="color: #8957e5;">-</div>
+                    <div class="kpi-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                        <div class="card" style="margin-bottom: 0;">
+                            <div class="kpi-label" style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--arena-text-muted); margin-bottom: 6px;">Storage Consumido</div>
+                            <div class="kpi-value" id="kpi-dl-size" style="font-size: 1.75rem; font-weight: 700; color: var(--arena-blue);">-</div>
                         </div>
-                        <div class="kpi-card">
-                            <div class="kpi-label">Total de Arquivos</div>
-                            <div class="kpi-value" id="kpi-dl-files">-</div>
+                        <div class="card" style="margin-bottom: 0;">
+                            <div class="kpi-label" style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--arena-text-muted); margin-bottom: 6px;">Total de Arquivos</div>
+                            <div class="kpi-value" id="kpi-dl-files" style="font-size: 1.75rem; font-weight: 700; color: var(--arena-text-main);">-</div>
                         </div>
-                        <div class="kpi-card">
-                            <div class="kpi-label">Buckets Ativos</div>
-                            <div class="kpi-value" id="kpi-dl-buckets">-</div>
+                        <div class="card" style="margin-bottom: 0;">
+                            <div class="kpi-label" style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--arena-text-muted); margin-bottom: 6px;">Buckets Ativos</div>
+                            <div class="kpi-value" id="kpi-dl-buckets" style="font-size: 1.75rem; font-weight: 700; color: var(--arena-ok);">-</div>
                         </div>
-                        <div class="kpi-card">
-                            <div class="kpi-label">Uploader Destaque</div>
-                            <div class="kpi-value" id="kpi-dl-topuser"
-                                style="font-size: 1.4em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                -</div>
+                        <div class="card" style="margin-bottom: 0;">
+                            <div class="kpi-label" style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--arena-text-muted); margin-bottom: 6px;">Uploader Destaque</div>
+                            <div class="kpi-value" id="kpi-dl-topuser" style="font-size: 1.35rem; font-weight: 700; color: var(--arena-gold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">-</div>
                         </div>
                     </div>
 
                     <!-- Gráficos -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                        <div class="card" style="display: flex; flex-direction: column; align-items: center;">
-                            <h4 style="margin: 0 0 15px 0; color: #79c0ff; width: 100%; text-align: left;">📁 Quantidade
-                                de Arquivos por Bucket</h4>
-                            <div style="width: 100%; max-width: 450px;"><canvas id="chartBuckets"></canvas></div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 20px; margin-bottom: 20px;">
+                        <div class="card" style="display: flex; flex-direction: column; align-items: center; margin-bottom: 0;">
+                            <h4 style="margin: 0 0 16px 0; color: var(--arena-text-main); font-size: 0.95rem; width: 100%; text-align: left; display: flex; align-items: center; gap: 8px;">
+                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" style="color: var(--arena-blue);"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                                <span>Quantidade de Arquivos por Bucket</span>
+                            </h4>
+                            <div style="width: 100%; max-width: 480px; min-height: 240px;"><canvas id="chartBuckets"></canvas></div>
                         </div>
-                        <div class="card" style="display: flex; flex-direction: column; align-items: center;">
-                            <h4 style="margin: 0 0 15px 0; color: #79c0ff; width: 100%; text-align: left;">🍩
-                                Distribuição por Tipo (Formatos)</h4>
-                            <div style="width: 100%; max-width: 300px;"><canvas id="chartTypes"></canvas></div>
+                        <div class="card" style="display: flex; flex-direction: column; align-items: center; margin-bottom: 0;">
+                            <h4 style="margin: 0 0 16px 0; color: var(--arena-text-main); font-size: 0.95rem; width: 100%; text-align: left; display: flex; align-items: center; gap: 8px;">
+                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" style="color: var(--arena-ok);"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 1 10 10h-10z"></path></svg>
+                                <span>Distribuição por Tipo (Formatos)</span>
+                            </h4>
+                            <div style="width: 100%; max-width: 320px; min-height: 240px;"><canvas id="chartTypes"></canvas></div>
                         </div>
                     </div>
 
                     <div class="card">
-                        <h4 style="margin: 0 0 15px 0; color: #79c0ff;">💾 Volume Consumido por Tipo de Arquivo (Bytes)
+                        <h4 style="margin: 0 0 16px 0; color: var(--arena-text-main); font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" style="color: var(--arena-blue);"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                            <span>Volume Consumido por Tipo de Arquivo (Bytes)</span>
                         </h4>
-                        <div style="width: 100%; height: 250px;"><canvas id="chartBytes"></canvas></div>
+                        <div style="width: 100%; height: 260px;"><canvas id="chartBytes"></canvas></div>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- DANGER ZONE: DESTROY -->
-            <div id="sec-destroy" class="admin-section">
-                <h1 style="margin-top:0; color: #f85149;">Critical Self-Destruction</h1>
-                <p style="color: #8b949e; margin-bottom: 25px;">Kill all running workspaces across the entire cluster
-                    instantly.</p>
+<!-- DANGER ZONE: DESTROY -->
+            <section id="sec-destroy" class="admin-section">
+                <div class="section-header">
+                    <h1 class="section-title" style="color: var(--arena-danger);">Protocolo de Autodestruição</h1>
+                    <p class="section-desc">Encerra todos os workspaces em execução em todo o cluster imediatamente.</p>
+                </div>
                 <div class="card card-danger">
-                    <div style="display: flex; gap: 10px; align-items: center; width: 100%;">
-                        <input type="text" id="confirmDestroyUser" placeholder="Type your username to confirm"
-                            style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                        <button onclick="executarAutodestruicao()"
-                            style="padding: 10px 20px; background: #da3633; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap;">🚨
-                            Run Self-Destruction</button>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <input type="text" id="confirmDestroyUser" placeholder="Digite seu nome de usuário para confirmar a operação">
+                        <button onclick="executarAutodestruicao()" class="btn-danger" style="white-space: nowrap;">Executar Autodestruição</button>
                     </div>
                 </div>
-            </div>
+            </section>
 
             <!-- API INGESTION GATEWAY -->
-            <div id="sec-gateway" class="admin-section">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <div>
-                        <h1 style="margin: 0; color: #c9d1d9;">API Ingestion Gateway</h1>
-                        <p style="color: #8b949e; margin: 5px 0 0 0;">Crie e gerencie URLs para recebimento autônomo de
-                            dados externos.</p>
-                    </div>
+            <section id="sec-gateway" class="admin-section">
+                <div class="section-header">
+                    <h1 class="section-title">API Ingestion Gateway</h1>
+                    <p class="section-desc">Crie e gerencie URLs e chaves de acesso para recebimento autônomo de dados externos.</p>
                 </div>
 
-                <div class="card" style="margin-bottom: 20px;">
-                    <h4 style="margin-top: 0; color: #79c0ff;">Criar Novo Endpoint Restrito</h4>
+                <div class="card" style="margin-bottom: 24px;">
+                    <h4 style="margin: 0 0 16px 0; color: var(--arena-text-main); font-size: 0.95rem; font-weight: 600;">Criar Novo Endpoint Restrito</h4>
 
                     <!-- 1: Dropdown de Buckets e Formato -->
-                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                        <select id="gwBucket"
-                            style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px;">
+                        <select id="gwBucket" required>
                             <option value="">Selecione o Bucket de Destino...</option>
                             <!-- Preenchido via JS -->
                         </select>
 
-                        <input type="text" id="gwFilename" placeholder="Nome do Arquivo (ex: clientes)" style="flex: 1; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
+                        <input type="text" id="gwFilename" placeholder="Nome do Arquivo (ex: clientes)" required>
 
-                        <select id="gwFormat"
-                            style="padding: 10px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px; width: 200px;">
+                        <select id="gwFormat">
                             <option value="json">Ingerir como JSON</option>
                             <option value="parquet">Ingerir como PARQUET</option>
                         </select>
                     </div>
 
                     <!-- 2 e 3: Construtor de Schema Visual com datHorRefCarga -->
-                    <div
-                        style="background: #161b22; border: 1px solid #30363d; border-radius: 4px; padding: 15px; margin-bottom: 15px;">
-                        <h5 style="margin: 0 0 10px 0; color: #8b949e;">Construtor de Schema (Estrutura do Dado)</h5>
+                    <div style="background: var(--arena-surface-input); border: 1px solid var(--arena-lines); border-radius: var(--r-md); padding: 16px; margin-bottom: 16px;">
+                        <h5 style="margin: 0 0 12px 0; color: var(--arena-text-muted); font-size: 0.85rem; font-weight: 600;">Estrutura do Dado (Schema)</h5>
 
-                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                            <input type="text" id="gwColName" placeholder="Nome da Coluna (ex: id_cliente)"
-                                style="flex: 1; padding: 8px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px;">
-                            <select id="gwColType"
-                                style="padding: 8px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 4px; width: 150px;">
+                        <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+                            <input type="text" id="gwColName" placeholder="Nome da Coluna (ex: id_cliente)" style="flex: 1; min-width: 180px;">
+                            <select id="gwColType" style="width: 170px;">
                                 <option value="string">String (Texto)</option>
                                 <option value="int">Integer (Inteiro)</option>
                                 <option value="float">Float (Decimal)</option>
                                 <option value="boolean">Boolean (Lógico)</option>
                                 <option value="datetime">Datetime (Data/Hora)</option>
                             </select>
-                            <button onclick="addSchemaColumn()"
-                                style="background: #1f6feb; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">➕
-                                Adicionar</button>
+                            <button type="button" onclick="addSchemaColumn()" class="btn-primary" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;">
+                                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                Adicionar Coluna
+                            </button>
                         </div>
 
-                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85em; text-align: left;">
-                            <thead>
-                                <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
-                                    <th style="padding: 8px;">Nome da Coluna</th>
-                                    <th style="padding: 8px;">Tipo de Dado</th>
-                                    <th style="padding: 8px; text-align: right;">Ação</th>
-                                </tr>
-                            </thead>
-                            <tbody id="gwSchemaTableBody">
-                                <!-- datHorRefCarga fixa e novas colunas aparecerão aqui -->
-                                <tr style="border-bottom: 1px solid #30363d; background: #0d1117;">
-                                    <td style="padding: 8px; color: #c9d1d9;">datHorRefCarga <span
-                                            style="font-size: 0.7em; background: #238636; padding: 2px 5px; border-radius: 4px; margin-left: 5px;">Sistema</span>
-                                    </td>
-                                    <td style="padding: 8px; color: #58a6ff;">datetime</td>
-                                    <td style="padding: 8px; text-align: right; color: #8b949e; font-style: italic;">
-                                        Automático</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th>Nome da Coluna</th>
+                                        <th>Tipo de Dado</th>
+                                        <th style="text-align: right;">Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="gwSchemaTableBody">
+                                    <tr>
+                                        <td style="font-family: var(--font-mono); font-size: 0.85rem;">
+                                            datHorRefCarga
+                                            <span style="font-size: 0.7rem; background: rgba(34,197,94,0.15); color: var(--arena-ok); border: 1px solid rgba(34,197,94,0.3); padding: 2px 6px; border-radius: 4px; margin-left: 6px;">Sistema</span>
+                                        </td>
+                                        <td style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--arena-blue);">datetime</td>
+                                        <td style="text-align: right; color: var(--arena-text-dim); font-size: 0.8rem; font-style: italic;">Automático</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
-                    <button onclick="criarGatewayEndpoint()"
-                        style="padding: 10px 20px; background: #238636; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Gerar
-                        Chaves e Endpoint</button>
+                    <button type="button" onclick="criarGatewayEndpoint()" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 2l-2 2m-6 6l-3 3-4-4 3-3m-6 6l2 2 4-4"></path><circle cx="12" cy="12" r="9"></circle></svg>
+                        <span>Gerar Chaves e Endpoint</span>
+                    </button>
                 </div>
 
                 <div class="card">
-                    <h4 style="margin-top: 0; color: #79c0ff;">Endpoints Ativos</h4>
+                    <h4 style="margin: 0 0 16px 0; color: var(--arena-text-main); font-size: 0.95rem; font-weight: 600;">Endpoints Ativos</h4>
                     <div style="overflow-x: auto;">
-                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85em; text-align: left;"
-                            id="gwTable">
+                        <table id="gwTable" style="width: 100%;">
                             <thead>
-                                <tr style="border-bottom: 1px solid #30363d; color: #8b949e;">
-                                    <th style="padding: 10px;">Bucket Destino</th>
-                                    <th style="padding: 10px;">Formato</th>
-                                    <th style="padding: 10px;">API Hash / Token (Bearer)</th>
-                                    <th style="padding: 10px;">Requests</th>
-                                    <th style="padding: 10px;">Criado Por</th>
+                                <tr>
+                                    <th>Bucket Destino</th>
+                                    <th>Formato</th>
+                                    <th>API Hash / Token (Bearer)</th>
+                                    <th>Requests</th>
+                                    <th style="text-align: right;">Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="gwTableBody">
-                                <!-- Preenchido via JS -->
+                                <tr>
+                                    <td colspan="5" style="text-align: center; color: var(--arena-text-muted); padding: 24px;">Carregando endpoints...</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
-            </div>
+            </section>
 
             <!-- Admin Side Panel for Preview -->
-            <div id="adminSidePanel" class="side-panel">
-                <button class="close-btn" onclick="fecharPreview()">×</button>
-                <h3 id="prevFilename" style="margin-top: 0; color: white; word-wrap: break-word;">Arquivo</h3>
-
-                <div style="margin-top: 20px;">
-                    <div class="meta-tag">📦 Bucket: <span id="prevBucket"></span></div>
-                    <div class="meta-tag">👤 Uploader: <span id="prevUploader"></span></div>
-                    <div class="meta-tag">💾 Tamanho: <span id="prevSize"></span></div>
-                    <div class="meta-tag">📅 Upload: <span id="prevDate"></span></div>
+            <aside id="adminSidePanel" class="side-panel">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--arena-lines); padding-bottom: 12px;">
+                    <h3 id="prevFilename" style="margin: 0; color: var(--arena-text-main); font-size: 1.05rem; word-break: break-all;">Arquivo</h3>
+                    <button type="button" class="close-btn" onclick="fecharPreview()" aria-label="Fechar preview">
+                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
                 </div>
 
-                <div id="prevShape"
-                    style="display:none; margin-top: 15px; background: #21262d; padding: 10px; border-radius: 5px; border: 1px solid #30363d; font-size: 0.85em;">
-                    <span style="color:#8b949e">Total Linhas:</span> <strong id="prevRows"
-                        style="color:#58a6ff"></strong> |
-                    <span style="color:#8b949e">Total Colunas:</span> <strong id="prevCols"
-                        style="color:#58a6ff"></strong>
+                <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+                    <div class="meta-tag">
+                        <span style="color: var(--arena-text-muted);">Bucket:</span>
+                        <strong id="prevBucket" style="color: var(--arena-blue); font-family: var(--font-mono);"></strong>
+                    </div>
+                    <div class="meta-tag">
+                        <span style="color: var(--arena-text-muted);">Uploader:</span>
+                        <strong id="prevUploader" style="color: var(--arena-text-main);"></strong>
+                    </div>
+                    <div class="meta-tag">
+                        <span style="color: var(--arena-text-muted);">Tamanho:</span>
+                        <strong id="prevSize" style="color: var(--arena-text-main);"></strong>
+                    </div>
+                    <div class="meta-tag">
+                        <span style="color: var(--arena-text-muted);">Data:</span>
+                        <strong id="prevDate" style="color: var(--arena-text-main);"></strong>
+                    </div>
                 </div>
 
-                <div
-                    style="margin-top: 15px; background: #21262d; padding: 10px; border-radius: 5px; border: 1px solid #30363d; font-size: 0.85em;">
-                    <h5 style="margin: 0 0 5px 0; color: #8b949e;">🔗 Relações / Linhagem</h5>
-                    <span style="color:#da3633; font-style:italic;">Não rastreado. Requer engine de metadados
-                        externa.</span>
+                <div id="prevShape" style="display: none; margin-bottom: 16px; background: var(--arena-surface-input); padding: 12px; border-radius: var(--r-md); border: 1px solid var(--arena-lines); font-size: 0.85rem;">
+                    <span style="color: var(--arena-text-muted);">Linhas:</span> <strong id="prevRows" style="color: var(--arena-blue); margin-right: 12px;"></strong>
+                    <span style="color: var(--arena-text-muted);">Colunas:</span> <strong id="prevCols" style="color: var(--arena-blue);"></strong>
                 </div>
 
-                <h4 style="border-bottom: 1px solid #30363d; padding-bottom: 10px; margin-top: 25px;">Visualização</h4>
-                <div id="prevContent">Carregando...</div>
-            </div>
+                <div style="margin-bottom: 20px; background: var(--arena-surface-input); padding: 12px; border-radius: var(--r-md); border: 1px solid var(--arena-lines); font-size: 0.82rem;">
+                    <div style="font-weight: 600; color: var(--arena-text-muted); margin-bottom: 4px;">Linhagem de Dados</div>
+                    <span style="color: var(--arena-text-dim); font-style: italic;">Rastreamento automático gerenciado pelo engine Spark.</span>
+                </div>
+
+                <h4 style="border-bottom: 1px solid var(--arena-lines); padding-bottom: 8px; margin: 20px 0 12px 0; color: var(--arena-text-main); font-size: 0.9rem;">Amostra do Conteúdo</h4>
+                <div id="prevContent" style="color: var(--arena-text-muted); font-size: 0.85rem;">Carregando visualização...</div>
+            </aside>
 
         </main>
     </div>
 
-    <!-- Referenciando o Script Exato que criamos -->
+    <!-- Script de Funcionalidades do Painel Administrativo -->
     <script src="/static/js/admin.js"></script>
 </body>
 
