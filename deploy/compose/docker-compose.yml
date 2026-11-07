@@ -1,0 +1,201 @@
+# -----------------------------------------------------------------------------
+# ArenaLake MVP Configuration - Core Infrastructure (Swarm Ready)
+# -----------------------------------------------------------------------------
+# This stack wires together the platform gateway, Spark engine, object storage,
+# the base workspace image, and the main portal application used by users.
+services:
+
+  # Traefik is the public edge router that exposes services through the host and
+  # routes incoming requests to the proper internal container.
+  traefik:
+    image: traefik:v2.11
+    environment:
+      - DOCKER_API_VERSION=1.41
+    command:
+      - "--api.insecure=false"
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--providers.docker.swarmMode=true"
+    ports:
+      - "8088:80"                  # <--- O Traefik escuta na porta 8088 do host
+      - "${TRAEFIK_DASH_PORT:-8089}:8080" # <--- Dashboard na 8089 para evitar conflito
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - arenalake-net
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  # Spark master node for distributed data processing jobs, analytics workloads,
+  # and notebook-style execution pipelines handled by the platform.
+  spark-master:
+    image: bitnamilegacy/spark:3.5
+    environment:
+      - SPARK_MODE=master
+    ports:
+      - "${SPARK_UI_PORT:-8080}:8080"
+      - "${SPARK_RPC_PORT:-7077}:7077"
+    volumes:
+      - ${DATALAKE_STORAGE_PATH}/spark_jobs:/jobs
+    networks:
+      - arenalake-net
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  # MinIO provides the S3-compatible data lake used to store datasets,
+  # uploaded files, and bucketized artifacts managed by the portal.
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - ${DATALAKE_STORAGE_PATH}/minio_data:/data
+    networks:
+      - arenalake-net
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${DBA_USERNAME}
+      POSTGRES_PASSWORD: ${DBA_PASSWORD}
+      POSTGRES_DB: arenalake_core
+    volumes:
+      - ${DATALAKE_STORAGE_PATH}/database:/var/lib/postgresql/data
+    networks:
+      - arenalake-net
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  # Builds the reusable workspace base image used for per-user development
+  # containers and project runtime isolation inside the platform.
+  workspace-builder:
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile.workspace
+    image: ${WORKSPACE_IMAGE:-arenalake-workspace:latest}
+    command: echo "ArenaLake workspace image built successfully!"
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  # Builds and runs the main portal service: FastAPI app, login flow,
+  # dashboard, admin control panel, and the user-facing orchestration layer.
+  portal:
+    image: ${PORTAL_IMAGE:-arenalake-prod-portal:latest}
+    build:
+      context: ../../apps/portal
+      dockerfile: Dockerfile
+    env_file:
+       - ../../.env
+    environment:
+      - HOST_PROJECT_PATH=${PWD}
+      - WORKSPACE_NETWORK=${WORKSPACE_NETWORK}
+      - DOCKER_HOST=tcp://dockerproxy:2375
+    volumes:
+      - ${DATALAKE_STORAGE_PATH}/projects_data:/app/projects_data
+      - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock
+      - ~/.ssh:/root/.ssh:ro
+    networks:
+      - arenalake-net
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/docs', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    deploy:
+      update_config:
+        parallelism: 1
+        delay: 10s
+        monitor: 60s
+        failure_action: rollback
+        order: start-first
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.portal.rule=PathPrefix(`/`)"
+        - "traefik.http.routers.portal.entrypoints=web"
+        - "traefik.http.services.portal.loadbalancer.server.port=8000"
+        - "traefik.docker.network=arenalake-prod_arenalake-net"
+
+  telemetry-agent:
+    build:
+      context: ../../apps/telemetry-agent
+      dockerfile: Dockerfile
+    image: ${TELEMETRY_IMAGE:-arenalake-telemetry:latest}
+    privileged: true
+    volumes:
+      - /sys:/sys:ro  # Permite ao agente ler a BIOS/Placa mãe do hospedeiro
+      - /proc:/proc:ro # Permite ler dados profundos da CPU
+    networks:
+      - arenalake-net
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/metrics', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      update_config:
+        parallelism: 1
+        delay: 10s
+        monitor: 60s
+        failure_action: rollback
+      mode: global # <--- O SEGREDO MÁGICO: Garante 1 container em CADA máquina do Swarm!
+
+  dockerproxy:
+    image: tecnativa/docker-socket-proxy
+    environment:
+      - SERVICES=1
+      - TASKS=1
+      - NETWORKS=1
+      - NODES=1
+      - CONTAINERS=1
+      # Bloqueia execução remota de código (RCE) e escalonamento de privilégios:
+      - EXEC=0
+      - BUILD=0
+      - AUTH=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - arenalake-net
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
+networks:
+  arenalake-net:
+    driver: overlay
+    attachable: true
+
+volumes:
+  minio_data:

@@ -23,7 +23,9 @@ def main():
     print("=" * 60)
     print("      ArenaLake - Enterprise Backup Tool")
     print("=" * 60)
-    print("This process will create a complete backup of the configuration and physical")
+    print(
+        "This process will create a complete backup of the configuration and physical"
+    )
     print("data (DataLake). This may take a while depending on the stored data volume.")
     print("\n")
 
@@ -38,12 +40,13 @@ def main():
         )
         sys.exit(1)
 
-    if not os.path.exists(".env") or not os.path.exists("docker-compose.yml"):
-        print("[WARNING] .env or docker-compose.yml was not found in this folder.")
+    compose_file = os.path.join("deploy", "compose", "docker-compose.yml")
+    if not os.path.exists(".env") or not os.path.exists(compose_file):
+        print(
+            "[WARNING] .env or deploy/compose/docker-compose.yml was not found in this folder."
+        )
         resp = (
-            input(
-                "Do you want to back up only the DataLake data? (Y/N) [Default: N]: "
-            )
+            input("Do you want to back up only the DataLake data? (Y/N) [Default: N]: ")
             .strip()
             .lower()
         )
@@ -66,10 +69,10 @@ def main():
 
     if os.path.exists(".env"):
         tar_cmd.append(".env")
-    if os.path.exists("docker-compose.yml"):
-        tar_cmd.append("docker-compose.yml")
-    if os.path.exists("telemetry-agent"):
-        tar_cmd.append("telemetry-agent")
+    if os.path.exists(compose_file):
+        tar_cmd.append(compose_file)
+    if os.path.exists("apps"):
+        tar_cmd.append("apps")
 
     try:
         # Run the backup and show progress as the archive is being created.

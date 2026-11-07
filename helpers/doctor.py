@@ -3,6 +3,11 @@ import subprocess
 import shutil
 import json
 
+if __package__:
+    from .env_file import read_env_file
+else:
+    from env_file import read_env_file
+
 # Color codes for terminal output.
 GREEN = "\033[92m"
 YELLOW = "\033[93m"
@@ -31,10 +36,9 @@ def print_status(component, status, message, tip=None):
 def get_datalake_path():
     """Read the configured DataLake path from .env if available."""
     if os.path.exists(".env"):
-        with open(".env", "r") as f:
-            for line in f:
-                if line.startswith("DATALAKE_STORAGE_PATH="):
-                    return line.strip().split("=")[1]
+        return read_env_file(".env").get(
+            "DATALAKE_STORAGE_PATH", os.path.join(PROJECT_ROOT, "datalake_data")
+        )
     # Fallback when the .env file is not present.
     return os.path.join(PROJECT_ROOT, "datalake_data")
 
@@ -87,17 +91,17 @@ def check_environment():
             "You are running the script from the wrong folder or the file was deleted. Run 'helpers/install.py' to recreate it.",
         )
 
-    if os.path.isfile("docker-compose.yml"):
+    if os.path.isfile(os.path.join("deploy", "compose", "docker-compose.yml")):
         print_status("Docker Compose", "OK", "Found.")
     else:
         print_status(
             "Docker Compose",
             "ERROR",
             "NOT FOUND!",
-            "Download docker-compose.yml from the repository and place it in this folder.",
+            "Restore deploy/compose/docker-compose.yml from the repository.",
         )
-        
-    if os.path.isdir("telemetry-agent"):
+
+    if os.path.isdir(os.path.join("apps", "telemetry-agent")):
         print_status("Telemetry Agent", "OK", "Source folder found.")
     else:
         print_status(
@@ -188,7 +192,7 @@ def check_docker_swarm():
                 "Services",
                 "WARN",
                 "No services running.",
-                "Run: docker stack deploy -c docker-compose.yml arenalake-prod",
+                "Run: docker stack deploy -c deploy/compose/docker-compose.yml arenalake-prod",
             )
             return
 

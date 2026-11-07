@@ -1,0 +1,5 @@
+# The workspace Dockerfile installs its runtime tools and copies no repo files.
+# Keep secrets, source trees, git history, and local data out of its build context.
+**
+!docker/
+!docker/Dockerfile.workspace

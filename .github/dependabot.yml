@@ -1,0 +1,41 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
+    directory: /apps/portal
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
+    directory: /apps/telemetry-agent
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
+    directory: /config/python
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /apps/portal
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /apps/telemetry-agent
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /docker
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /deploy/compose
+    schedule:
+      interval: weekly
