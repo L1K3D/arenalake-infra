@@ -1,0 +1,76 @@
+name: Docker Build and Publish to GHCR
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  # Permite rodar a action manualmente pelo painel do GitHub
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  # Transforma "L1K3D/arenalake-infra" para minúsculo, padrão exigido pelo Docker
+  IMAGE_BASE: ghcr.io/l1k3d/arenalake-infra
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    
+    # Define as permissões necessárias para que o robô do GitHub consiga salvar a imagem no GHCR
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ---------------------------------------------------
+      # 1. Build & Push: Portal
+      # ---------------------------------------------------
+      - name: Build and push Portal
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apps/portal
+          file: ./apps/portal/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_BASE }}/portal:latest
+          cache-from: type=gha,scope=portal
+          cache-to: type=gha,mode=max,scope=portal
+
+      # ---------------------------------------------------
+      # 2. Build & Push: Telemetry Agent
+      # ---------------------------------------------------
+      - name: Build and push Telemetry Agent
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apps/telemetry-agent
+          file: ./apps/telemetry-agent/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_BASE }}/telemetry:latest
+          cache-from: type=gha,scope=telemetry
+          cache-to: type=gha,mode=max,scope=telemetry
+
+      # ---------------------------------------------------
+      # 3. Build & Push: Workspace Builder
+      # ---------------------------------------------------
+      - name: Build and push Workspace Builder
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile.workspace
+          push: true
+          tags: ${{ env.IMAGE_BASE }}/workspace:latest
+          cache-from: type=gha,scope=workspace
+          cache-to: type=gha,mode=max,scope=workspace
