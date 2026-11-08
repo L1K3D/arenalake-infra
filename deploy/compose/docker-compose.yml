@@ -57,6 +57,7 @@ services:
 
 networks:
   arenalake-net:
+    external: true
     name: arenalake-net
     driver: overlay
     attachable: true
