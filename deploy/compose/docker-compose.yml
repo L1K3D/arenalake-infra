@@ -145,26 +145,7 @@ services:
         - "traefik.http.services.portal.loadbalancer.server.port=8000"
         - "traefik.docker.network=arenalake-prod_arenalake-net"
 
-  dockerproxy:
-    image: tecnativa/docker-socket-proxy
-    environment:
-      - SERVICES=1
-      - TASKS=1
-      - NETWORKS=1
-      - NODES=1
-      - CONTAINERS=1
-      # Bloqueia execução remota de código (RCE) e escalonamento de privilégios:
-      - EXEC=0
-      - BUILD=0
-      - AUTH=0
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - arenalake-net
-    deploy:
-      placement:
-        constraints: [node.role == manager]
-
+  # Telemetry agent for hardware, CPU and BIOS monitoring across cluster nodes
   telemetry-agent:
     build:
       context: ../../apps/telemetry-agent
@@ -188,6 +169,26 @@ services:
       start_period: 15s
     deploy:
       mode: global
+
+  dockerproxy:
+    image: tecnativa/docker-socket-proxy
+    environment:
+      - SERVICES=1
+      - TASKS=1
+      - NETWORKS=1
+      - NODES=1
+      - CONTAINERS=1
+      # Bloqueia execução remota de código (RCE) e escalonamento de privilégios:
+      - EXEC=0
+      - BUILD=0
+      - AUTH=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - arenalake-net
+    deploy:
+      placement:
+        constraints: [node.role == manager]
 
 networks:
   arenalake-net:
