@@ -16,6 +16,7 @@ else:
 
 STACK_NAME = "arenalake-prod"
 COMPOSE_FILE = os.path.join("deploy", "compose", "docker-compose.yml")
+AGENT_COMPOSE_FILE = os.path.join("deploy", "docker-compose.agent.yml")
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(PROJECT_ROOT)
 
@@ -68,7 +69,6 @@ def cleanup_orphaned_workspaces():
     """Remove stranded user workspaces and the network to prevent FailedPrecondition errors."""
     print("[*] Cleaning up orphaned user workspaces...")
     try:
-        # Pega a lista de serviços ativos
         result = subprocess.run(
             ["docker", "service", "ls", "--format", "{{.Name}}"],
             capture_output=True,
@@ -77,7 +77,6 @@ def cleanup_orphaned_workspaces():
         )
         services = result.stdout.splitlines()
 
-        # Filtra apenas as workspaces dinâmicas criadas pela API
         orphans = [
             s
             for s in services
@@ -88,7 +87,7 @@ def cleanup_orphaned_workspaces():
             for orphan in orphans:
                 run_command(["docker", "service", "rm", orphan])
             print(f"[+] Removed {len(orphans)} orphaned services.")
-            time.sleep(3)  # Dá um fôlego pro Swarm desvincular as redes
+            time.sleep(3)
         else:
             print("[+] No orphaned workspaces found.")
 
@@ -207,7 +206,6 @@ def distribute_images():
     images_to_distribute = ["arenalake-workspace:latest", "arenalake-telemetry:latest"]
     print(f"\n[*] Preparando imagens para distribuição (compactando uma única vez)...")
 
-    # Passo 1: Salvar as imagens no disco do Master apenas UMA vez
     tar_paths = {}
     for image in images_to_distribute:
         safe_name = image.replace(":", "_").replace("/", "_") + ".tar"
@@ -216,11 +214,9 @@ def distribute_images():
         subprocess.run(["docker", "save", "-o", tar_path, image], check=True)
         tar_paths[image] = tar_path
 
-    # Passo 2: Função que envia o tarball para um nó específico
     def send_to_worker(node):
         for image, tar_path in tar_paths.items():
             print(f"[*] [Worker: {node}] Iniciando transferência de {image}...")
-            # Usa 'cat' e pipe pelo SSH para evitar gravar duas vezes no disco do Worker
             cmd = f"cat {tar_path} | ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 root@{node} 'docker load'"
             proc = subprocess.run(cmd, shell=True, capture_output=True, text=True)
 
@@ -231,14 +227,12 @@ def distribute_images():
                     f"[!] [Worker: {node}] Falha ao enviar {image}: {proc.stderr.strip()}"
                 )
 
-    # Passo 3: Disparar o envio para todos os workers SIMULTANEAMENTE
     print(
         f"\n[*] Disparando transferências em paralelo para {len(workers)} worker(s)..."
     )
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(workers)) as executor:
         executor.map(send_to_worker, workers)
 
-    # Passo 4: Limpeza do lixo temporário no Master
     for tar_path in tar_paths.values():
         if os.path.exists(tar_path):
             os.remove(tar_path)
@@ -270,6 +264,27 @@ def deploy_stack():
     )
     print("[+] ArenaLake stack deployed.")
     subprocess.run(["docker", "service", "ls"], check=False)
+
+
+def deploy_agent():
+    """Deploy the privileged telemetry-agent using Docker Compose on the Swarm network."""
+    print("\n[*] Deploying telemetry-agent with privileged access...")
+    if os.path.isfile(AGENT_COMPOSE_FILE):
+        run_command(
+            [
+                "docker",
+                "compose",
+                "--env-file",
+                ".env",
+                "-f",
+                AGENT_COMPOSE_FILE,
+                "up",
+                "-d",
+            ]
+        )
+        print("[+] Telemetry agent deployed successfully.")
+    else:
+        print(f"[!] Warning: Agent compose file '{AGENT_COMPOSE_FILE}' not found. Skipping agent deployment.")
 
 
 def parse_args():
@@ -352,6 +367,7 @@ def main():
         cleanup_docker()
 
     deploy_stack()
+    deploy_agent()
 
     print("\n[+] Restart completed. Existing persistent data was preserved.")
 
