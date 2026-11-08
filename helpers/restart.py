@@ -362,9 +362,9 @@ def main():
         remove_stack()
         restart_docker()
         check_swarm()
-        rebuild_images()
+        #rebuild_images()
         distribute_images()
-        cleanup_docker()
+        #cleanup_docker()
 
     deploy_stack()
     deploy_agent()
