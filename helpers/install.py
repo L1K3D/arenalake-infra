@@ -158,11 +158,32 @@ def ensure_overlay_network():
     net_name = "arenalake-net"
     print(f"\n[*] Garantindo existência da rede overlay global '{net_name}'...")
     result = subprocess.run(
-        ["docker", "network", "ls", "--filter", f"name={net_name}", "--format", "{{.Name}}"],
-        capture_output=True, text=True, check=True
+        [
+            "docker",
+            "network",
+            "ls",
+            "--filter",
+            f"name={net_name}",
+            "--format",
+            "{{.Name}}",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
     )
     if net_name not in result.stdout.splitlines():
-        subprocess.run(["docker", "network", "create", "-d", "overlay", "--attachable", net_name], check=True)
+        subprocess.run(
+            [
+                "docker",
+                "network",
+                "create",
+                "-d",
+                "overlay",
+                "--attachable",
+                net_name,
+            ],
+            check=True,
+        )
         print(f"[+] Rede overlay '{net_name}' criada com sucesso.")
     else:
         print(f"[+] Rede overlay '{net_name}' já está ativa.")
