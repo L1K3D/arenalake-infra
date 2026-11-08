@@ -89,9 +89,11 @@ services:
   workspace-builder:
     build:
       context: ../..
-      dockerfile: docker/Dockerfile.workspace
+      dockerfile: deploy/docker/Dockerfile.workspace
     image: ${WORKSPACE_IMAGE:-arenalake-workspace:latest}
     command: echo "ArenaLake workspace image built successfully!"
+    networks:
+      - arenalake-net
     deploy:
       placement:
         constraints:
@@ -162,6 +164,30 @@ services:
     deploy:
       placement:
         constraints: [node.role == manager]
+
+  telemetry-agent:
+    build:
+      context: ../../apps/telemetry-agent
+      dockerfile: Dockerfile
+    image: ${TELEMETRY_IMAGE:-arenalake-telemetry:latest}
+    privileged: true
+    volumes:
+      - /sys:/sys:ro
+      - /proc:/proc:ro
+    networks:
+      - arenalake-net
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/metrics', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      mode: global
 
 networks:
   arenalake-net:
