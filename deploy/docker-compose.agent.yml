@@ -1,18 +1,15 @@
-# deploy/docker-compose.agent.yml
 services:
   telemetry-agent:
-    build:
-      context: ../apps/telemetry-agent
-      dockerfile: Dockerfile
-    image: ${TELEMETRY_IMAGE:-arenalake-telemetry:latest}
+    image: ghcr.io/l1k3d/arenalake-infra/telemetry:latest
     privileged: true
     volumes:
       - /sys:/sys:ro
       - /proc:/proc:ro
     networks:
-      - arenalake-prod_arenalake-net
+      - arenalake-net
     restart: unless-stopped
 
 networks:
-  arenalake-prod_arenalake-net:
+  arenalake-net:
     external: true
+    name: arenalake-net
