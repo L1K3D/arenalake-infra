@@ -2,14 +2,8 @@ services:
   telemetry-agent:
     image: ghcr.io/l1k3d/arenalake-infra/telemetry:latest
     privileged: true
+    network_mode: "host"
     volumes:
       - /sys:/sys:ro
       - /proc:/proc:ro
-    networks:
-      - arenalake-net
     restart: unless-stopped
-
-networks:
-  arenalake-net:
-    external: true
-    name: arenalake-net
