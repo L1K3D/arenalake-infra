@@ -153,6 +153,21 @@ def get_tailscale_url():
     return ""
 
 
+def ensure_overlay_network():
+    """Garante que a rede overlay global arenalake-net esteja criada para evitar conflitos no deploy."""
+    net_name = "arenalake-net"
+    print(f"\n[*] Garantindo existência da rede overlay global '{net_name}'...")
+    result = subprocess.run(
+        ["docker", "network", "ls", "--filter", f"name={net_name}", "--format", "{{.Name}}"],
+        capture_output=True, text=True, check=True
+    )
+    if net_name not in result.stdout.splitlines():
+        subprocess.run(["docker", "network", "create", "-d", "overlay", "--attachable", net_name], check=True)
+        print(f"[+] Rede overlay '{net_name}' criada com sucesso.")
+    else:
+        print(f"[+] Rede overlay '{net_name}' já está ativa.")
+
+
 def configure_storage():
     print("\n============================================================")
     print(" STEP 1.5: STORAGE CONFIGURATION")
@@ -401,22 +416,15 @@ def main():
         folder_path = os.path.join(datalake_path, folder)
         os.makedirs(folder_path, exist_ok=True)
 
-        # Correções de permissões nativas recursivas (Evita manualidade pós-instalação)
         if folder == "database":
             os.chmod(folder_path, 0o700)
-            subprocess.run(
-                ["chown", "-R", "70:70", folder_path], check=False
-            )  # Postgres Alpine UID
+            subprocess.run(["chown", "-R", "70:70", folder_path], check=False)
         elif folder == "minio_data":
             os.chmod(folder_path, 0o775)
-            subprocess.run(
-                ["chown", "-R", "65532:65532", folder_path], check=False
-            )  # Minio Chainguard UID
+            subprocess.run(["chown", "-R", "65532:65532", folder_path], check=False)
         elif folder == "spark_jobs":
             os.chmod(folder_path, 0o775)
-            subprocess.run(
-                ["chown", "-R", "1001:1001", folder_path], check=False
-            )  # Bitnami Spark UID
+            subprocess.run(["chown", "-R", "1001:1001", folder_path], check=False)
         else:
             os.chmod(folder_path, 0o777)
 
@@ -464,11 +472,12 @@ def main():
             ["docker", "swarm", "init"], check=False, stdout=subprocess.DEVNULL
         )
 
+    # Assegura que a rede overlay está criada antes do deploy
+    ensure_overlay_network()
+
     try:
-        # Carrega variáveis do .env no contexto Python
         os.environ.update(read_env_file(".env"))
 
-        # Otimização de tempo de compilação
         print("\n[*] Pre-fetching public images to speed up build...")
         compose_args = [
             "docker",

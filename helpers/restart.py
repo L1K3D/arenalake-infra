@@ -65,8 +65,22 @@ def check_swarm():
         sys.exit(1)
 
 
+def ensure_overlay_network():
+    """Garante que a rede overlay global exista e esteja pronta para uso."""
+    net_name = "arenalake-net"
+    result = subprocess.run(
+        ["docker", "network", "ls", "--filter", f"name={net_name}", "--format", "{{.Name}}"],
+        capture_output=True, text=True, check=True
+    )
+    if net_name not in result.stdout.splitlines():
+        print(f"[*] Criando rede overlay global '{net_name}'...")
+        subprocess.run(["docker", "network", "create", "-d", "overlay", "--attachable", net_name], check=True)
+    else:
+        print(f"[+] Rede overlay '{net_name}' já está ativa.")
+
+
 def cleanup_orphaned_workspaces():
-    """Remove stranded user workspaces and the network to prevent FailedPrecondition errors."""
+    """Remove stranded user workspaces and services."""
     print("[*] Cleaning up orphaned user workspaces...")
     try:
         result = subprocess.run(
@@ -150,109 +164,12 @@ def remove_stack():
     sys.exit(1)
 
 
-def rebuild_images():
-    """Rebuild every image defined with a local build context."""
-    run_command(
-        [
-            "docker",
-            "compose",
-            "--env-file",
-            ".env",
-            "-f",
-            COMPOSE_FILE,
-            "build",
-        ]
-    )
-    print("[+] Local images rebuilt successfully.")
-
-
-def get_active_worker_nodes():
-    """Verifica dinamicamente o Swarm em busca de nós do tipo Worker que estejam ativos."""
-    try:
-        result = subprocess.run(
-            [
-                "docker",
-                "node",
-                "ls",
-                "-f",
-                "role=worker",
-                "--format",
-                "{{.Hostname}} {{.Status}}",
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        nodes = []
-        for line in result.stdout.splitlines():
-            parts = line.split()
-            if len(parts) >= 2 and parts[1] == "Ready":
-                nodes.append(parts[0])
-        return nodes
-    except Exception:
-        return []
-
-
-def distribute_images():
-    """Distribui as imagens compiladas de forma otimizada e em paralelo."""
-    workers = get_active_worker_nodes()
-
-    if not workers:
-        print(
-            "\n[*] Nenhum Worker ativo detectado no cluster (Single-Node). Pulando distribuição."
-        )
-        return
-
-    images_to_distribute = ["arenalake-workspace:latest", "arenalake-telemetry:latest"]
-    print(f"\n[*] Preparando imagens para distribuição (compactando uma única vez)...")
-
-    tar_paths = {}
-    for image in images_to_distribute:
-        safe_name = image.replace(":", "_").replace("/", "_") + ".tar"
-        tar_path = f"/tmp/{safe_name}"
-        print(f"[*] Exportando {image} -> {tar_path}")
-        subprocess.run(["docker", "save", "-o", tar_path, image], check=True)
-        tar_paths[image] = tar_path
-
-    def send_to_worker(node):
-        for image, tar_path in tar_paths.items():
-            print(f"[*] [Worker: {node}] Iniciando transferência de {image}...")
-            cmd = f"cat {tar_path} | ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 root@{node} 'docker load'"
-            proc = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-
-            if proc.returncode == 0:
-                print(f"[+] [Worker: {node}] {image} recebida com sucesso.")
-            else:
-                print(
-                    f"[!] [Worker: {node}] Falha ao enviar {image}: {proc.stderr.strip()}"
-                )
-
-    print(
-        f"\n[*] Disparando transferências em paralelo para {len(workers)} worker(s)..."
-    )
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(workers)) as executor:
-        executor.map(send_to_worker, workers)
-
-    for tar_path in tar_paths.values():
-        if os.path.exists(tar_path):
-            os.remove(tar_path)
-
-
-def cleanup_docker():
-    """Remove stopped containers, dangling images, and build cache to free up disk space."""
-    print("[*] Cleaning up old Docker images and build cache...")
-    run_command(["docker", "container", "prune", "-f"])
-    run_command(["docker", "image", "prune", "-f"])
-    subprocess.run(
-        ["docker", "builder", "prune", "-f", "--keep-storage", "3GB"], check=False
-    )
-
-
 def deploy_stack():
     """Deploy the rebuilt images and external services through Swarm."""
     if os.path.isfile(".env"):
         os.environ.update(read_env_file(".env"))
 
+    ensure_overlay_network()
     prepare_datalake_permissions()
 
     run_command(
@@ -267,7 +184,7 @@ def deploy_stack():
 
 
 def deploy_agent():
-    """Deploy the privileged telemetry-agent using Docker Compose on the Swarm network."""
+    """Deploy the privileged telemetry-agent using Docker Compose."""
     print("\n[*] Deploying telemetry-agent with privileged access...")
     if os.path.isfile(AGENT_COMPOSE_FILE):
         run_command(
@@ -284,7 +201,7 @@ def deploy_agent():
         )
         print("[+] Telemetry agent deployed successfully.")
     else:
-        print(f"[!] Warning: Agent compose file '{AGENT_COMPOSE_FILE}' not found. Skipping agent deployment.")
+        print(f"[!] Warning: Agent compose file '{AGENT_COMPOSE_FILE}' not found.")
 
 
 def parse_args():
@@ -299,7 +216,7 @@ def parse_args():
     parser.add_argument(
         "--quick",
         action="store_true",
-        help="skip Docker restart, image rebuild, and SSH distribution for a lightning-fast deploy",
+        help="skip Docker restart for a fast deploy",
     )
     return parser.parse_args()
 
@@ -344,27 +261,15 @@ def main():
     print("=" * 60)
 
     if args.quick:
-        print(
-            "[*] Quick mode enabled: skipping Docker restart, image rebuild, and SSH distribution."
-        )
-        print("=" * 60)
         check_swarm()
         cleanup_orphaned_workspaces()
         remove_stack()
-
-    elif not args.quick:
-        print(
-            "[*] Performing full restart: Docker will be restarted, images rebuilt, and stack redeployed."
-        )
-        print("=" * 60)
+    else:
         check_swarm()
         cleanup_orphaned_workspaces()
         remove_stack()
         restart_docker()
         check_swarm()
-        #rebuild_images()
-        distribute_images()
-        #cleanup_docker()
 
     deploy_stack()
     deploy_agent()
