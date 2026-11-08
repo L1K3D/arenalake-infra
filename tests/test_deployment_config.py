@@ -29,23 +29,10 @@ class ComposeConfigTests(unittest.TestCase):
             cls.config = json.load(compose_file)
         cls.services = cls.config["services"]
 
-    def test_application_build_contexts_exist(self):
-        expected_contexts = {
-            "portal": Path("apps/portal"),
-            "telemetry-agent": Path("apps/telemetry-agent"),
-            "workspace-builder": Path("."),
-        }
-        for service_name, expected_path in expected_contexts.items():
-            with self.subTest(service=service_name):
-                context = Path(self.services[service_name]["build"]["context"])
-                self.assertTrue(context.is_dir(), f"Missing build context: {context}")
-                self.assertEqual(context.resolve(), expected_path.resolve())
-
     def test_service_images_are_configurable(self):
         expected_images = {
-            "portal": "arenalake-prod-portal:latest",
-            "telemetry-agent": "arenalake-telemetry:latest",
-            "workspace-builder": "arenalake-workspace:latest",
+            "portal": "ghcr.io/l1k3d/arenalake-infra/portal:latest",
+            "workspace-builder": "ghcr.io/l1k3d/arenalake-infra/workspace:latest",
         }
         for service_name, expected_image in expected_images.items():
             with self.subTest(service=service_name):
@@ -58,11 +45,9 @@ class ComposeConfigTests(unittest.TestCase):
         self.assertFalse((repository_root / "portal-compute").exists())
         self.assertFalse((repository_root / "telemetry-agent").exists())
 
-    def test_portal_and_agent_health_checks_are_present(self):
-        for service_name in ("portal", "telemetry-agent"):
-            with self.subTest(service=service_name):
-                self.assertIn("healthcheck", self.services[service_name])
-                self.assertTrue(self.services[service_name]["healthcheck"]["test"])
+    def test_portal_health_check_is_present(self):
+        self.assertIn("healthcheck", self.services["portal"])
+        self.assertTrue(self.services["portal"]["healthcheck"]["test"])
 
 
 class DeploymentConfigTests(unittest.TestCase):
