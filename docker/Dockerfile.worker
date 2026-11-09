@@ -17,5 +17,4 @@ USER root
 # Launches the Spark Worker class and connects to the master node
 # The master node address (spark-master-kr4x.onrender.com:7077) handles
 # task distribution, cluster coordination, and resource allocation
-CMD /bin/bash -c "/opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker \
-  spark://spark-master-kr4x.onrender.com:7077"
+CMD ["/bin/bash", "-c", "/opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master-kr4x.onrender.com:7077"]

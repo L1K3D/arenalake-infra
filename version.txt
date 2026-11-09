@@ -1,1 +1,7 @@
-develop-beta-22set2026-23hrs10mins
+- Version: 1.0.0
+
+- Mode: Production
+
+- Develop by: ArenaLake Team
+
+- ArenaLake is a product from Weeh Tech.

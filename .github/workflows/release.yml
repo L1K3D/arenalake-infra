@@ -1,0 +1,137 @@
+name: Publish release images
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-release:
+    name: Validate semantic release tag
+    runs-on: ubuntu-latest
+    outputs:
+      image-root: ${{ steps.repository.outputs.image-root }}
+    steps:
+      - name: Check out release
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Validate tag and project version
+        id: repository
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Release tags must follow semantic versioning, for example v1.2.3."
+            exit 1
+          fi
+          expected_version="${RELEASE_TAG#v}"
+          actual_version="$(sed -nE 's/^- Version:[[:space:]]*((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?)[[:space:]]*$/\1/p' version.txt)"
+          if [[ -z "$actual_version" ]]; then
+            echo "::error::version.txt must contain a semantic version in the form '- Version: 1.2.3'."
+            exit 1
+          fi
+          if [[ "$actual_version" != "$expected_version" ]]; then
+            echo "::error::version.txt declares '$actual_version' but the release tag is '$expected_version'."
+            exit 1
+          fi
+          image_root="ghcr.io/${REPOSITORY,,}"
+          echo "image-root=$image_root" >> "$GITHUB_OUTPUT"
+
+  ci:
+    name: Run CI against release tag
+    needs: validate-release
+    uses: ./.github/workflows/ci.yml
+
+  security:
+    name: Run security analysis against release tag
+    needs: validate-release
+    uses: ./.github/workflows/security.yml
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+  publish:
+    name: Publish ${{ matrix.image }}
+    needs: [validate-release, ci, security]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: portal
+            context: ./apps/portal
+            file: ./apps/portal/Dockerfile
+          - image: telemetry-agent
+            context: ./apps/telemetry-agent
+            file: ./apps/telemetry-agent/Dockerfile
+          - image: workspace
+            context: .
+            file: ./docker/Dockerfile.workspace
+          - image: spark-worker
+            context: ./docker
+            file: ./docker/Dockerfile.worker
+    steps:
+      - name: Check out release
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image tags and labels
+        id: metadata
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ needs.validate-release.outputs.image-root }}/${{ matrix.image }}
+          tags: |
+            type=ref,event=tag
+            type=sha,format=long,prefix=sha-
+            type=raw,value=latest
+
+      - name: Build and publish image with provenance and SBOM
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          provenance: true
+          sbom: true
+
+  create-release:
+    name: Create GitHub release
+    needs: [validate-release, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out release notes
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Publish release notes
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}

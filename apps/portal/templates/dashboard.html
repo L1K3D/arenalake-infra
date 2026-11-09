@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArenaLake — Workspace {{ usuario }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Versioned stylesheet URL forces clients to refresh changed dashboard styles. -->
+    <link rel="stylesheet" href="/static/css/dashboard.css?v=25">
+
+    <link href="https://cdn.jsdelivr.net/npm/gridstack@8.2.1/dist/gridstack.min.css" rel="stylesheet" />
+</head>
+
+<body>
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+        <div class="logo-area">
+            <img src="/static/img/logo-reverse-proposta.png" alt="ArenaLake" class="sidebar-logo">
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="menu-item active" onclick="switchTab('workspace', this)" title="Workspace">
+                <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="4 17 10 11 4 5"></polyline>
+                    <line x1="12" y1="19" x2="20" y2="19"></line>
+                </svg>
+                <span class="menu-text">Workspace</span>
+            </div>
+            <div class="menu-item" onclick="switchTab('data', this)" title="Data Catalog">
+                <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                </svg>
+                <span class="menu-text">Data Catalog</span>
+            </div>
+            <div class="menu-item" onclick="switchTab('compute', this)" title="Compute">
+                <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                </svg>
+                <span class="menu-text">Compute</span>
+            </div>
+            <div class="menu-item" onclick="switchTab('spark', this)" title="Spark Process">
+                <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+                <span class="menu-text">Spark Process</span>
+            </div>
+            <div class="menu-item" onclick="switchTab('scheduler', this)" title="Job Scheduler">
+                <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                <span class="menu-text">Job Scheduler</span>
+            </div>
+            <div class="menu-item" onclick="switchTab('bi', this)" title="BI Tools">
+                <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+                <span class="menu-text">BI Tools</span>
+            </div>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-chip">
+                <div class="user-avatar">{{ usuario[0]|upper }}</div>
+                <div class="user-info">
+                    <span class="user-name">{{ usuario }}</span>
+                    <span class="user-status-text">Ambiente Ativo</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+        <!-- Topbar -->
+        <header class="header">
+            <div class="header-left">
+                <button class="toggle-btn" onclick="toggleSidebar()" aria-label="Alternar menu lateral"
+                    title="Recolher / Expandir menu">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                <div class="header-title-wrap">
+                    <h1>Ambiente de <span class="highlight-user">{{ usuario }}</span></h1>
+                    <span class="status-indicator">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Online</span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="workspace-topbar">
+                <div class="metric-pill">
+                    <span class="metric-label cpu-label">CPU</span>
+                    <div class="metric-bar">
+                        <div id="wsCpuBar" class="metric-fill-cpu"></div>
+                    </div>
+                    <span id="wsCpuText" class="metric-val">--%</span>
+                </div>
+
+                <div class="metric-pill">
+                    <span class="metric-label ram-label">RAM</span>
+                    <div class="metric-bar">
+                        <div id="wsRamBar" class="metric-fill-ram"></div>
+                    </div>
+                    <span id="wsRamText" class="metric-val">--%</span>
+                </div>
+
+                <div class="header-actions">
+                    <form action="/login" method="post" class="action-form">
+                        <input type="hidden" name="usuario" value="{{ usuario }}">
+                        <input type="hidden" name="senha" value="123456">
+                        <button type="submit" class="btn btn-secondary" title="Redefinir ou trocar perfil de hardware">
+                            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
+                                fill="none">
+                                <path d="M23 4v6h-6"></path>
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                            </svg>
+                            <span>Reiniciar / Setup</span>
+                        </button>
+                    </form>
+
+                    <form action="/shutdown" method="post" class="action-form">
+                        <input type="hidden" name="usuario" value="{{ usuario }}">
+                        <button type="submit" class="btn btn-danger" title="Desligar ambiente e liberar recursos">
+                            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
+                                fill="none">
+                                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+                                <line x1="12" y1="2" x2="12" y2="12"></line>
+                            </svg>
+                            <span>Encerrar Sessão</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </header>
+
+        <!-- Workspace tab: embeds the user's isolated browser-based development environment. -->
+        <div id="workspace" class="tab-content active" style="position: relative;">
+            <div id="loadingWorkspace" class="workspace-loader">
+                <div class="loader-spinner"></div>
+                <h3>Inicializando seu Workspace...</h3>
+                <p>Configurando containers dedicados e ambiente de desenvolvimento.</p>
+            </div>
+            <iframe id="workspaceFrame" src="{{ domain }}/"
+                style="flex: 1; width: 100%; height: 100%; border: none; background: #121620;"
+                onload="document.getElementById('loadingWorkspace').style.display='none';"></iframe>
+        </div>
+
+        <!-- Data Catalog tab: browse buckets, folders, and uploaded objects. -->
+        <div id="data" class="tab-content padded-tab">
+            <div class="card">
+                <div class="card-header-clean">
+                    <div>
+                        <h2>Data Lake Corporativo (MinIO)</h2>
+                        <p class="subtitle">Explore e gerencie buckets, partições e datasets do ecossistema ArenaLake.
+                        </p>
+                    </div>
+                    <button class="btn btn-secondary" onclick="loadCatalog()" title="Atualizar listagem">
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
+                            fill="none">
+                            <path d="M23 4v6h-6"></path>
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                        </svg>
+                        <span>Atualizar</span>
+                    </button>
+                </div>
+
+                <div class="upload-area">
+                    <div class="upload-file-wrapper">
+                        <input type="file" id="fileInput" accept=".csv,.txt,.png,.jpg,.jpeg">
+                    </div>
+                    <div class="upload-selects">
+                        <div class="select-field">
+                            <label for="bucketSelect">Camada / Bucket</label>
+                            <select id="bucketSelect" onchange="onBucketChange()">
+                                <option value="bronze">Bronze (Raw)</option>
+                            </select>
+                        </div>
+                        <div class="select-field">
+                            <label for="folderSelect">Diretório / Partição</label>
+                            <select id="folderSelect" onchange="renderCatalogTable()">
+                                <option value="/">/ (Raiz)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="uploadFile()">
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
+                            fill="none">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <span>Carregar Arquivo</span>
+                    </button>
+                </div>
+
+                <div class="table-responsive">
+                    <table id="catalogTable">
+                        <thead>
+                            <tr>
+                                <th>Bucket</th>
+                                <th>Arquivo / Dataset</th>
+                                <th style="text-align: right;">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="3" style="text-align:center; padding: 30px; color: var(--arena-muted);">
+                                    Carregando catálogo de dados...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Compute tab: displays current CPU/RAM values and historical charts. -->
+        <div id="compute" class="tab-content padded-tab">
+            <div class="card">
+                <div class="card-header-clean">
+                    <div>
+                        <h2>Telemetria de Recursos</h2>
+                        <p class="subtitle">Monitoramento em tempo real do consumo computacional do seu ambiente.</p>
+                    </div>
+                </div>
+
+                <div class="metric-grid">
+                    <div class="metric-box">
+                        <div class="metric-box-header">
+                            <span>Uso de Memória RAM</span>
+                            <span class="badge-accent">Memória</span>
+                        </div>
+                        <div class="metric-value" id="ramValue">-- MB</div>
+                        <div class="metric-sub" id="ramPercent">--% do limite configurado</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-box-header">
+                            <span>Uso de Processador (CPU)</span>
+                            <span class="badge-accent">Processamento</span>
+                        </div>
+                        <div class="metric-value" id="cpuValue">-- %</div>
+                        <div class="metric-sub">Capacidade de computação ativa</div>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-box">
+                        <div class="chart-box-header">Histórico de RAM</div>
+                        <canvas id="ramChart" height="110"></canvas>
+                    </div>
+                    <div class="chart-box">
+                        <div class="chart-box-header">Histórico de CPU</div>
+                        <canvas id="cpuChart" height="110"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Spark tab: monitors workers, active applications, and completed runs. -->
+        <div id="spark" class="tab-content padded-tab">
+            <div class="card">
+                <div id="spark-native-dashboard">
+                    <div class="card-header-clean">
+                        <div>
+                            <h2>Monitor do Cluster Apache Spark</h2>
+                            <p class="subtitle">Acompanhe nós trabalhadores (Workers), aplicações distribuídas e histórico de processamento.</p>
+                        </div>
+                        <div id="spark-cluster-status-pill">
+                            <span class="worker-status-badge status-alive">
+                                <span class="status-dot-mini"></span>
+                                Master Conectado
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Spark Cluster Summary Strip -->
+                    <div id="spark-summary-strip" class="spark-summary-strip"></div>
+
+                    <div class="spark-section">
+                        <h4 class="section-heading">
+                            <svg class="heading-icon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                                <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                                <line x1="6" y1="18" x2="6.01" y2="18"></line>
+                            </svg>
+                            Status dos Nós do Cluster (Workers)
+                        </h4>
+                        <div id="spark-workers-content" class="spark-workers-container">
+                            <div class="spark-panel spark-panel-empty">
+                                <div class="loader-spinner" style="width: 24px; height: 24px; border-width: 2px; margin-bottom: 8px;"></div>
+                                <span>Carregando métricas dos nós...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="spark-section">
+                        <h4 class="section-heading">
+                            <svg class="heading-icon text-orange" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                            </svg>
+                            Aplicações em Execução
+                        </h4>
+                        <div id="spark-active-apps" class="spark-panel">
+                            <div class="spark-panel-empty">Consultando processos em andamento...</div>
+                        </div>
+                    </div>
+
+                    <div class="spark-section">
+                        <h4 class="section-heading">
+                            <svg class="heading-icon text-ok" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            Histórico de Aplicações Recentes
+                        </h4>
+                        <div id="spark-completed-apps" class="spark-panel">
+                            <div class="spark-panel-empty">Consultando histórico de execuções...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scheduler tab: runs scripts immediately or registers Cron schedules. -->
+        <div id="scheduler" class="tab-content padded-tab">
+            <div class="card scheduler-card-wrapper">
+                <div class="card-header-clean">
+                    <div>
+                        <div class="scheduler-header-badge">Automação de Pipelines</div>
+                        <h2>Agendador de Tarefas Spark</h2>
+                        <p class="subtitle">Execute scripts sob demanda no cluster distribuído ou defina agendamentos recorrentes automatizados (Cron).</p>
+                    </div>
+                    <button class="btn btn-secondary" onclick="loadSchedulerData()" title="Atualizar listagem de scripts e agendamentos">
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+                            <path d="M23 4v6h-6"></path>
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                        </svg>
+                        <span>Atualizar</span>
+                    </button>
+                </div>
+
+                <div class="scheduler-layout-grid">
+                    <!-- Coluna 1: Scripts Disponíveis -->
+                    <div class="scheduler-panel scripts-panel">
+                        <div class="scheduler-panel-header">
+                            <div class="scheduler-panel-title-group">
+                                <div class="scheduler-panel-icon icon-scripts">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14 2 14 8 20 8"></polyline>
+                                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                                        <polyline points="10 9 9 9 8 9"></polyline>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="scheduler-panel-title">Scripts Disponíveis</h3>
+                                    <span class="scheduler-panel-path">Diretório compartilhado <code>/jobs</code></span>
+                                </div>
+                            </div>
+                            <span id="scripts-count-badge" class="count-pill">0 scripts</span>
+                        </div>
+                        <div id="available-scripts-list" class="scheduler-cards-list">
+                            <div class="scheduler-loading-state">
+                                <div class="loader-spinner" style="width: 22px; height: 22px; border-width: 2px;"></div>
+                                <span>Carregando scripts disponíveis...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Coluna 2: Agendamentos Ativos -->
+                    <div class="scheduler-panel cron-panel">
+                        <div class="scheduler-panel-header">
+                            <div class="scheduler-panel-title-group">
+                                <div class="scheduler-panel-icon icon-cron">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="scheduler-panel-title">Agendamentos Ativos</h3>
+                                    <span class="scheduler-panel-path">Rotinas recorrentes no scheduler</span>
+                                </div>
+                            </div>
+                            <span id="cron-count-badge" class="count-pill count-pill-green">0 ativos</span>
+                        </div>
+                        <div id="scheduled-jobs-list" class="scheduler-cards-list">
+                            <div class="scheduler-loading-state">
+                                <div class="loader-spinner" style="width: 22px; height: 22px; border-width: 2px;"></div>
+                                <span>Carregando agendamentos ativos...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BI tab: creates, edits, filters, and exports data visualizations. -->
+        <div id="bi" class="tab-content padded-tab">
+            <div class="card bi-card-container">
+
+                <!-- BI command ribbon for selecting data and managing visualizations. -->
+                <div class="bi-ribbon">
+
+                    <!-- Data source selector. -->
+                    <div class="ribbon-item">
+                        <span class="ribbon-icon">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                                <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                            </svg>
+                        </span>
+                        <select id="biDatasetSelector" class="ribbon-select" onchange="carregarColunasDataset()">
+                            <option value="">Fonte de dados</option>
+                        </select>
+                    </div>
+
+                    <div class="ribbon-divider"></div>
+
+                    <!-- Add a new visualization to the grid. -->
+                    <div class="ribbon-item ribbon-btn" onclick="abrirModalVisual()">
+                        <span class="ribbon-icon">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                                <line x1="18" y1="20" x2="18" y2="10"></line>
+                                <line x1="12" y1="20" x2="12" y2="4"></line>
+                                <line x1="6" y1="20" x2="6" y2="14"></line>
+                            </svg>
+                        </span>
+                        <span class="ribbon-label">Adicionar visual</span>
+                    </div>
+
+                    <div class="ribbon-divider"></div>
+
+                    <div class="ribbon-item ribbon-btn" onclick="abrirModalFiltroGlobal()">
+                        <span class="ribbon-icon">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                            </svg>
+                        </span>
+                        <span class="ribbon-label">Filtro Global</span>
+                    </div>
+
+                    <div class="ribbon-divider"></div>
+
+                    <!-- Export the dashboard grid as an image. -->
+                    <div class="ribbon-item ribbon-btn" onclick="exportarDashboard('png')">
+                        <span class="ribbon-icon">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                <polyline points="21 15 16 10 5 21"></polyline>
+                            </svg>
+                        </span>
+                        <span class="ribbon-label">Exportar imagem</span>
+                    </div>
+
+                    <div class="ribbon-divider"></div>
+
+                    <!-- Export the dashboard grid as a PDF document. -->
+                    <div class="ribbon-item ribbon-btn" onclick="exportarDashboard('pdf')">
+                        <span class="ribbon-icon">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                <polyline points="10 9 9 9 8 9"></polyline>
+                            </svg>
+                        </span>
+                        <span class="ribbon-label">Exportar PDF</span>
+                    </div>
+
+                </div>
+
+                <div class="grid-container">
+                    <div class="grid-stack"></div>
+                </div>
+            </div>
+        </div>
+
+                <!-- Modal: Agendamento de Tarefa Cron -->
+        <div id="scheduleCronModal" class="bi-modal">
+            <div class="bi-modal-content arena-dialog schedule-modal-content">
+                <div class="modal-header-row">
+                    <div class="modal-icon-badge icon-info">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    </div>
+                    <div class="modal-title-area">
+                        <h3 class="modal-title">Agendar Execução (Cron)</h3>
+                        <p class="modal-subtitle">Defina a periodicidade automática para execução no Spark</p>
+                    </div>
+                    <button type="button" class="modal-close-btn" onclick="closeScheduleModal()" aria-label="Fechar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+
+                <div class="schedule-modal-body">
+                    <!-- Script alvo selecionado -->
+                    <div class="schedule-target-box">
+                        <span class="target-box-label">Script Selecionado</span>
+                        <div class="target-box-file">
+                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                            </svg>
+                            <code id="scheduleTargetScriptName">script.py</code>
+                        </div>
+                    </div>
+
+                    <!-- Atalhos de periodicidade comum -->
+                    <div class="schedule-presets-section">
+                        <label class="schedule-field-label">Predefinições Rápidas:</label>
+                        <div class="schedule-presets-grid">
+                            <button type="button" class="cron-preset-btn" onclick="applyCronPreset('0 * * * *', 'A cada hora')">
+                                <span class="preset-name">A cada hora</span>
+                                <code class="preset-expr">0 * * * *</code>
+                            </button>
+                            <button type="button" class="cron-preset-btn" onclick="applyCronPreset('0 2 * * *', 'Diariamente às 02:00')">
+                                <span class="preset-name">Diário (02:00)</span>
+                                <code class="preset-expr">0 2 * * *</code>
+                            </button>
+                            <button type="button" class="cron-preset-btn" onclick="applyCronPreset('0 6 * * *', 'Diariamente às 06:00')">
+                                <span class="preset-name">Diário (06:00)</span>
+                                <code class="preset-expr">0 6 * * *</code>
+                            </button>
+                            <button type="button" class="cron-preset-btn" onclick="applyCronPreset('0 8 * * 1-5', 'Segunda a Sexta às 08:00')">
+                                <span class="preset-name">Seg a Sex (08:00)</span>
+                                <code class="preset-expr">0 8 * * 1-5</code>
+                            </button>
+                            <button type="button" class="cron-preset-btn" onclick="applyCronPreset('*/30 * * * *', 'A cada 30 minutos')">
+                                <span class="preset-name">A cada 30 min</span>
+                                <code class="preset-expr">*/30 * * * *</code>
+                            </button>
+                            <button type="button" class="cron-preset-btn" onclick="applyCronPreset('0 0 * * 0', 'Semanal (Domingo 00:00)')">
+                                <span class="preset-name">Semanal (Dom 00:00)</span>
+                                <code class="preset-expr">0 0 * * 0</code>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Campo de Expressão Cron -->
+                    <div class="bi-form-group">
+                        <label for="customCronInput" class="schedule-field-label">
+                            Expressão Crontab:
+                            <span class="field-hint">(Minuto Hora Dia Mês DiaDaSemana)</span>
+                        </label>
+                        <div class="cron-input-wrapper">
+                            <input type="text" id="customCronInput" class="bi-input cron-text-input" 
+                                   placeholder="Ex: 0 2 * * *" value="0 2 * * *" autocomplete="off" spellcheck="false"
+                                   oninput="updateCronExplanation(this.value)">
+                            <span class="cron-validate-indicator">Padrão Linux / Crontab</span>
+                        </div>
+                        <div id="cronExplanationText" class="cron-explanation-text">
+                            Periodicidade: <strong>Diariamente às 02:00</strong> (<code>0 2 * * *</code>)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bi-modal-actions modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeScheduleModal()">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btnConfirmSchedule" onclick="confirmScheduleJob()">
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <span>Salvar Agendamento</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal for configuring a new visualization. -->
+        <div id="biModal" class="bi-modal">
+            <div class="bi-modal-content arena-dialog">
+                <div class="modal-header-row">
+                    <div class="modal-icon-badge icon-warning">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                    </div>
+                    <div class="modal-title-area">
+                        <h3 class="modal-title">Configurar Novo Gráfico</h3>
+                        <p class="modal-subtitle">Escolha o tipo de visual e os campos do dataset</p>
+                    </div>
+                    <button type="button" class="modal-close-btn" onclick="fecharModalVisual()" aria-label="Fechar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+
+                <div class="bi-form-group">
+                    <label>Tipo de Gráfico:</label>
+                    <select id="biTipoGrafico" class="bi-select" onchange="toggleCamposGrafico('create')">
+                        <option value="bar">Barras Simples (Vertical)</option>
+                        <option value="stacked_column">Colunas Empilhadas (Vertical)</option>
+                        <option value="stacked_bar">Barras Empilhadas (Horizontal)</option>
+                        <option value="line">Linha (Line Chart)</option>
+                        <option value="area">Área (Area Chart)</option>
+                        <option value="funnel">Funil (Funnel Chart)</option>
+                        <option value="pie">Pizza (Pie Chart)</option>
+                        <option value="table">Tabela Simples (Table)</option>
+                        <option value="matrix">Tabela Matriz (Matrix)</option>
+                        <option value="kpi">Cartão KPI (Big Number)</option>
+                        <option value="scatter">Dispersão (Scatter Plot)</option>
+                        <option value="doughnut">Rosca (Doughnut Chart)</option>
+                        <option value="waterfall">Cascata (Waterfall Chart)</option>
+                    </select>
+                </div>
+
+                <!-- Common axes and matrix configuration. -->
+                <div id="biEixosComuns">
+                    <div id="biDivEixoX" class="bi-form-group">
+                        <label>Eixo X (Categoria):</label>
+                        <select id="biEixoX" class="bi-select"></select>
+                    </div>
+
+                    <div class="bi-form-group">
+                        <label>Eixo Y (Métrica):</label>
+                        <select id="biEixoY" class="bi-select"></select>
+                    </div>
+
+                    <div id="biDivEixoZ" class="bi-form-group">
+                        <label>Agrupar por (Cor/Série) - Opcional:</label>
+                        <select id="biEixoZ" class="bi-select"></select>
+                    </div>
+
+                    <div id="biDivAgregacao" class="bi-form-group">
+                        <label>Agregação do Eixo Y:</label>
+                        <select id="biAgregacao" class="bi-select">
+                            <option value="sum">Soma (SUM)</option>
+                            <option value="avg">Média (AVG)</option>
+                            <option value="count">Contagem (COUNT)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Multiple-column selection for table visualizations. -->
+                <div id="biDivColunasTabela" style="display: none;" class="bi-form-group">
+                    <label>Selecione as Colunas (Segure CTRL para múltiplos):</label>
+                    <select id="biColunasTabela" class="bi-select" multiple size="6"></select>
+                </div>
+
+                <!-- Visual theme selection for tables and matrices. -->
+                <div id="biDivTemaTabela" style="display: none;" class="bi-form-group">
+                    <label>Tema Estilo Microsoft:</label>
+                    <select id="biTemaTabela" class="bi-select">
+                        <option value="padrao">Padrão Dark (Zebra)</option>
+                        <option value="blue">Estilo Azul (Blue Accent)</option>
+                        <option value="green">Estilo Verde (Green Accent)</option>
+                        <option value="orange">Estilo Laranja (Orange Accent)</option>
+                    </select>
+                </div>
+
+                <!-- Row limit and sort-order configuration. -->
+                <div id="biDivConfigTabela" style="display: none;">
+                    <div class="form-row-2">
+                        <div class="bi-form-group">
+                            <label>Ordenar por:</label>
+                            <select id="biOrdenarPor" class="bi-select"></select>
+                        </div>
+                        <div class="bi-form-group">
+                            <label>Ordem:</label>
+                            <select id="biOrdem" class="bi-select">
+                                <option value="asc">Crescente (A-Z, 0-9)</option>
+                                <option value="desc">Decrescente (Z-A, 9-0)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="bi-form-group">
+                        <label>Limite de Linhas:</label>
+                        <input type="number" id="biLimiteLinhas" class="bi-input" value="100" min="1" max="5000">
+                    </div>
+                </div>
+
+                <div class="bi-modal-actions modal-footer">
+                    <button class="btn btn-secondary" onclick="fecharModalVisual()">Cancelar</button>
+                    <button class="btn btn-primary" onclick="confirmarNovoVisual()">Gerar Visual</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced visualization editing modal. -->
+        <div id="biEditModal" class="bi-modal">
+            <div class="bi-modal-content arena-dialog" style="max-width: 500px;">
+                <div class="modal-header-row">
+                    <div class="modal-icon-badge icon-info">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                    </div>
+                    <div class="modal-title-area">
+                        <h3 class="modal-title">Editar Gráfico / Tabela</h3>
+                        <p class="modal-subtitle">Ajuste título, campos e aparência do visual</p>
+                    </div>
+                    <button type="button" class="modal-close-btn" onclick="document.getElementById('biEditModal').style.display='none'" aria-label="Fechar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+
+                <div class="bi-form-group">
+                    <label>Título do Visual:</label>
+                    <input type="text" id="biEditTitulo" class="bi-input">
+                </div>
+
+                <div id="biEditEixosComuns">
+                    <div class="form-row-2">
+                        <div class="bi-form-group" id="biEditDivEixoX">
+                            <label>Eixo X (Categoria):</label>
+                            <select id="biEditEixoX" class="bi-select"></select>
+                        </div>
+                        <div class="bi-form-group">
+                            <label>Eixo Y (Métrica):</label>
+                            <select id="biEditEixoY" class="bi-select"></select>
+                        </div>
+                    </div>
+                    <div class="form-row-2">
+                        <div class="bi-form-group" id="biEditDivEixoZ">
+                            <label>Agrupar por (Série):</label>
+                            <select id="biEditEixoZ" class="bi-select"></select>
+                        </div>
+                        <div class="bi-form-group" id="biEditDivAgregacao">
+                            <label>Agregação:</label>
+                            <select id="biEditAgregacao" class="bi-select">
+                                <option value="sum">Soma (SUM)</option>
+                                <option value="avg">Média (AVG)</option>
+                                <option value="count">Contagem (COUNT)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="biEditDivColunasTabela" style="display: none;" class="bi-form-group">
+                    <label>Colunas Selecionadas (Segure CTRL para múltiplos):</label>
+                    <select id="biEditColunasTabela" class="bi-select" multiple size="5"></select>
+                </div>
+
+                <div id="biEditDivTemaTabela" style="display: none;" class="bi-form-group">
+                    <label>Tema Estilo Microsoft:</label>
+                    <select id="biEditTemaTabela" class="bi-select">
+                        <option value="padrao">Padrão Dark (Zebra)</option>
+                        <option value="blue">Estilo Azul (Blue Accent)</option>
+                        <option value="green">Estilo Verde (Green Accent)</option>
+                        <option value="orange">Estilo Laranja (Orange Accent)</option>
+                    </select>
+                </div>
+
+                <div id="biEditDivConfigTabela" style="display: none;">
+                    <div class="form-row-2">
+                        <div class="bi-form-group">
+                            <label>Ordenar por:</label>
+                            <select id="biEditOrdenarPor" class="bi-select"></select>
+                        </div>
+                        <div class="bi-form-group">
+                            <label>Ordem:</label>
+                            <select id="biEditOrdem" class="bi-select">
+                                <option value="asc">Crescente (A-Z, 0-9)</option>
+                                <option value="desc">Decrescente (Z-A, 9-0)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="bi-form-group">
+                        <label>Limite de Linhas:</label>
+                        <input type="number" id="biEditLimiteLinhas" class="bi-input" min="1" max="5000">
+                    </div>
+                </div>
+
+                <div id="biEditColorSection" class="bi-form-group">
+                    <label>Cores (Fatias/Séries):</label>
+                    <div id="biEditColorsContainer" class="color-palette-box"></div>
+                </div>
+
+                <div class="bi-modal-actions modal-footer">
+                    <button class="btn btn-secondary"
+                        onclick="document.getElementById('biEditModal').style.display='none'">Cancelar</button>
+                    <button class="btn btn-primary" onclick="salvarEdicaoGrafico()">Salvar Alterações</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Global Filter Modal -->
+        <div id="biFiltroModal" class="bi-modal">
+            <div class="bi-modal-content arena-dialog" style="max-width: 420px;">
+                <div class="modal-header-row">
+                    <div class="modal-icon-badge icon-info">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                    </div>
+                    <div class="modal-title-area">
+                        <h3 class="modal-title">Segmentação Global de Dados</h3>
+                        <p class="modal-subtitle">Aplique um filtro a todos os visuais do dashboard</p>
+                    </div>
+                    <button type="button" class="modal-close-btn" onclick="document.getElementById('biFiltroModal').style.display='none'" aria-label="Fechar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+
+                <div class="bi-form-group">
+                    <label>Filtrar pela Coluna:</label>
+                    <select id="biFiltroColuna" class="bi-select" onchange="carregarValoresFiltro()"></select>
+                </div>
+
+                <div class="bi-form-group">
+                    <label>Escolha o Valor:</label>
+                    <select id="biFiltroValor" class="bi-select">
+                        <option value="">(Selecione a coluna primeiro)</option>
+                    </select>
+                </div>
+
+                <div class="bi-modal-actions modal-footer">
+                    <button class="btn btn-danger" onclick="limparFiltroGlobal()">Limpar Filtro</button>
+                    <button class="btn btn-primary" onclick="aplicarFiltroGlobal()">Aplicar a Todos</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Side panel for object metadata and file previews. -->
+    <aside id="sidePanel" class="side-panel">
+        <div class="side-panel-header">
+            <h3 id="spFilename" class="sp-title">Arquivo</h3>
+            <button class="close-btn" onclick="closePanel()" title="Fechar painel">×</button>
+        </div>
+
+        <div class="meta-tags-wrap">
+            <div class="meta-tag">
+                <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" style="vertical-align: -2px; margin-right: 4px; color: var(--arena-blue);"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                <span id="spDate"></span>
+            </div>
+            <div class="meta-tag">
+                <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" style="vertical-align: -2px; margin-right: 4px; color: var(--arena-orange);"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                <span id="spSize"></span>
+            </div>
+            <div class="meta-tag">
+                <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" style="vertical-align: -2px; margin-right: 4px; color: var(--arena-ok);"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                <span id="spUploader"></span>
+            </div>
+        </div>
+
+        <h4 class="preview-heading">Amostra de Conteúdo (Sample)</h4>
+        <div id="spContent" class="preview-content-box">Carregando...</div>
+    </aside>
+
+    <script>
+        window.dashboardConfig = { usuario: "{{ usuario }}", domain: "{{ domain }}" };
+    </script>
+    <!-- Version query string controls browser caching for dashboard logic. -->
+    <script src="/static/js/dashboard.js?v=8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gridstack@8.2.1/dist/gridstack-all.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</body>
+
+</html>

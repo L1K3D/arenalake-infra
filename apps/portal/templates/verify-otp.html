@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArenaLake — Verificação em Duas Etapas</title>
+
+    <!-- Tipografia Canônica: Inter e JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Estilos Oficiais do ArenaLake -->
+    <link rel="stylesheet" href="/static/css/login.css">
+    <link rel="icon" type="image/png" href="/static/img/logo-simbolo-recorte.png">
+</head>
+
+<body>
+    <!-- Background: Ondas do Lago de Partículas (ArenaLake) -->
+    <canvas id="lake-canvas" class="lake-canvas" aria-hidden="true"></canvas>
+
+    <main class="login-container">
+        <div class="login-card">
+            <!-- Cabeçalho com Logotipo Oficial -->
+            <div class="card-header">
+                <a href="/" class="brand-link" aria-label="ArenaLake">
+                    <img src="/static/img/logo-reverse-proposta.png" 
+                         alt="ArenaLake" 
+                         class="brand-logo" 
+                         width="190" 
+                         height="67">
+                </a>
+                <h1 class="card-title">Verificação em Duas Etapas</h1>
+                <p class="card-subtitle">Abra seu aplicativo autenticador (Google ou Microsoft Authenticator) e digite o código de 6 dígitos.</p>
+            </div>
+
+            <!-- Alerta Discreto de Validação / Erro -->
+            <div id="otp-alert" class="login-alert" role="alert" aria-live="polite" hidden>
+                <span id="alert-message">Código 2FA inválido ou expirado. Tente novamente.</span>
+            </div>
+
+            <!-- Formulário 2FA -->
+            <form id="verify-otp-form" novalidate autocomplete="off">
+                <div class="form-field">
+                    <div class="otp-input-wrapper">
+                        <input type="text" 
+                               id="otp_code" 
+                               name="otp_code" 
+                               class="otp-field-input" 
+                               placeholder="000000" 
+                               maxlength="6" 
+                               inputmode="numeric" 
+                               pattern="[0-9]*" 
+                               required 
+                               autofocus 
+                               autocomplete="one-time-code">
+                    </div>
+                </div>
+
+                <button type="submit" id="submit-btn" class="btn-submit">
+                    <span class="btn-spinner" aria-hidden="true"></span>
+                    <span class="btn-text">Validar e Acessar</span>
+                </button>
+
+                <div class="otp-footer-links">
+                    <a href="/" class="otp-back-link" id="cancel-link">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                        Voltar ao início de sessão
+                    </a>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <!-- Three.js (WebGL) e Mar de Dados Oficial ArenaLake -->
+    <script src="/static/js/three.min.js"></script>
+    <script src="/static/js/mar-de-dados.js"></script>
+    <script src="/static/js/verify-otp.js"></script>
+</body>
+
+</html>

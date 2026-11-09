@@ -1,0 +1,153 @@
+name: Deploy production release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Semantic version tag to deploy, for example v1.2.3
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: arenalake-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.version }} to production
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Check out repository and tags
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate release, target, and required secrets
+        env:
+          DEPLOY_VERSION: ${{ inputs.version }}
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.PRODUCTION_DEPLOY_PATH }}
+          SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PRODUCTION_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$DEPLOY_VERSION" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Version must be a semantic tag such as v1.2.3."
+            exit 1
+          fi
+          if [[ ! "$DEPLOY_HOST" =~ ^[A-Za-z0-9.-]+$ || ! "$DEPLOY_USER" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::Production SSH host or user is not valid."
+            exit 1
+          fi
+          if [[ ! "$DEPLOY_PATH" =~ ^/[A-Za-z0-9._/-]+$ ]]; then
+            echo "::error::PRODUCTION_DEPLOY_PATH must be an absolute path without spaces."
+            exit 1
+          fi
+          if [[ -z "$SSH_PRIVATE_KEY" || -z "$SSH_KNOWN_HOSTS" ]]; then
+            echo "::error::Production SSH key and pinned known_hosts are required."
+            exit 1
+          fi
+          git fetch --force --tags origin "refs/tags/$DEPLOY_VERSION:refs/tags/$DEPLOY_VERSION"
+          git checkout --detach "refs/tags/$DEPLOY_VERSION"
+          expected_version="${DEPLOY_VERSION#v}"
+          actual_version="$(sed -nE 's/^- Version:[[:space:]]*((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?)[[:space:]]*$/\1/p' version.txt)"
+          if [[ -z "$actual_version" ]]; then
+            echo "::error::version.txt must contain a semantic version in the form '- Version: 1.2.3'."
+            exit 1
+          fi
+          if [[ "$actual_version" != "$expected_version" ]]; then
+            echo "::error::version.txt declares '$actual_version' but the requested release tag is '$expected_version'."
+            exit 1
+          fi
+
+      - name: Configure pinned SSH host key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PRODUCTION_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Verify deployment environment and log in to GHCR
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.PRODUCTION_DEPLOY_PATH }}
+          GHCR_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          destination="$DEPLOY_USER@$DEPLOY_HOST"
+          ssh -i "$HOME/.ssh/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes "$destination" "test -f '$DEPLOY_PATH/.env'"
+          printf '%s' "$GHCR_TOKEN" |
+            ssh -i "$HOME/.ssh/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes "$destination" \
+              "docker login ghcr.io --username '$GITHUB_REPOSITORY_OWNER' --password-stdin"
+
+      - name: Transfer the tagged source and deploy
+        env:
+          DEPLOY_VERSION: ${{ inputs.version }}
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.PRODUCTION_DEPLOY_PATH }}
+          IMAGE_OWNER: ${{ github.repository_owner }}
+          IMAGE_REPOSITORY: ${{ github.event.repository.name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          destination="$DEPLOY_USER@$DEPLOY_HOST"
+          release_path="$DEPLOY_PATH/releases/$DEPLOY_VERSION-$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          ssh -i "$HOME/.ssh/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes "$destination" \
+            "mkdir -p '$release_path' && test -f '$DEPLOY_PATH/.env'"
+          git archive --format=tar "$DEPLOY_VERSION" |
+            ssh -i "$HOME/.ssh/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes "$destination" \
+              "tar -xf - -C '$release_path'"
+          ssh -i "$HOME/.ssh/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes "$destination" \
+            "ln -s '$DEPLOY_PATH/.env' '$release_path/.env'"
+          ssh -i "$HOME/.ssh/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes "$destination" \
+            "bash -s -- '$DEPLOY_VERSION' '$release_path' '${IMAGE_OWNER,,}' '${IMAGE_REPOSITORY,,}'" <<'REMOTE'
+          set -euo pipefail
+          version="$1"
+          release_path="$2"
+          image_owner="$3"
+          image_repository="$4"
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          cd "$release_path"
+          export PORTAL_IMAGE="ghcr.io/$image_owner/$image_repository/portal:$version"
+          export TELEMETRY_IMAGE="ghcr.io/$image_owner/$image_repository/telemetry-agent:$version"
+          export WORKSPACE_IMAGE="ghcr.io/$image_owner/$image_repository/workspace:$version"
+          replicas="$(docker service ls --filter name=arenalake-prod_portal --format '{{.Replicas}}')"
+          if [[ "$replicas" != "1/1" ]]; then
+            echo "Production Portal is not healthy before deployment ($replicas)." >&2
+            exit 1
+          fi
+          curl --fail --silent --show-error http://127.0.0.1:8088/docs >/dev/null
+          docker compose --env-file .env -f deploy/compose/docker-compose.yml pull
+          python3 helpers/deploy_stack.py --with-registry-auth
+
+          for attempt in $(seq 1 36); do
+            replicas="$(docker service ls --filter name=arenalake-prod_portal --format '{{.Replicas}}')"
+            if [[ "$replicas" == "1/1" ]]; then
+              break
+            fi
+            sleep 10
+          done
+          if [[ "${replicas:-}" != "1/1" ]]; then
+            docker service ps arenalake-prod_portal --no-trunc
+            echo "Portal did not converge to 1/1 replicas." >&2
+            exit 1
+          fi
+          curl --fail --silent --show-error --retry 12 --retry-delay 5 \
+            --retry-connrefused http://127.0.0.1:8088/docs >/dev/null
+          docker service ps arenalake-prod_telemetry-agent \
+            --filter desired-state=running --format '{{.CurrentState}}' | grep -q '^Running'
+          REMOTE

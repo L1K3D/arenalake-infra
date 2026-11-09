@@ -8,9 +8,15 @@ import sys
 import time
 import concurrent.futures
 
+if __package__:
+    from .env_file import read_env_file
+else:
+    from env_file import read_env_file
+
 
 STACK_NAME = "arenalake-prod"
-COMPOSE_FILE = "docker-compose.yml"
+COMPOSE_FILE = os.path.join("deploy", "compose", "docker-compose.yml")
+AGENT_COMPOSE_FILE = os.path.join("deploy", "docker-compose.agent.yml")
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(PROJECT_ROOT)
 
@@ -59,25 +65,65 @@ def check_swarm():
         sys.exit(1)
 
 
+def ensure_overlay_network():
+    """Garante que a rede overlay global arenalake-net esteja criada para evitar conflitos no deploy."""
+    net_name = "arenalake-net"
+    print(f"\n[*] Garantindo existência da rede overlay global '{net_name}'...")
+    result = subprocess.run(
+        [
+            "docker",
+            "network",
+            "ls",
+            "--filter",
+            f"name={net_name}",
+            "--format",
+            "{{.Name}}",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    if net_name not in result.stdout.splitlines():
+        subprocess.run(
+            [
+                "docker",
+                "network",
+                "create",
+                "-d",
+                "overlay",
+                "--attachable",
+                net_name,
+            ],
+            check=True,
+        )
+        print(f"[+] Rede overlay '{net_name}' criada com sucesso.")
+    else:
+        print(f"[+] Rede overlay '{net_name}' já está ativa.")
+
+
 def cleanup_orphaned_workspaces():
-    """Remove stranded user workspaces and the network to prevent FailedPrecondition errors."""
+    """Remove stranded user workspaces and services."""
     print("[*] Cleaning up orphaned user workspaces...")
     try:
-        # Pega a lista de serviços ativos
         result = subprocess.run(
             ["docker", "service", "ls", "--format", "{{.Name}}"],
-            capture_output=True, text=True, check=True
+            capture_output=True,
+            text=True,
+            check=True,
         )
         services = result.stdout.splitlines()
-        
-        # Filtra apenas as workspaces dinâmicas criadas pela API
-        orphans = [s for s in services if s.startswith("vscode-") or s.startswith("spark-worker-")]
+
+        orphans = [
+            s
+            for s in services
+            if s.startswith("vscode-") or s.startswith("spark-worker-")
+        ]
 
         if orphans:
             for orphan in orphans:
                 run_command(["docker", "service", "rm", orphan])
             print(f"[+] Removed {len(orphans)} orphaned services.")
-            time.sleep(3) # Dá um fôlego pro Swarm desvincular as redes
+            time.sleep(3)
         else:
             print("[+] No orphaned workspaces found.")
 
@@ -140,111 +186,45 @@ def remove_stack():
     sys.exit(1)
 
 
-def rebuild_images():
-    """Rebuild every image defined with a local build context."""
-    run_command(
-        [
-            "docker",
-            "compose",
-            "-f",
-            COMPOSE_FILE,
-            "build",
-        ]
-    )
-    print("[+] Local images rebuilt successfully.")
-
-def get_active_worker_nodes():
-    """Verifica dinamicamente o Swarm em busca de nós do tipo Worker que estejam ativos."""
-    try:
-        result = subprocess.run(
-            ["docker", "node", "ls", "-f", "role=worker", "--format", "{{.Hostname}} {{.Status}}"],
-            capture_output=True, text=True, check=True
-        )
-        nodes = []
-        for line in result.stdout.splitlines():
-            parts = line.split()
-            if len(parts) >= 2 and parts[1] == "Ready":
-                nodes.append(parts[0])
-        return nodes
-    except Exception:
-        return []
-
-def distribute_images():
-    """Distribui as imagens compiladas de forma otimizada e em paralelo."""
-    workers = get_active_worker_nodes()
-    
-    if not workers:
-        print("\n[*] Nenhum Worker ativo detectado no cluster (Single-Node). Pulando distribuição.")
-        return
-
-    images_to_distribute = ["arenalake-workspace:latest", "arenalake-telemetry:latest"]
-    print(f"\n[*] Preparando imagens para distribuição (compactando uma única vez)...")
-    
-    # Passo 1: Salvar as imagens no disco do Master apenas UMA vez
-    tar_paths = {}
-    for image in images_to_distribute:
-        safe_name = image.replace(":", "_").replace("/", "_") + ".tar"
-        tar_path = f"/tmp/{safe_name}"
-        print(f"[*] Exportando {image} -> {tar_path}")
-        subprocess.run(["docker", "save", "-o", tar_path, image], check=True)
-        tar_paths[image] = tar_path
-
-    # Passo 2: Função que envia o tarball para um nó específico
-    def send_to_worker(node):
-        for image, tar_path in tar_paths.items():
-            print(f"[*] [Worker: {node}] Iniciando transferência de {image}...")
-            # Usa 'cat' e pipe pelo SSH para evitar gravar duas vezes no disco do Worker
-            cmd = f"cat {tar_path} | ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 root@{node} 'docker load'"
-            proc = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-            
-            if proc.returncode == 0:
-                print(f"[+] [Worker: {node}] {image} recebida com sucesso.")
-            else:
-                print(f"[!] [Worker: {node}] Falha ao enviar {image}: {proc.stderr.strip()}")
-
-    # Passo 3: Disparar o envio para todos os workers SIMULTANEAMENTE
-    print(f"\n[*] Disparando transferências em paralelo para {len(workers)} worker(s)...")
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(workers)) as executor:
-        executor.map(send_to_worker, workers)
-
-    # Passo 4: Limpeza do lixo temporário no Master
-    for tar_path in tar_paths.values():
-        if os.path.exists(tar_path):
-            os.remove(tar_path)
-    
-
-def cleanup_docker():
-    """Remove stopped containers, dangling images, and build cache to free up disk space."""
-    print("[*] Cleaning up old Docker images and build cache...")
-    run_command(["docker", "container", "prune", "-f"])
-    run_command(["docker", "image", "prune", "-f"])
-    subprocess.run(["docker", "builder", "prune", "-f", "--keep-storage", "3GB"], check=False)
-
-
 def deploy_stack():
     """Deploy the rebuilt images and external services through Swarm."""
     if os.path.isfile(".env"):
-        with open(".env", "r") as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    key, value = line.split("=", 1)
-                    os.environ[key] = value
+        os.environ.update(read_env_file(".env"))
 
+    ensure_overlay_network()
     prepare_datalake_permissions()
 
     run_command(
         [
-            "docker",
-            "stack",
-            "deploy",
-            "-c",
-            COMPOSE_FILE,
-            STACK_NAME,
+            sys.executable,
+            os.path.join("helpers", "deploy_stack.py"),
+            "--with-registry-auth",
         ]
     )
     print("[+] ArenaLake stack deployed.")
     subprocess.run(["docker", "service", "ls"], check=False)
+
+
+def deploy_agent():
+    """Deploy the privileged telemetry-agent using Docker Compose."""
+    print("\n[*] Deploying telemetry-agent with privileged access...")
+    if os.path.isfile(AGENT_COMPOSE_FILE):
+        run_command(
+            [
+                "docker",
+                "compose",
+                "--env-file",
+                ".env",
+                "-f",
+                AGENT_COMPOSE_FILE,
+                "up",
+                "-d",
+            ]
+        )
+        print("[+] Telemetry agent deployed successfully.")
+    else:
+        print(f"[!] Warning: Agent compose file '{AGENT_COMPOSE_FILE}' not found.")
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -258,21 +238,31 @@ def parse_args():
     parser.add_argument(
         "--quick",
         action="store_true",
-        help="skip Docker restart, image rebuild, and SSH distribution for a lightning-fast deploy",
+        help="skip Docker restart for a fast deploy",
     )
     return parser.parse_args()
+
 
 def prepare_datalake_permissions():
     """Ensure MinIO directory has correct permissions for Chainguard nonroot user."""
     print("[*] Verifying DataLake security permissions...")
-    datalake_path = os.environ.get("DATALAKE_STORAGE_PATH", os.path.join(PROJECT_ROOT, "datalake_data"))
+    datalake_path = os.environ.get(
+        "DATALAKE_STORAGE_PATH", os.path.join(PROJECT_ROOT, "datalake_data")
+    )
     minio_path = os.path.join(datalake_path, "minio_data")
-    
+
     os.makedirs(minio_path, exist_ok=True)
     try:
-        subprocess.run(["chown", "-R", "65532:65532", minio_path], check=False, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            ["chown", "-R", "65532:65532", minio_path],
+            check=False,
+            stderr=subprocess.DEVNULL,
+        )
     except Exception:
-        print("[!] Warning: Failed to adjust MinIO permissions. The container may crash.")
+        print(
+            "[!] Warning: Failed to adjust MinIO permissions. The container may crash."
+        )
+
 
 def main():
     args = parse_args()
@@ -291,27 +281,20 @@ def main():
     print("\n" + "=" * 60)
     print("      ArenaLake - Rebuild and Restart")
     print("=" * 60)
-    
+
     if args.quick:
-        print("[*] Quick mode enabled: skipping Docker restart, image rebuild, and SSH distribution.")
-        print("=" * 60)
         check_swarm()
         cleanup_orphaned_workspaces()
         remove_stack()
-
-    elif not args.quick:
-        print("[*] Performing full restart: Docker will be restarted, images rebuilt, and stack redeployed.")
-        print("=" * 60)
+    else:
         check_swarm()
         cleanup_orphaned_workspaces()
         remove_stack()
         restart_docker()
         check_swarm()
-        rebuild_images()
-        distribute_images()
-        cleanup_docker()
-       
+
     deploy_stack()
+    deploy_agent()
 
     print("\n[+] Restart completed. Existing persistent data was preserved.")
 

@@ -1,9 +1,14 @@
 .env
+.venv/
+.venv-*/
 projects_data/
 spark_jobs/
 MANUAL_DEV.md
-docs/
 minio_data/
 __pycache__/
 configs_scripts/
 .vscode/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/

@@ -1,0 +1,178 @@
+name: Repository CI
+
+on:
+  workflow_call:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate source and deployment
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install locked development tools
+        run: |
+          python -m venv "$RUNNER_TEMP/dev-venv"
+          "$RUNNER_TEMP/dev-venv/bin/python" -m pip install -r config/python/requirements-dev.txt
+
+      - name: Lint Python
+        run: "$RUNNER_TEMP/dev-venv/bin/ruff check --config config/python/ruff.toml ."
+
+      - name: Check Python formatting
+        run: "$RUNNER_TEMP/dev-venv/bin/ruff format --config config/python/ruff.toml --check ."
+
+      - name: Check Python syntax
+        run: python -m compileall -q apps helpers tests
+
+      - name: Run repository tests
+        run: |
+          cp config/environment/.env.example .env
+          trap 'rm -f .env' EXIT
+          docker compose --env-file .env -f deploy/compose/docker-compose.yml config --format json > "$RUNNER_TEMP/compose.json"
+          docker compose -f deploy/compose/docker-compose.dev.yml config --quiet
+          python helpers/deploy_stack.py --validate-only | docker stack config --compose-file - > /dev/null
+          export ARENALAKE_COMPOSE_CONFIG="$RUNNER_TEMP/compose.json"
+          "$RUNNER_TEMP/dev-venv/bin/python" -m coverage run --branch --source=helpers.deploy_stack -m unittest discover -s tests -v
+          "$RUNNER_TEMP/dev-venv/bin/python" -m coverage report --fail-under=90
+          "$RUNNER_TEMP/dev-venv/bin/python" -m coverage xml -o "$RUNNER_TEMP/coverage.xml"
+
+      - name: Upload Python coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-coverage
+          path: ${{ runner.temp }}/coverage.xml
+          if-no-files-found: error
+
+      - name: Validate YAML syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            ruby -e 'require "yaml"; YAML.load_file(ARGV.fetch(0), aliases: true)' "$file"
+            echo "Valid YAML: $file"
+          done < <(find . -type f \( -name '*.yml' -o -name '*.yaml' \) -not -path './.git/*' -not -path './.venv/*' -print0)
+
+      - name: Audit Python dependencies
+        run: |
+          "$RUNNER_TEMP/dev-venv/bin/pip-audit" --strict \
+            -r apps/portal/requirements.txt \
+            -r apps/telemetry-agent/requirements.txt \
+            -r config/python/requirements-dev.txt
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validate Dockerfile syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' dockerfile; do
+            case "$dockerfile" in
+              ./docker/Dockerfile.workspace) context=.;;
+              ./docker/Dockerfile.worker) context=./docker;;
+              *) context="$(dirname "$dockerfile")";;
+            esac
+            docker buildx build --check --file "$dockerfile" "$context"
+          done < <(find . -type f -iname 'Dockerfile*' -not -iname '*.dockerignore' -not -path './.git/*' -not -path './.github/*' -print0)
+
+  build-and-scan:
+    name: Build and scan ${{ matrix.image }}
+    needs: validate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: portal
+            context: ./apps/portal
+            file: ./apps/portal/Dockerfile
+          - image: telemetry-agent
+            context: ./apps/telemetry-agent
+            file: ./apps/telemetry-agent/Dockerfile
+          - image: workspace
+            context: .
+            file: ./docker/Dockerfile.workspace
+          - image: spark-worker
+            context: ./docker
+            file: ./docker/Dockerfile.worker
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image without publishing
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          load: true
+          push: false
+          tags: arenalake-ci:${{ matrix.image }}
+
+      - name: Smoke-test Portal
+        if: matrix.image == 'portal'
+        run: |
+          set -euo pipefail
+          docker run --detach --name arenalake-portal-smoke \
+            --publish 8000:8000 \
+            --env DATABASE_URL=sqlite:////tmp/arenalake-ci.db \
+            --env JWT_SECRET_KEY=ci-only-secret \
+            --env DBA_USERNAME=ci-admin \
+            --env DBA_PASSWORD=ci-only-password \
+            --env MINIO_ACCESS_KEY=ci-minio \
+            --env MINIO_SECRET_KEY=ci-only-minio-secret \
+            arenalake-ci:portal
+          trap 'docker rm --force arenalake-portal-smoke >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8000/docs >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs arenalake-portal-smoke
+          exit 1
+
+      - name: Smoke-test telemetry agent
+        if: matrix.image == 'telemetry-agent'
+        run: |
+          set -euo pipefail
+          docker run --detach --name arenalake-telemetry-smoke \
+            --publish 5000:5000 arenalake-ci:telemetry-agent
+          trap 'docker rm --force arenalake-telemetry-smoke >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:5000/metrics >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs arenalake-telemetry-smoke
+          exit 1
+
+      - name: Scan image for critical and high vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: arenalake-ci:${{ matrix.image }}
+          format: table
+          exit-code: "0"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH

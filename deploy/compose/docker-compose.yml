@@ -1,0 +1,86 @@
+services:
+  traefik:
+    image: traefik:v2.11
+    environment:
+      - DOCKER_API_VERSION=1.41
+    command:
+      - "--api.insecure=false"
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--providers.docker.swarmMode=true"
+    ports:
+      - target: 80
+        published: 8088
+        mode: host
+      - target: 8080
+        published: 8089
+        mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - arenalake-net
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  spark-master:
+    image: bitnamilegacy/spark:3.5
+    environment: ["SPARK_MODE=master"]
+    ports: ["${SPARK_UI_PORT:-8080}:8080", "${SPARK_RPC_PORT:-7077}:7077"]
+    volumes: ["${DATALAKE_STORAGE_PATH}/spark_jobs:/jobs"]
+    networks: ["arenalake-net"]
+    deploy: { placement: { constraints: ["node.role == manager"] } }
+
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    command: server /data --console-address ":9001"
+    environment: ["MINIO_ROOT_USER=${MINIO_ACCESS_KEY}", "MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}"]
+    ports: ["${MINIO_API_PORT:-9000}:9000", "${MINIO_CONSOLE_PORT:-9001}:9001"]
+    volumes: ["${DATALAKE_STORAGE_PATH}/minio_data:/data"]
+    networks: ["arenalake-net"]
+    deploy: { placement: { constraints: ["node.role == manager"] } }
+
+  postgres:
+    image: postgres:15-alpine
+    environment: ["POSTGRES_USER=${DBA_USERNAME}", "POSTGRES_PASSWORD=${DBA_PASSWORD}", "POSTGRES_DB=arenalake_core"]
+    volumes: ["${DATALAKE_STORAGE_PATH}/database:/var/lib/postgresql/data"]
+    networks: ["arenalake-net"]
+    deploy: { placement: { constraints: ["node.role == manager"] } }
+
+  workspace-builder:
+    image: ghcr.io/l1k3d/arenalake-infra/workspace:latest
+    command: echo "ArenaLake workspace image pulled successfully!"
+    networks: ["arenalake-net"]
+    deploy: { placement: { constraints: ["node.role == manager"] } }
+
+  portal:
+    image: ghcr.io/l1k3d/arenalake-infra/portal:latest
+    env_file: ["../../.env"]
+    environment: ["HOST_PROJECT_PATH=${PWD}", "WORKSPACE_NETWORK=${WORKSPACE_NETWORK}", "DOCKER_HOST=tcp://dockerproxy:2375"]
+    volumes: ["${DATALAKE_STORAGE_PATH}/projects_data:/app/projects_data", "/var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock", "~/.ssh:/root/.ssh:ro"]
+    networks: ["arenalake-net"]
+    healthcheck: { test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/docs', timeout=3)"], interval: 30s, timeout: 5s, retries: 3, start_period: 60s }
+    deploy:
+      placement: { constraints: ["node.role == manager"] }
+      labels: ["traefik.enable=true", "traefik.http.routers.portal.rule=PathPrefix(`/`)", "traefik.http.routers.portal.entrypoints=web", "traefik.http.services.portal.loadbalancer.server.port=8000", "traefik.docker.network=arenalake-net"]
+
+  dockerproxy:
+    image: tecnativa/docker-socket-proxy
+    environment: ["SERVICES=1", "TASKS=1", "NETWORKS=1", "NODES=1", "CONTAINERS=1", "EXEC=0", "BUILD=0", "AUTH=0"]
+    volumes: ["/var/run/docker.sock:/var/run/docker.sock:ro"]
+    networks: ["arenalake-net"]
+    deploy: { placement: { constraints: ["node.role == manager"] } }
+
+networks:
+  arenalake-net:
+    external: true
+    name: arenalake-net
+    driver: overlay
+    attachable: true
+
+volumes:
+  minio_data:

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArenaLake — Configuração de Workspace</title>
+
+    <!-- Tipografia Canônica: Inter e JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="/static/css/setup.css">
+    <link rel="icon" type="image/png" href="/static/img/logo-simbolo-recorte.png">
+</head>
+
+<body>
+    <!-- Background: Ondas do Lago de Partículas (ArenaLake) -->
+    <canvas id="lake-canvas" class="lake-canvas" aria-hidden="true"></canvas>
+
+    <main class="setup-container">
+        <div class="setup-card">
+            <!-- Cabeçalho com Logotipo Oficial -->
+            <div class="card-header">
+                <a href="/" class="brand-link" aria-label="ArenaLake">
+                    <img src="/static/img/logo-reverse-proposta.png" 
+                         alt="ArenaLake" 
+                         class="brand-logo" 
+                         width="190" 
+                         height="67">
+                </a>
+                <h1 class="card-title">Configuração de Workspace</h1>
+                <p class="card-subtitle">Olá, <b id="welcome-username">{{ usuario }}</b>. Selecione o perfil computacional para inicializar seu ambiente de desenvolvimento.</p>
+            </div>
+
+            <!-- Banner com Recursos em Tempo Real do Cluster -->
+            <div id="resource-banner" class="resource-banner">
+                <div class="resource-banner-label">
+                    <span class="icon-dot"></span>
+                    <span>Capacidade do Cluster:</span>
+                </div>
+                <div id="resource-metrics-content" class="resource-banner-metrics">
+                    <span style="color: var(--arena-text-dim); font-size: 0.8rem;">Consultando nós do Swarm...</span>
+                </div>
+            </div>
+
+            <!-- Formulário de Provisionamento -->
+            <form action="/provisionar" method="post" id="setupForm">
+                <input type="hidden" name="usuario" value="{{ usuario }}">
+                <input type="hidden" name="perfil" id="perfilInput" value="">
+
+                <div class="card-grid">
+                    <!-- Perfil Standard -->
+                    <div class="machine-card" id="card-standard" onclick="selectCard('standard')">
+                        <input type="radio" name="perfilRadio" value="standard">
+                        <div>
+                            <div class="machine-header-row">
+                                <h3 class="machine-title title-standard">Standard</h3>
+                                <span class="profile-tag tag-standard">2C • 4GB</span>
+                            </div>
+                            <div class="machine-specs-box">
+                                <div class="spec-item">
+                                    <span class="spec-key">Processamento</span>
+                                    <span class="spec-val">2.0 Cores vCPU</span>
+                                </div>
+                                <div class="spec-item">
+                                    <span class="spec-key">Memória</span>
+                                    <span class="spec-val">4.0 GB RAM</span>
+                                </div>
+                            </div>
+                            <p class="machine-desc">Ideal para tarefas cotidianas de engenharia, notebooks e análise exploratória de dados.</p>
+                        </div>
+                        <div class="insufficient-resource" id="warn-standard">
+                            Recursos insuficientes no host
+                        </div>
+                    </div>
+
+                    <!-- Perfil Extreme -->
+                    <div class="machine-card" id="card-extreme" onclick="selectCard('extreme')">
+                        <input type="radio" name="perfilRadio" value="extreme">
+                        <div>
+                            <div class="machine-header-row">
+                                <h3 class="machine-title title-extreme">Extreme</h3>
+                                <span class="profile-tag tag-extreme">6C • 8GB</span>
+                            </div>
+                            <div class="machine-specs-box">
+                                <div class="spec-item">
+                                    <span class="spec-key">Processamento</span>
+                                    <span class="spec-val">6.0 Cores vCPU</span>
+                                </div>
+                                <div class="spec-item">
+                                    <span class="spec-key">Memória</span>
+                                    <span class="spec-val">8.0 GB RAM</span>
+                                </div>
+                            </div>
+                            <p class="machine-desc">Alta performance para pipelines pesados de Apache Spark, ETL e modelos de Machine Learning.</p>
+                        </div>
+                        <div class="insufficient-resource" id="warn-extreme">
+                            Recursos insuficientes no host
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-launch" id="btnLaunch" disabled>
+                    Selecione um perfil acima
+                </button>
+            </form>
+
+            <div class="setup-footer">
+                <button type="button" class="btn-logout-link" onclick="logoutSession()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    Encerrar sessão e sair
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Three.js (WebGL) e Mar de Dados Oficial ArenaLake -->
+    <script src="/static/js/three.min.js"></script>
+    <script src="/static/js/mar-de-dados.js"></script>
+    <script src="/static/js/setup.js"></script>
+</body>
+
+</html>
