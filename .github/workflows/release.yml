@@ -16,7 +16,7 @@ jobs:
       image-root: ${{ steps.repository.outputs.image-root }}
     steps:
       - name: Check out release
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.ref }}
 
@@ -83,7 +83,7 @@ jobs:
             file: ./docker/Dockerfile.worker
     steps:
       - name: Check out release
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.ref }}
 
@@ -126,7 +126,7 @@ jobs:
       contents: write
     steps:
       - name: Check out release notes
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.ref }}
 
