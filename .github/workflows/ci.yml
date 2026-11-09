@@ -53,7 +53,7 @@ jobs:
           "$RUNNER_TEMP/dev-venv/bin/python" -m coverage xml -o "$RUNNER_TEMP/coverage.xml"
 
       - name: Upload Python coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: python-coverage
           path: ${{ runner.temp }}/coverage.xml
