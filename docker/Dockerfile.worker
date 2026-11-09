@@ -7,7 +7,7 @@
 
 # Base image: Official Apache Spark image (version 3.5.1)
 # Includes Scala, Java, and Spark runtime pre-installed
-FROM apache/spark:3.5.1
+FROM apache/spark:4.3.0
 
 # Switch to root user for executing the worker process
 # Spark worker needs elevated permissions to manage system resources
