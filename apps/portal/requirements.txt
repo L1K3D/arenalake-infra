@@ -31,7 +31,7 @@ qrcode[pil]==7.4.2
 pydantic
 sqlalchemy
 httpx
-paramiko>=5.0.0,<6.0.0
+paramiko>=5.1.0,<6.0.0
 psycopg[binary]
 psycopg2-binary
 websockets>=11.0
