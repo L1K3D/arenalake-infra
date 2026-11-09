@@ -89,7 +89,7 @@ jobs:
               *) context="$(dirname "$dockerfile")";;
             esac
             docker buildx build --check --file "$dockerfile" "$context"
-          done < <(find . -type f -iname 'Dockerfile*' -not -path './.git/*' -print0)
+          done < <(find . -type f -iname 'Dockerfile*' -not -iname '*.dockerignore' -not -path './.git/*' -not -path './.github/*' -print0)
 
   build-and-scan:
     name: Build and scan ${{ matrix.image }}
