@@ -19,6 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy all application code into the container
 COPY . .
+RUN python3 -m compileall -q .
 
 # Entrypoint: Start Uvicorn ASGI server
 # - main:app refers to the FastAPI app instance in main.py
