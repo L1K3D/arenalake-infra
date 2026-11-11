@@ -4,6 +4,7 @@ from core.s3_mgr import fetch_catalog_data, upload_file_to_datalake, get_file_de
 from core.docker_mgr import get_workspace_metrics, update_workspace_activity
 from core.security import get_current_user
 from core.models import User
+import re
 
 router = APIRouter(prefix="/api")
 
@@ -23,7 +24,8 @@ async def get_catalog(current_user: User = Depends(get_current_user)):
 async def get_metrics(usuario: str, current_user: User = Depends(get_current_user)):
     """Return workspace metrics and refresh the user's activity timestamp."""
     try:
-        metrics = get_workspace_metrics(usuario)
+        safe_user = re.sub(r"[^a-z0-9-]", "-", usuario.lower())
+        metrics = get_workspace_metrics(safe_user)
         if metrics.get("status") == "offline":
             return JSONResponse(content=metrics)
 

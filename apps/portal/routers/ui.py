@@ -11,6 +11,7 @@ from core.docker_mgr import provision_workspace, shutdown_workspace
 from core.database import SessionLocal
 from core.models import User
 from core.security import verify_password
+import re
 
 # Initialize the router and Jinja2 template engine used by all page handlers.
 router = APIRouter()
@@ -70,11 +71,12 @@ async def provisionar_ambiente(
     perfil: str = Form("standard"),
 ):
     """Provision workspace services using the selected hardware profile."""
+    safe_user = re.sub(r"[^a-z0-9-]", "-", usuario.lower())
     # Aplica os limites de CPU e memória específicos do perfil no gerenciador Docker.
-    provision_workspace(usuario, perfil)
+    provision_workspace(safe_user, perfil)
 
     # O formulário é enviado como navegação normal, então redireciona o browser para o dashboard.
-    return RedirectResponse(url=f"/dashboard/{usuario}", status_code=303)
+    return RedirectResponse(url=f"/dashboard/{safe_user}", status_code=303)
 
 
 @router.get("/dashboard/{usuario}", response_class=HTMLResponse)
@@ -82,12 +84,14 @@ async def dashboard(request: Request, usuario: str):
     """Render the dashboard with a workspace URL routed by the same host."""
     # Use a relative URL so Traefik handles the workspace on the current host.
     # This avoids relying on an optional VSCODE_EXTERNAL_PORT setting.
-    domain = f"/workspace/{usuario}"
+    safe_user = re.sub(r"[^a-z0-9-]", "-", usuario.lower())
+
+    domain = f"/workspace/{safe_user}"
 
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
-        context={"usuario": usuario, "domain": domain},
+        context={"usuario": safe_user, "domain": domain},
     )
 
 

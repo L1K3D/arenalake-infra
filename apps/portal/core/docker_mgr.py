@@ -7,6 +7,7 @@ import docker
 import time as tm
 from docker.types import EndpointSpec, Mount, Resources
 from docker.errors import NotFound
+import re
 
 try:
     client = docker.from_env()
@@ -14,8 +15,10 @@ except Exception as e:
     print(f"Error connecting to Docker: {e}")
     client = None
 
-network_name = os.getenv("WORKSPACE_NETWORK")
-workspace_image = os.getenv("WORKSPACE_IMAGE", "arenalake-workspace:latest")
+network_name = os.getenv("WORKSPACE_NETWORK", "arenalake-net")
+workspace_image = os.getenv(
+    "WORKSPACE_IMAGE", "ghcr.io/l1k3d/arenalake-infra/workspace:latest"
+)
 WORKSPACE_LAST_SEEN = {}
 
 
@@ -39,11 +42,14 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
     services with the same user-specific names are removed first, and both new
     services share a named volume containing the user's project files.
     """
+
+    safe_user = re.sub(r"[^a-z0-9-]", "-", usuario.lower())
+
     if not client:
         raise Exception("Docker client is not initialized.")
 
-    container_name_vscode = f"vscode-{usuario}"
-    container_name_worker = f"spark-worker-{usuario}"
+    container_name_vscode = f"vscode-{safe_user}"
+    container_name_worker = f"spark-worker-{safe_user}"
     if perfil == "extreme":
         vscode_ram = "2g"
         worker_ram = "6g"
@@ -67,7 +73,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
             pass
 
     # Use a named volume so Docker manages project storage on the worker node.
-    vol_name = f"arena-vol-{usuario}"
+    vol_name = f"arena-vol-{safe_user}"
 
     minio_ak = os.environ.get("MINIO_ACCESS_KEY")
     minio_sk = os.environ.get("MINIO_SECRET_KEY")
@@ -113,15 +119,18 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         ),
         # Docker assigns this role automatically when a node joins as a worker.
         constraints=["node.role == worker"],
-        endpoint_spec=EndpointSpec(mode="dnsrr"),
+        endpoint_spec=EndpointSpec(mode="vip"),
         labels={
             "traefik.enable": "true",
-            "traefik.docker.lbswarm": "false",
-            f"traefik.http.routers.vscode-{usuario}.rule": f"PathPrefix(`/workspace/{usuario}`)",
-            f"traefik.http.routers.vscode-{usuario}.entrypoints": "web",
-            f"traefik.http.middlewares.strip-{usuario}.stripprefix.prefixes": f"/workspace/{usuario}",
-            f"traefik.http.routers.vscode-{usuario}.middlewares": f"strip-{usuario}",
-            f"traefik.http.services.vscode-{usuario}.loadbalancer.server.port": "8080",
+            "traefik.docker.lbswarm": "true",
+            f"traefik.http.routers.vscode-{safe_user}.rule": f"PathPrefix(`/workspace/{safe_user}`)",
+            f"traefik.http.routers.vscode-{safe_user}.entrypoints": "web",
+            f"traefik.http.routers.vscode-{safe_user}.priority": "100",
+            f"traefik.http.middlewares.strip-{safe_user}.stripprefix.prefixes": f"/workspace/{safe_user}",
+            f"traefik.http.routers.vscode-{safe_user}.middlewares": f"strip-{safe_user}",
+            f"traefik.http.routers.vscode-{safe_user}.service": f"vscode-{safe_user}",
+            f"traefik.http.services.vscode-{safe_user}.loadbalancer.server.port": "8080",
+            f"traefik.http.services.vscode-{safe_user}.loadbalancer.passHostHeader": "true",
             "traefik.docker.network": network_name,
         },
     )
@@ -151,7 +160,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
         constraints=["node.role == worker"],
     )
 
-    return f"/workspace/{usuario}"
+    return f"/workspace/{safe_user}"
 
 
 def get_workspace_metrics(usuario: str):
@@ -164,19 +173,21 @@ def get_workspace_metrics(usuario: str):
     if not client:
         return {"status": "offline", "message": "Cliente offline"}
 
+    safe_user = re.sub(r"[^a-z0-9-]", "-", usuario.lower())
+
     vscode_online = False
     worker_online = False
     allocated_mem = 0
     allocated_cpu = 0
 
     # Inspect distributed service tasks because a task may not run on the manager.
-    for s_name in [f"vscode-{usuario}", f"spark-worker-{usuario}"]:
+    for s_name in [f"vscode-{safe_user}", f"spark-worker-{safe_user}"]:
         try:
             service = client.services.get(s_name)
             tasks = service.tasks(filters={"desired-state": "running"})
             for task in tasks:
                 if task["Status"]["State"] == "running":
-                    if s_name == f"vscode-{usuario}":
+                    if s_name == f"vscode-{safe_user}":
                         vscode_online = True
                     else:
                         worker_online = True
@@ -299,22 +310,24 @@ def get_allocatable_resources():
 
 def update_workspace_activity(usuario: str):
     """Record the latest activity timestamp for a user's workspace."""
-    WORKSPACE_LAST_SEEN[usuario] = tm.time()
+    safe_user = re.sub(r"[^a-z0-9-]", "-", usuario.lower())
+    WORKSPACE_LAST_SEEN[safe_user] = tm.time()
 
 
 def shutdown_workspace(usuario: str):
     """Remove a user's VS Code and Spark Worker services and activity record."""
     if not client:
         return
-    for s_name in [f"vscode-{usuario}", f"spark-worker-{usuario}"]:
+    safe_user = re.sub(r"[^a-z0-9-]", "-", usuario.lower())
+    for s_name in [f"vscode-{safe_user}", f"spark-worker-{safe_user}"]:
         try:
             service = client.services.get(s_name)
             service.remove()
             print(f"Serviço {s_name} removido com sucesso.")
         except NotFound:
             pass
-    if usuario in WORKSPACE_LAST_SEEN:
-        del WORKSPACE_LAST_SEEN[usuario]
+    if safe_user in WORKSPACE_LAST_SEEN:
+        del WORKSPACE_LAST_SEEN[safe_user]
 
 
 def verify_idle_workspaces():

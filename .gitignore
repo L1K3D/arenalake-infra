@@ -12,3 +12,4 @@ configs_scripts/
 .coverage
 coverage.xml
 htmlcov/
+arenalake_dump.txt

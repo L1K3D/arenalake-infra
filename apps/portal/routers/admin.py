@@ -25,6 +25,7 @@ from core.s3_mgr import (
     get_datalake_dashboard_metrics,
 )
 from core.security import get_current_user
+import re
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 router = APIRouter(prefix="/api")
@@ -360,7 +361,8 @@ async def admin_inspect_user_files(
     if not docker_client:
         raise HTTPException(status_code=500, detail="Cliente Docker offline.")
 
-    vol_name = f"arena-vol-{username}"
+    safe_user = re.sub(r"[^a-z0-9-]", "-", username.lower())
+    vol_name = f"arena-vol-{safe_user}"
     files_list = []
     try:
         output = docker_client.containers.run(

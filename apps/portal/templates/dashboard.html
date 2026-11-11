@@ -121,9 +121,9 @@
                 </div>
 
                 <div class="header-actions">
-                    <form action="/login" method="post" class="action-form">
+                    <form action="/provisionar" method="post" class="action-form">
                         <input type="hidden" name="usuario" value="{{ usuario }}">
-                        <input type="hidden" name="senha" value="123456">
+                        <input type="hidden" name="perfil" value="standard">
                         <button type="submit" class="btn btn-secondary" title="Redefinir ou trocar perfil de hardware">
                             <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
                                 fill="none">
@@ -278,7 +278,8 @@
                     <div class="card-header-clean">
                         <div>
                             <h2>Monitor do Cluster Apache Spark</h2>
-                            <p class="subtitle">Acompanhe nós trabalhadores (Workers), aplicações distribuídas e histórico de processamento.</p>
+                            <p class="subtitle">Acompanhe nós trabalhadores (Workers), aplicações distribuídas e
+                                histórico de processamento.</p>
                         </div>
                         <div id="spark-cluster-status-pill">
                             <span class="worker-status-badge status-alive">
@@ -293,7 +294,8 @@
 
                     <div class="spark-section">
                         <h4 class="section-heading">
-                            <svg class="heading-icon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                            <svg class="heading-icon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor"
+                                stroke-width="2" fill="none">
                                 <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
                                 <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
                                 <line x1="6" y1="6" x2="6.01" y2="6"></line>
@@ -303,7 +305,8 @@
                         </h4>
                         <div id="spark-workers-content" class="spark-workers-container">
                             <div class="spark-panel spark-panel-empty">
-                                <div class="loader-spinner" style="width: 24px; height: 24px; border-width: 2px; margin-bottom: 8px;"></div>
+                                <div class="loader-spinner"
+                                    style="width: 24px; height: 24px; border-width: 2px; margin-bottom: 8px;"></div>
                                 <span>Carregando métricas dos nós...</span>
                             </div>
                         </div>
@@ -311,7 +314,8 @@
 
                     <div class="spark-section">
                         <h4 class="section-heading">
-                            <svg class="heading-icon text-orange" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                            <svg class="heading-icon text-orange" viewBox="0 0 24 24" width="16" height="16"
+                                stroke="currentColor" stroke-width="2" fill="none">
                                 <polygon points="5 3 19 12 5 21 5 3"></polygon>
                             </svg>
                             Aplicações em Execução
@@ -323,7 +327,8 @@
 
                     <div class="spark-section">
                         <h4 class="section-heading">
-                            <svg class="heading-icon text-ok" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                            <svg class="heading-icon text-ok" viewBox="0 0 24 24" width="16" height="16"
+                                stroke="currentColor" stroke-width="2" fill="none">
                                 <circle cx="12" cy="12" r="10"></circle>
                                 <polyline points="12 6 12 12 16 14"></polyline>
                             </svg>
@@ -344,10 +349,13 @@
                     <div>
                         <div class="scheduler-header-badge">Automação de Pipelines</div>
                         <h2>Agendador de Tarefas Spark</h2>
-                        <p class="subtitle">Execute scripts sob demanda no cluster distribuído ou defina agendamentos recorrentes automatizados (Cron).</p>
+                        <p class="subtitle">Execute scripts sob demanda no cluster distribuído ou defina agendamentos
+                            recorrentes automatizados (Cron).</p>
                     </div>
-                    <button class="btn btn-secondary" onclick="loadSchedulerData()" title="Atualizar listagem de scripts e agendamentos">
-                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+                    <button class="btn btn-secondary" onclick="loadSchedulerData()"
+                        title="Atualizar listagem de scripts e agendamentos">
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
+                            fill="none">
                             <path d="M23 4v6h-6"></path>
                             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
                         </svg>
@@ -361,7 +369,8 @@
                         <div class="scheduler-panel-header">
                             <div class="scheduler-panel-title-group">
                                 <div class="scheduler-panel-icon icon-scripts">
-                                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor"
+                                        stroke-width="2" fill="none">
                                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                                         <polyline points="14 2 14 8 20 8"></polyline>
                                         <line x1="16" y1="13" x2="8" y2="13"></line>
@@ -389,7 +398,8 @@
                         <div class="scheduler-panel-header">
                             <div class="scheduler-panel-title-group">
                                 <div class="scheduler-panel-icon icon-cron">
-                                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor"
+                                        stroke-width="2" fill="none">
                                         <circle cx="12" cy="12" r="10"></circle>
                                         <polyline points="12 6 12 12 16 14"></polyline>
                                     </svg>
@@ -422,7 +432,8 @@
                     <!-- Data source selector. -->
                     <div class="ribbon-item">
                         <span class="ribbon-icon">
-                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2"
+                                fill="none">
                                 <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
                                 <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
                                 <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
@@ -438,7 +449,8 @@
                     <!-- Add a new visualization to the grid. -->
                     <div class="ribbon-item ribbon-btn" onclick="abrirModalVisual()">
                         <span class="ribbon-icon">
-                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2"
+                                fill="none">
                                 <line x1="18" y1="20" x2="18" y2="10"></line>
                                 <line x1="12" y1="20" x2="12" y2="4"></line>
                                 <line x1="6" y1="20" x2="6" y2="14"></line>
@@ -451,7 +463,8 @@
 
                     <div class="ribbon-item ribbon-btn" onclick="abrirModalFiltroGlobal()">
                         <span class="ribbon-icon">
-                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2"
+                                fill="none">
                                 <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
                             </svg>
                         </span>
@@ -463,7 +476,8 @@
                     <!-- Export the dashboard grid as an image. -->
                     <div class="ribbon-item ribbon-btn" onclick="exportarDashboard('png')">
                         <span class="ribbon-icon">
-                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2"
+                                fill="none">
                                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                                 <circle cx="8.5" cy="8.5" r="1.5"></circle>
                                 <polyline points="21 15 16 10 5 21"></polyline>
@@ -477,7 +491,8 @@
                     <!-- Export the dashboard grid as a PDF document. -->
                     <div class="ribbon-item ribbon-btn" onclick="exportarDashboard('pdf')">
                         <span class="ribbon-icon">
-                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2"
+                                fill="none">
                                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                                 <polyline points="14 2 14 8 20 8"></polyline>
                                 <line x1="16" y1="13" x2="8" y2="13"></line>
@@ -496,19 +511,27 @@
             </div>
         </div>
 
-                <!-- Modal: Agendamento de Tarefa Cron -->
+        <!-- Modal: Agendamento de Tarefa Cron -->
         <div id="scheduleCronModal" class="bi-modal">
             <div class="bi-modal-content arena-dialog schedule-modal-content">
                 <div class="modal-header-row">
                     <div class="modal-icon-badge icon-info">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
                     </div>
                     <div class="modal-title-area">
                         <h3 class="modal-title">Agendar Execução (Cron)</h3>
                         <p class="modal-subtitle">Defina a periodicidade automática para execução no Spark</p>
                     </div>
                     <button type="button" class="modal-close-btn" onclick="closeScheduleModal()" aria-label="Fechar">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
                     </button>
                 </div>
 
@@ -517,7 +540,8 @@
                     <div class="schedule-target-box">
                         <span class="target-box-label">Script Selecionado</span>
                         <div class="target-box-file">
-                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2"
+                                fill="none">
                                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                                 <polyline points="14 2 14 8 20 8"></polyline>
                             </svg>
@@ -529,27 +553,33 @@
                     <div class="schedule-presets-section">
                         <label class="schedule-field-label">Predefinições Rápidas:</label>
                         <div class="schedule-presets-grid">
-                            <button type="button" class="cron-preset-btn" onclick="applyCronPreset('0 * * * *', 'A cada hora')">
+                            <button type="button" class="cron-preset-btn"
+                                onclick="applyCronPreset('0 * * * *', 'A cada hora')">
                                 <span class="preset-name">A cada hora</span>
                                 <code class="preset-expr">0 * * * *</code>
                             </button>
-                            <button type="button" class="cron-preset-btn" onclick="applyCronPreset('0 2 * * *', 'Diariamente às 02:00')">
+                            <button type="button" class="cron-preset-btn"
+                                onclick="applyCronPreset('0 2 * * *', 'Diariamente às 02:00')">
                                 <span class="preset-name">Diário (02:00)</span>
                                 <code class="preset-expr">0 2 * * *</code>
                             </button>
-                            <button type="button" class="cron-preset-btn" onclick="applyCronPreset('0 6 * * *', 'Diariamente às 06:00')">
+                            <button type="button" class="cron-preset-btn"
+                                onclick="applyCronPreset('0 6 * * *', 'Diariamente às 06:00')">
                                 <span class="preset-name">Diário (06:00)</span>
                                 <code class="preset-expr">0 6 * * *</code>
                             </button>
-                            <button type="button" class="cron-preset-btn" onclick="applyCronPreset('0 8 * * 1-5', 'Segunda a Sexta às 08:00')">
+                            <button type="button" class="cron-preset-btn"
+                                onclick="applyCronPreset('0 8 * * 1-5', 'Segunda a Sexta às 08:00')">
                                 <span class="preset-name">Seg a Sex (08:00)</span>
                                 <code class="preset-expr">0 8 * * 1-5</code>
                             </button>
-                            <button type="button" class="cron-preset-btn" onclick="applyCronPreset('*/30 * * * *', 'A cada 30 minutos')">
+                            <button type="button" class="cron-preset-btn"
+                                onclick="applyCronPreset('*/30 * * * *', 'A cada 30 minutos')">
                                 <span class="preset-name">A cada 30 min</span>
                                 <code class="preset-expr">*/30 * * * *</code>
                             </button>
-                            <button type="button" class="cron-preset-btn" onclick="applyCronPreset('0 0 * * 0', 'Semanal (Domingo 00:00)')">
+                            <button type="button" class="cron-preset-btn"
+                                onclick="applyCronPreset('0 0 * * 0', 'Semanal (Domingo 00:00)')">
                                 <span class="preset-name">Semanal (Dom 00:00)</span>
                                 <code class="preset-expr">0 0 * * 0</code>
                             </button>
@@ -563,9 +593,9 @@
                             <span class="field-hint">(Minuto Hora Dia Mês DiaDaSemana)</span>
                         </label>
                         <div class="cron-input-wrapper">
-                            <input type="text" id="customCronInput" class="bi-input cron-text-input" 
-                                   placeholder="Ex: 0 2 * * *" value="0 2 * * *" autocomplete="off" spellcheck="false"
-                                   oninput="updateCronExplanation(this.value)">
+                            <input type="text" id="customCronInput" class="bi-input cron-text-input"
+                                placeholder="Ex: 0 2 * * *" value="0 2 * * *" autocomplete="off" spellcheck="false"
+                                oninput="updateCronExplanation(this.value)">
                             <span class="cron-validate-indicator">Padrão Linux / Crontab</span>
                         </div>
                         <div id="cronExplanationText" class="cron-explanation-text">
@@ -576,8 +606,10 @@
 
                 <div class="bi-modal-actions modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeScheduleModal()">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="btnConfirmSchedule" onclick="confirmScheduleJob()">
-                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+                    <button type="button" class="btn btn-primary" id="btnConfirmSchedule"
+                        onclick="confirmScheduleJob()">
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
+                            fill="none">
                             <polyline points="20 6 9 17 4 12"></polyline>
                         </svg>
                         <span>Salvar Agendamento</span>
@@ -591,14 +623,23 @@
             <div class="bi-modal-content arena-dialog">
                 <div class="modal-header-row">
                     <div class="modal-icon-badge icon-warning">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="18" y1="20" x2="18" y2="10"></line>
+                            <line x1="12" y1="20" x2="12" y2="4"></line>
+                            <line x1="6" y1="20" x2="6" y2="14"></line>
+                        </svg>
                     </div>
                     <div class="modal-title-area">
                         <h3 class="modal-title">Configurar Novo Gráfico</h3>
                         <p class="modal-subtitle">Escolha o tipo de visual e os campos do dataset</p>
                     </div>
                     <button type="button" class="modal-close-btn" onclick="fecharModalVisual()" aria-label="Fechar">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
                     </button>
                 </div>
 
@@ -698,14 +739,23 @@
             <div class="bi-modal-content arena-dialog" style="max-width: 500px;">
                 <div class="modal-header-row">
                     <div class="modal-icon-badge icon-info">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M12 20h9"></path>
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                        </svg>
                     </div>
                     <div class="modal-title-area">
                         <h3 class="modal-title">Editar Gráfico / Tabela</h3>
                         <p class="modal-subtitle">Ajuste título, campos e aparência do visual</p>
                     </div>
-                    <button type="button" class="modal-close-btn" onclick="document.getElementById('biEditModal').style.display='none'" aria-label="Fechar">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    <button type="button" class="modal-close-btn"
+                        onclick="document.getElementById('biEditModal').style.display='none'" aria-label="Fechar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
                     </button>
                 </div>
 
@@ -794,14 +844,22 @@
             <div class="bi-modal-content arena-dialog" style="max-width: 420px;">
                 <div class="modal-header-row">
                     <div class="modal-icon-badge icon-info">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                        </svg>
                     </div>
                     <div class="modal-title-area">
                         <h3 class="modal-title">Segmentação Global de Dados</h3>
                         <p class="modal-subtitle">Aplique um filtro a todos os visuais do dashboard</p>
                     </div>
-                    <button type="button" class="modal-close-btn" onclick="document.getElementById('biFiltroModal').style.display='none'" aria-label="Fechar">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    <button type="button" class="modal-close-btn"
+                        onclick="document.getElementById('biFiltroModal').style.display='none'" aria-label="Fechar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
                     </button>
                 </div>
 
@@ -834,15 +892,30 @@
 
         <div class="meta-tags-wrap">
             <div class="meta-tag">
-                <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" style="vertical-align: -2px; margin-right: 4px; color: var(--arena-blue);"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none"
+                    style="vertical-align: -2px; margin-right: 4px; color: var(--arena-blue);">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
                 <span id="spDate"></span>
             </div>
             <div class="meta-tag">
-                <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" style="vertical-align: -2px; margin-right: 4px; color: var(--arena-orange);"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none"
+                    style="vertical-align: -2px; margin-right: 4px; color: var(--arena-orange);">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                    <polyline points="7 3 7 8 15 8"></polyline>
+                </svg>
                 <span id="spSize"></span>
             </div>
             <div class="meta-tag">
-                <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none" style="vertical-align: -2px; margin-right: 4px; color: var(--arena-ok);"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none"
+                    style="vertical-align: -2px; margin-right: 4px; color: var(--arena-ok);">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                </svg>
                 <span id="spUploader"></span>
             </div>
         </div>
