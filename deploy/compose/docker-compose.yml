@@ -52,15 +52,18 @@ services:
     deploy: { placement: { constraints: ["node.role == manager"] } }
 
   workspace-builder:
-    image: ghcr.io/l1k3d/arenalake-infra/workspace:latest
-    command: echo "ArenaLake workspace image pulled successfully!"
-    networks: ["arenalake-net"]
-    deploy: { placement: { constraints: ["node.role == manager"] } }
+  image: ghcr.io/l1k3d/arenalake-infra/workspace:latest
+  command: echo "ArenaLake workspace image pulled successfully!"
+  networks: ["arenalake-net"]
+  deploy:
+    mode: global
+    restart_policy:
+      condition: none
 
   portal:
     image: ghcr.io/l1k3d/arenalake-infra/portal:latest
     env_file: ["../../.env"]
-    environment: ["HOST_PROJECT_PATH=${PWD}", "WORKSPACE_NETWORK=${WORKSPACE_NETWORK:-arenalake-net}", "DOCKER_HOST=tcp://dockerproxy:2375"]
+    environment: ["HOST_PROJECT_PATH=${PWD}", "WORKSPACE_NETWORK=${WORKSPACE_NETWORK:-arenalake-net}", "WORKSPACE_IMAGE=${WORKSPACE_IMAGE:-ghcr.io/l1k3d/arenalake-infra/workspace:latest}", "DOCKER_HOST=tcp://dockerproxy:2375"]
     volumes: ["${DATALAKE_STORAGE_PATH}/projects_data:/app/projects_data", "/var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock", "~/.ssh:/root/.ssh:ro"]
     networks: ["arenalake-net"]
     healthcheck: { test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/docs', timeout=3)"], interval: 30s, timeout: 5s, retries: 3, start_period: 60s }
@@ -70,7 +73,7 @@ services:
 
   dockerproxy:
     image: tecnativa/docker-socket-proxy
-    environment: ["SERVICES=1", "TASKS=1", "NETWORKS=1", "NODES=1", "CONTAINERS=1", "INFO=1", "POST=1", "EXEC=0", "BUILD=0", "AUTH=0"]
+    environment: ["SERVICES=1", "TASKS=1", "NETWORKS=1", "NODES=1", "CONTAINERS=1", "VOLUMES=1", "INFO=1", "POST=1", "EXEC=1", "BUILD=0", "AUTH=0"]
     volumes: ["/var/run/docker.sock:/var/run/docker.sock:ro"]
     networks: ["arenalake-net"]
     deploy: { placement: { constraints: ["node.role == manager"] } }
@@ -84,9 +87,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     deploy:
-      placement:
-        constraints:
-          - node.role == manager
+      mode: global
 
 networks:
   arenalake-net:

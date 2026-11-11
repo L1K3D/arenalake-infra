@@ -71,7 +71,7 @@ async def provisionar_ambiente(
     perfil: str = Form("standard"),
 ):
     """Provision workspace services using the selected hardware profile."""
-    safe_user = re.sub(r'[^a-z0-9-]', '-', usuario.lower())
+    safe_user = re.sub(r"[^a-z0-9-]", "-", usuario.lower())
     # Aplica os limites de CPU e memória específicos do perfil no gerenciador Docker.
     provision_workspace(safe_user, perfil)
 
@@ -84,7 +84,7 @@ async def dashboard(request: Request, usuario: str):
     """Render the dashboard with a workspace URL routed by the same host."""
     # Use a relative URL so Traefik handles the workspace on the current host.
     # This avoids relying on an optional VSCODE_EXTERNAL_PORT setting.
-    safe_user = re.sub(r'[^a-z0-9-]', '-', usuario.lower())
+    safe_user = re.sub(r"[^a-z0-9-]", "-", usuario.lower())
 
     domain = f"/workspace/{safe_user}"
 

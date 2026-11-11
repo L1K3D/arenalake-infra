@@ -15,8 +15,10 @@ except Exception as e:
     print(f"Error connecting to Docker: {e}")
     client = None
 
-network_name = os.getenv("WORKSPACE_NETWORK", "arenalake-prod_default")
-workspace_image = os.getenv("WORKSPACE_IMAGE", "arenalake-workspace:latest")
+network_name = os.getenv("WORKSPACE_NETWORK", "arenalake-net")
+workspace_image = os.getenv(
+    "WORKSPACE_IMAGE", "ghcr.io/l1k3d/arenalake-infra/workspace:latest"
+)
 WORKSPACE_LAST_SEEN = {}
 
 
@@ -41,7 +43,7 @@ def provision_workspace(usuario: str, perfil: str = "standard"):
     services share a named volume containing the user's project files.
     """
 
-    safe_user = re.sub(r'[^a-z0-9-]', '-', usuario.lower())
+    safe_user = re.sub(r"[^a-z0-9-]", "-", usuario.lower())
 
     if not client:
         raise Exception("Docker client is not initialized.")
@@ -171,7 +173,7 @@ def get_workspace_metrics(usuario: str):
     if not client:
         return {"status": "offline", "message": "Cliente offline"}
 
-    safe_user = re.sub(r'[^a-z0-9-]', '-', usuario.lower())
+    safe_user = re.sub(r"[^a-z0-9-]", "-", usuario.lower())
 
     vscode_online = False
     worker_online = False
@@ -308,7 +310,7 @@ def get_allocatable_resources():
 
 def update_workspace_activity(usuario: str):
     """Record the latest activity timestamp for a user's workspace."""
-    safe_user = re.sub(r'[^a-z0-9-]', '-', usuario.lower())
+    safe_user = re.sub(r"[^a-z0-9-]", "-", usuario.lower())
     WORKSPACE_LAST_SEEN[safe_user] = tm.time()
 
 
@@ -316,7 +318,7 @@ def shutdown_workspace(usuario: str):
     """Remove a user's VS Code and Spark Worker services and activity record."""
     if not client:
         return
-    safe_user = re.sub(r'[^a-z0-9-]', '-', usuario.lower())
+    safe_user = re.sub(r"[^a-z0-9-]", "-", usuario.lower())
     for s_name in [f"vscode-{safe_user}", f"spark-worker-{safe_user}"]:
         try:
             service = client.services.get(s_name)

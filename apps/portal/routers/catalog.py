@@ -24,7 +24,7 @@ async def get_catalog(current_user: User = Depends(get_current_user)):
 async def get_metrics(usuario: str, current_user: User = Depends(get_current_user)):
     """Return workspace metrics and refresh the user's activity timestamp."""
     try:
-        safe_user = re.sub(r'[^a-z0-9-]', '-', usuario.lower())
+        safe_user = re.sub(r"[^a-z0-9-]", "-", usuario.lower())
         metrics = get_workspace_metrics(safe_user)
         if metrics.get("status") == "offline":
             return JSONResponse(content=metrics)

@@ -421,7 +421,7 @@ function renderUserTable() {
     const total = sortedUsers.length;
     const admins = sortedUsers.filter(u => u.role === 'admin').length;
     const common = sortedUsers.filter(u => u.role === 'common').length;
-    const onlineCount = sortedUsers.filter(u => activeUsernames.has(u.username)).length;
+    const onlineCount = sortedUsers.filter(u => activeUsernames.has(u.username.toLowerCase().replace(/[^a-z0-9-]/g, '-'))).length;
 
     document.getElementById('kpi-total').innerText = total;
     document.getElementById('kpi-admins').innerText = `${admins} (${Math.round((admins / total) * 100)}%)`;
@@ -449,7 +449,7 @@ function renderUserTable() {
             actionBtn = `<div style="display: flex; justify-content: flex-end;"><span style="color: var(--arena-text-dim); font-size: 0.8rem; font-style: italic;">Protegido</span></div>`;
         }
 
-        const isOnline = activeUsernames.has(u.username);
+        const isOnline = activeUsernames.has(u.username.toLowerCase().replace(/[^a-z0-9-]/g, '-'));
         const statusDot = isOnline
             ? '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--arena-ok); margin-right: 6px; vertical-align: middle; box-shadow: 0 0 6px var(--arena-ok);" title="Online"></span>'
             : '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--arena-text-dim); margin-right: 6px; vertical-align: middle;" title="Offline"></span>';

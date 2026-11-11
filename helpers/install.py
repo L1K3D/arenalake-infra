@@ -378,7 +378,7 @@ def main():
     while not raw_company:
         raw_company = input("Company or project name (required): ").strip()
     safe_company_name = format_company_name(raw_company)
-    workspace_network = "arenalake-prod_arenalake-net"
+    workspace_network = "arenalake-net"
 
     minio_user = f"arenalake_{safe_company_name}_minio_admin"
     minio_pass = ""
@@ -468,7 +468,7 @@ def main():
         "SPARK_UI_PORT": 8080,
         "TRAEFIK_DASH_PORT": 8089,
         "WORKSPACE_NETWORK": workspace_network,
-        "WORKSPACE_IMAGE": "arenalake-workspace:latest",
+        "WORKSPACE_IMAGE": "ghcr.io/l1k3d/arenalake-infra/workspace:latest",
         "TAILSCALE_BASE_URL": tailscale_url,
         "AUTO_UPDATE_WORKSPACE": auto_update_ws,
         "AUTO_UPDATE_CORE": auto_update_core,
