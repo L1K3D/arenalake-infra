@@ -52,13 +52,14 @@ services:
     deploy: { placement: { constraints: ["node.role == manager"] } }
 
   workspace-builder:
-  image: ghcr.io/l1k3d/arenalake-infra/workspace:latest
-  command: echo "ArenaLake workspace image pulled successfully!"
-  networks: ["arenalake-net"]
-  deploy:
-    mode: global
-    restart_policy:
-      condition: none
+    image: ghcr.io/l1k3d/arenalake-infra/workspace:latest
+    command: echo "ArenaLake workspace image pulled successfully!"
+    networks:
+      - arenalake-net
+    deploy:
+      mode: global
+      restart_policy:
+        condition: none
 
   portal:
     image: ghcr.io/l1k3d/arenalake-infra/portal:latest
