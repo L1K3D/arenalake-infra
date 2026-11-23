@@ -5,7 +5,7 @@ charset-normalizer==3.5.2
 coverage==7.17.2
 cyclonedx-python-lib==11.12.0
 defusedxml==0.7.1
-filelock==4.2.9
+filelock==4.2.12
 idna==3.20
 license-expression==30.4.4
 markdown-it-py==4.2.0
